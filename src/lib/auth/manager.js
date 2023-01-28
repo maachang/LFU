@@ -273,7 +273,7 @@ const createSession = async function(user) {
 // ユーザーセッションを取得.
 // user 対象のユーザ名を設定します.
 // 戻り値: nullでない場合、ユーザセッションが存在します.
-//        {passCode: string, sessionId: stringm lastModified: number}
+//        {passCode: string, sessionId: string lastModified: number}
 //        passCode パスコードが返却されます.
 //        sessionId セッションIDが返却されます.
 //        lastModified セッション生成時間(ミリ秒)が設定されます.
@@ -570,6 +570,28 @@ const getLoginInfo = async function(request) {
     return ret;
 }
 
+// ログイン済みユーザーオプションの条件確認.
+// たとえば、このユーザーのオプションに admin: true
+// が存在するかをチェックする場合
+// isLoginOption(request, {admin: true})
+// のような形でチェックすることが出来ます.
+// request 対象のHTTPリクエストを設定します.
+// option チェック対象のオプションを設定します.
+// 戻り値: trueの場合、オプションは一致しています.
+const isLoginOption = function(request, option) {
+    if(option == undefined || option == null) {
+        return false;
+    }
+    const list = getLoginInfo(request);
+    for(let key in option) {
+        const n = list[key];
+        if(n == undefined || option[key] != n) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // ログイン済みか確認をするfilter実行.
 // _ Array[0]に返却対象の処理結果のレスポンスBodyを設定します.
 // resState: レスポンスステータス(httpStatus.js).
@@ -678,6 +700,7 @@ exports.login = login;
 exports.logout = logout;
 exports.isLogin = isLogin;
 exports.getLoginInfo = getLoginInfo;
+exports.isLoginOption = isLoginOption;
 exports.filter = filter;
 exports.createTimedSession = createTimedSession;
 exports.isTimedSession = isTimedSession;

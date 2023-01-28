@@ -162,6 +162,34 @@ const create = function(status) {
         return httpRedirectURL;
     }
 
+    // エラー返却.
+    // この処理は throw でエラー返却します.
+    // status 対象のステータスコードを設定します.
+    //        この値は400以下の場合500に設定されます.
+    // message エラーメッセージを設定します.
+    ret.error = function(status, message) {
+        status = status|0;
+        // statusが400以下の場合.
+        if(status <= 399) {
+            // 500.
+            status = 500;
+        }
+        let defMsg = HTTP_STATUS_TO_MESSAGE[status];
+        if(defMsg == undefined) {
+            // 無効なステータスの場合.
+            status = 500;
+            defMsg = HTTP_STATUS_TO_MESSAGE[status];
+        }
+        if(typeof(message) != string) {
+            // メッセージが設定されていない場合.
+            message = defMsg;
+        }
+        const err = new Error()
+        err.status = status;
+        err.message = message;
+        throw err;
+    }
+
     // オブジェクト返却.
     return ret;
 }
