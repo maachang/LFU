@@ -356,10 +356,24 @@ const regRequestRequireFunc = function(env) {
 
         // s3内で利用するrequire処理.
         _g.exrequire = function(
-            path, noneCache, curerntPath, response) {
-            return _g.s3require(path, curerntPath,
+            path, noneCache, currentPath, response) {
+            if(currentPath == undefined || currentPath == null) {
+                currentPath = env.requestPath;
+            }
+            return _g.s3require(path, currentPath,
                 noneCache, response);
         }
+
+        // s3内で利用するcontains処理.
+        _g.excontents = function(
+            path, currentPath, response) {
+            if(currentPath == undefined || currentPath == null) {
+                currentPath = env.requestPath;
+            }
+            return _g.s3contents(path, currentPath,
+                response);
+        }
+
     } else {
         // github用のrequest処理.
         _requestFunction = async function(jsFlag, path, response) {
@@ -388,9 +402,23 @@ const regRequestRequireFunc = function(env) {
         // github内で利用するrequire処理
         _g.exrequire = function(
             path, noneCache, currentPath, response) {
+            if(currentPath == undefined || currentPath == null) {
+                currentPath = env.requestPath;
+            }
             return _g.grequire(path, currentPath,
                 noneCache, response);
         }
+
+        // github内で利用するcontains処理.
+        _g.excontents = function(
+            path, currentPath, response) {
+            if(currentPath == undefined || currentPath == null) {
+                currentPath = env.requestPath;
+            }
+            return _g.gcontents(path, currentPath,
+                response);
+        }
+
     }
 }
 

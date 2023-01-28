@@ -37,6 +37,7 @@
 //     レスポンス用のステータスが設定される.
 //   $response = httpHeader.js
 //     レスポンス用のHTTPヘッダが設定される.
+//   $jhtml = jhtml用専用メソッド.
 //////////////////////////////////////////////////////////
 (function(_g) {
 'use strict'
@@ -251,7 +252,7 @@ const convertJhtmlToJs = function(jhtml) {
 
 // jhtml実行js用実行パラメータ.
 const JHTML_JS_ARGS =
-    _OUT + ", $params, $request, $status, $response";
+    _OUT + ", $params, $request, $status, $response, $jthml";
 
 // jhtml実行js用ヘッダ.
 const JHTML_JS_HEADER =
@@ -290,11 +291,19 @@ const executeJhtml = async function(
         
         // $outを生成.
         let outString = "";
+        // outに追加する標準メソッド.
         const out = function(string) {
             outString += string;
+            return out;
+        }
+        // outをクリアするメソッドを追加.
+        out.clear = function() {
+            outString = "";
+            return out;
         }
         // スクリプトを実行して、exportsの条件を取得.
-        await executeJs(out, request.params, request, status, response);
+        await executeJs(out, request.params, request, status, response,
+                jhtmlMethod(out, request.params, request, status, response));
 
         // コンテンツタイプが設定されていない場合.
         if(response.get("content-type") == undefined) {
@@ -308,6 +317,125 @@ const executeJhtml = async function(
         console.error("## [ERROR] executeJHTML name: " + name);
         throw e;
     }
+}
+
+// 指定パスから文字列コンテンツを取得.
+// path 対象のパス名を設定します.
+//      ここでのパスの解釈はexcontentで処理されます.
+// charset 文字コードを設定します.
+// 戻り値: 文字列が返却されます.
+const getStringContents = async function(path, charset) {
+    // 設定された環境からコンテンツを取得.
+    let ret = await excontents(path);
+    // charsetが設定されている場合.
+    if(typeof(charset) == "string") {
+        // binaryから文字列変換(charsetで変換).
+        ret = ret.toString(charset);
+    } else {
+        // binaryから文字列変換(charset=utf8で変換).
+        ret = ret.toString();
+    }
+    return ret;
+}
+
+// jhtmlファイル指定の場合、対象のパスを返却.
+// path パスを設定します.
+// 戻り値: パスが.jhtml拡張子の場合 .js.htmlに変換されます.
+const convertJhtmlPath = function(path) {
+    if(path.toLowerCase().endsWith().endsWith(".jhtml")) {
+        return path.substring(
+            0, path.length - 6) + ".js.html";
+    }
+    return path;
+}
+
+// 拡張子が .js.html かチェック.
+// path 対象のパスを設定します.
+// 戻り値: 拡張子が .js.html の場合 true.
+const isJsHTML = function(path) {
+    return path.endsWith(".js.html");
+}
+ 
+// jhtmlを実行.
+// path 拡張子が .js.html のパスが返却されます.
+// jhtml 対象のJHTML読み込み文字列が設定されます.
+// request 対象のリクエスト情報を設定します.
+// status 対象のステータスを設定します.
+// response 対象のレスポンスを設定します.
+// 戻り値: 実行結果(string)が返却されます.
+const execJHTML = async function(path, jhtml, request, status, response) {
+    // jhtmlからjsに変換処理.
+    const js = analysisJHtml(jhtml);
+    jhtml = null;
+    // js実行.
+    return await executeJhtml(path, js, request, status, response);
+}
+
+// jhtml用専用メソッドを生成.
+const jhtmlMethod = function($out, $params, $request, $status, $response) {
+    const ret = {};
+
+    // 指定パスのHTMLを返却します.
+    // path 対象のパス名を設定します.
+    //      ここでのパスの解釈はexcontentで処理されます.
+    // status 返却対象のステータスを設定します.
+    //        設定してない場合200が設定されます.
+    // charset 文字コードを設定します.
+    ret.forwardHTML = async function(path, status, charset) {
+        // ステータスが設定されていない場合は200をセット.
+        status = status|0;
+        if(status == 0) {
+            status = 200;
+        }
+        // ステータスを設定.
+        $status.setStatus(status);
+        // 対象パスが.jhtml拡張子の場合変換.
+        path = convertJhtmlPath(path);
+        // 設定された環境からコンテンツを取得.
+        let ret = await getStringContents(path, charset);
+        // jhtmlの場合、JHTML実行.
+        if(isJsHTML(path)) {
+            ret = await execJHTML(path, ret, $request, $status, $response);
+        } else {
+            // htmlのmimeTypeをセット.
+            $response.put("content-type",
+                $request.mimeType("html").type);
+        }
+        $out.clear()(ret);
+    }
+
+    // 指定パスのHTMLをエラー返却します.
+    // status 返却対象のステータスを設定します.
+    //        設定してない場合500が設定されます.
+    // path 対象のパス名を設定します.
+    //      ここでのパスの解釈はexcontentで処理されます.
+    // charset 文字コードを設定します.
+    ret.errorHTML = async function(status, path, charset) {
+        // 対象パスが.jhtml拡張子の場合変換.
+        path = convertJhtmlPath(path);
+        // 設定された環境からコンテンツを取得.
+        let ret = await getStringContents(path, charset);
+        // jhtmlの場合、JHTML実行.
+        if(isJsHTML(path)) {
+            ret = await execJHTML(path, ret, $request, $status, $response);
+        } else {
+            // htmlのmimeTypeをセット.
+            $response.put("content-type",
+                $request.mimeType("html").type);
+        }
+        // ステータスが400以下の場合500を設定.
+        status = status|0;
+        // statusが400以下の場合.
+        if(status <= 399) {
+            // 500.
+            status = 500;
+        }
+        // ステータスを設定.
+        $status.setStatus(status);
+        $out.clear()(ret);
+    }
+
+    return ret;
 }
 
 /////////////////////////////////////////////////////

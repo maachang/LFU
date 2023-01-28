@@ -58,20 +58,31 @@ const HTTP_STATUS_TO_MESSAGE = {
 };
 
 // HTTPエラーを生成.
-// status HTTPステータスを設定します.
-// message HTTPメッセージを設定します.
-//         設定しない場合は HTTPステータスメッセージが返却されます.
+// status 対象のHTTPステータスコードを設定します.
+//        この値は400以下の場合500に設定されます.
+// message エラーメッセージを設定します.
+//         設定しない場合はステータスのメッセージが設定されます.
 // 戻り値 Errorオブジェクトが返却されます.
 //        Error.status: HTTPステータスが設定されます.
 //        Error.message: メッセージが設定されます.
-const httpError = function(status, message) {
-    // メッセージが設定されていない場合.
-    if(message == undefined || message == null) {
-        message = toMessage(status);
-    } else {
-        message = "" + message;
+const createHttpError = function(status, message) {
+    status = status|0;
+    // statusが400以下の場合.
+    if(status <= 399) {
+        // 500.
+        status = 500;
     }
-    const err = new Error(message);
+    let defMsg = HTTP_STATUS_TO_MESSAGE[status];
+    if(defMsg == undefined) {
+        // 無効なステータスの場合.
+        status = 500;
+        defMsg = HTTP_STATUS_TO_MESSAGE[status];
+    }
+    if(typeof(message) != string) {
+        // メッセージが設定されていない場合.
+        message = defMsg;
+    }
+    const err = new Error()
     err.status = status;
     err.message = message;
     return err;
@@ -167,27 +178,9 @@ const create = function(status) {
     // status 対象のステータスコードを設定します.
     //        この値は400以下の場合500に設定されます.
     // message エラーメッセージを設定します.
-    ret.error = function(status, message) {
-        status = status|0;
-        // statusが400以下の場合.
-        if(status <= 399) {
-            // 500.
-            status = 500;
-        }
-        let defMsg = HTTP_STATUS_TO_MESSAGE[status];
-        if(defMsg == undefined) {
-            // 無効なステータスの場合.
-            status = 500;
-            defMsg = HTTP_STATUS_TO_MESSAGE[status];
-        }
-        if(typeof(message) != string) {
-            // メッセージが設定されていない場合.
-            message = defMsg;
-        }
-        const err = new Error()
-        err.status = status;
-        err.message = message;
-        throw err;
+    //         設定しない場合はステータスのメッセージが設定されます.
+    ret.throwError = function(status, message) {
+        throw createHttpError(status, message)
     }
 
     // オブジェクト返却.
@@ -199,6 +192,6 @@ const create = function(status) {
 /////////////////////////////////////////////////////
 exports.create = create;
 exports.toMessage = toMessage;
-exports.httpError = httpError;
+exports.createHttpError = createHttpError;
 
 })();
