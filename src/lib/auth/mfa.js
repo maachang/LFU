@@ -26,7 +26,7 @@
 // リセットしてもらう口を作り `2.1` で再登録できる仕組みを提供する
 // などで、安全な二段階認証を提供できるようにする.
 //
-(function() {
+(function(_g) {
 'use strict'
 
 /**
@@ -260,4 +260,4 @@ const create = function(
 exports.generateRandomCode = generateRandomCode;
 exports.create = create;
 
-})();
+})(global);

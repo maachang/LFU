@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////
 // S3 client ユーティリティ.
 ///////////////////////////////////////////////
-(function() {
+(function(_g) {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -216,4 +216,4 @@ const create = function(region, credential) {
 /////////////////////////////////////////////////////
 exports.create = create;
 
-})();
+})(global);

@@ -246,6 +246,8 @@ const _TEXT_DECODE = new TextDecoder();
 // js load対象のjsソース・ファイルを設定します.
 // 戻り値: exportsに設定された内容が返却されます.
 const originRequire = function(name, js) {
+    // 現状のResourceModelを取得.
+    const oldRModel = _g['_$js_$model'];
     // origin的なrequireスクリプトを生成.
     let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
         + _TEXT_DECODE.decode(js)
@@ -273,6 +275,9 @@ const originRequire = function(name, js) {
         console.error(
             "## [ERROR] originRequire name: " + name);
         throw e;
+    } finally {
+        // ResourceModelを元に戻す.
+        _g['_$js_$model'] = oldRModel;
     }
 }
 

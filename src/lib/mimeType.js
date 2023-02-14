@@ -2,7 +2,7 @@
 // mimeType ユーティリティ.
 // AWS Lambdaに対する、最低限の mimeTypeが定義されています.
 ///////////////////////////////////////////////////////////
-(function() {
+(function(_g) {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -140,4 +140,4 @@ exports.FORM_DATA = FORM_DATA;
 exports.JSON = JSON;
 exports.GZ = GZ;
 
-})();
+})(global);

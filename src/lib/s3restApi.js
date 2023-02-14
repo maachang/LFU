@@ -7,7 +7,7 @@
 // 代替えとして、S3 向けの REST APIが提供されているので、この
 // 機能を利用してS3バケットのI/Oを行う.
 ///////////////////////////////////////////////////////////
-(function() {
+(function(_g) {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -549,4 +549,4 @@ exports.getObject = getObject;
 exports.headObject = headObject;
 exports.listObject = listObject;
 
-})();
+})(global);

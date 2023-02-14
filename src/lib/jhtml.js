@@ -276,6 +276,8 @@ const JHTML_JS_FOODER =
 // 戻り値: 実行結果(string)が返却されます.
 const executeJhtml = async function(
     name, js, request, status, response, params) {
+    // 現状のResourceModelを取得.
+    const oldRModel = _g['_$js_$model'];
     // jhtml実行JSのスクリプトを生成.
     let srcScript = JHTML_JS_HEADER
         + js
@@ -324,6 +326,9 @@ const executeJhtml = async function(
     } catch(e) {
         console.error("## [ERROR] executeJHTML name: " + name);
         throw e;
+    } finally {
+        // ResourceModelを元に戻す.
+        _g['_$js_$model'] = oldRModel;
     }
 }
 

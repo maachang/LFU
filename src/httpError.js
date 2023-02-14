@@ -391,7 +391,7 @@ class HttpError extends Error {
     // コンストラクタ.
     constructor(args) {
         // コンストラクタパラメータ妥当性チェック.
-        const args = httpErrorConstructor(args);
+        args = httpErrorConstructor(args);
         // errorオブジェクトが設定されている場合.
         if(!isNull(args.error)) {
             // エラーを継承、メッセージを設定.

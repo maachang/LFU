@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////
 // HTTP ステータス ユーティリティ.
 ///////////////////////////////////////////////////////////
-(function() {
+(function(_g) {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -194,4 +194,4 @@ exports.create = create;
 exports.toMessage = toMessage;
 exports.createHttpError = createHttpError;
 
-})();
+})(global);
