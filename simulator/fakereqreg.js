@@ -141,15 +141,16 @@ const httpError = function(status, message) {
 
 // originRequire読み込みスクリプトheader.
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
-    "(function() {\n" +
+    "(function(_g) {\n" +
     "'use strict';\n" +
+    "_g['_$js_$model']='js';\n" +
     "return async function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
 // originRequire読み込みスクリプトfooder.
 const ORIGIN_REQUIRE_SCRIPT_FOODER =
-    "\n};\n})();";
+    "\n};\n})(global);";
 
 // originRequireを実施.
 // name load対象のNameを設定します.

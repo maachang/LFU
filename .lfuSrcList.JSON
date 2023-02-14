@@ -8,6 +8,7 @@
         ,"src/s3reqreg.js"
         ,"src/lib/awsSignatureV4.js"
         ,"src/lib/httpStatus.js"
+        ,"src/lib/httpError.js"
         ,"src/lib/jhtml.js"
         ,"src/lib/s3client.js"
         ,"src/lib/httpHeader.js"

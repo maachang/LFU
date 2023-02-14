@@ -53,11 +53,11 @@ if(_g.s3require != undefined) {
 }
 
 // frequireが設定されていない場合.
-let frequire = global.frequire;
+let frequire = _g.frequire;
 if(frequire == undefined) {
     // frequire利用可能に設定.
     require("./freqreg.js");
-    frequire = global.frequire;
+    frequire = _g.frequire;
 }
 
 // nodejs library(vm).
@@ -227,15 +227,16 @@ const loadS3 = async function(params, response) {
 
 // originRequire読み込みスクリプトheader.
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
-    "(function() {\n" +
+    "(function(_g) {\n" +
     "'use strict';\n" +
+    "_g['_$js_$model']='js';\n" +
     "return async function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
 // originRequire読み込みスクリプトfooder.
 const ORIGIN_REQUIRE_SCRIPT_FOODER =
-    "\n};\n})();";
+    "\n};\n})(global);";
 
 // 文字デコード.
 const _TEXT_DECODE = new TextDecoder();

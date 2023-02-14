@@ -43,11 +43,11 @@
 'use strict'
 
 // frequireが設定されていない場合.
-let frequire = global.frequire;
+let frequire = _g.frequire;
 if(frequire == undefined) {
     // frequire利用可能に設定.
     require("../freqreg.js");
-    frequire = global.frequire;
+    frequire = _g.frequire;
 }
 
 // nodejs library(vm).
@@ -256,13 +256,14 @@ const JHTML_JS_ARGS =
 
 // jhtml実行js用ヘッダ.
 const JHTML_JS_HEADER =
-    "(function() {\n" +
+    "(function(_g) {\n" +
     "'use strict';\n" +
+    "_g['_$js_$model']='jhtml';\n" +
     "return async function(" + JHTML_JS_ARGS + "){\n";
 
 // jhtml実行js用フッダ.
 const JHTML_JS_FOODER =
-    "\n};\n})();";
+    "\n};\n})(global);";
 
 // jhtmlを実行.
 // name jhtmlのファイルパスを設定します.
@@ -270,14 +271,21 @@ const JHTML_JS_FOODER =
 // request 対象のリクエスト情報を設定します.
 // status 対象のステータスを設定します.
 // response 対象のレスポンスを設定します.
+// params request.paramsでない、パラメータを設定する場合は、
+//        こちらに設定します.
 // 戻り値: 実行結果(string)が返却されます.
 const executeJhtml = async function(
-    name, js, request, status, response) {
+    name, js, request, status, response, params) {
     // jhtml実行JSのスクリプトを生成.
     let srcScript = JHTML_JS_HEADER
         + js
         + JHTML_JS_FOODER;
     try {
+        // paramsが指定されていない場合.
+        if(params == undefined || params == null) {
+            // request.paramsをセット.
+            params = request.params;
+        }
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
         let memory = _g;
@@ -302,8 +310,8 @@ const executeJhtml = async function(
             return out;
         }
         // スクリプトを実行して、exportsの条件を取得.
-        await executeJs(out, request.params, request, status, response,
-                jhtmlMethod(out, request.params, request, status, response));
+        await executeJs(out, params, request, status, response,
+                jhtmlMethod(out, params, request, status, response));
 
         // コンテンツタイプが設定されていない場合.
         if(response.get("content-type") == undefined) {

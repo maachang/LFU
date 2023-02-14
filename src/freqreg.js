@@ -15,6 +15,13 @@ if(_g.frequire != undefined) {
     return;
 }
 
+// HttpErrorが設定されていない場合.
+let HttpError = _g.HttpError;
+if(HttpError == undefined) {
+    require("./httpError.js");
+    HttpError = _g.HttpError;
+}
+
 // nodejs library.
 const vm = require('vm');
 const fs = require('fs');
@@ -66,15 +73,16 @@ const readFile = function(name) {
 
 // originRequire読み込みスクリプトheader.
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
-    "(function() {\n" +
+    "(function(_g) {\n" +
     "'use strict';\n" +
+    "_g['_$js_$model']='js';\n" +
     "return async function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
 // originRequire読み込みスクリプトfooder.
 const ORIGIN_REQUIRE_SCRIPT_FOODER =
-    "\n};\n})();";
+    "\n};\n})(global);";
 
 // originRequireを実施.
 // name load対象のNameを設定します.
@@ -131,9 +139,20 @@ const frequire = function(name) {
     const jsName = trimPath(true, name);
     // 禁止されたrequire先.
     if(_FORBIDDEN_FREQUIRES[jsName] == true) {
+        // エラー返却.
         throw new Error(
             "Forbidden require destinations specified: " +
             name);
+    }
+    // キャッシュ情報から取得.
+    let ret = _GBL_FILE_VALUE_CACHE[jsName];
+    // キャッシュ情報に存在する場合.
+    if(ret != undefined) {
+        return ret;
+    // JSON取得の場合.
+    } else if(jsName.toLowerCase().endsWith(".json")) {
+        // json返却.
+        return JSON.parse(js.toString());
     }
     // ファイル内容を取得.
     let js = readFile(jsName);
@@ -141,20 +160,11 @@ const frequire = function(name) {
         // 存在しない場合はrequireで取得.
         return srcRequire(name);
     }
-    // ただし指定内容がJSONの場合はJSON.parseでキャッシュ
-    // なしで返却.
-    if(jsName.toLowerCase().endsWith(".json")) {
-        return JSON.parse(js.toString());
-    }
-    // キャッシュ情報から取得.
-    let ret = _GBL_FILE_VALUE_CACHE[jsName];
-    // 存在しない場合.
-    if(ret == undefined) {
-        // ロードしてキャッシュ.
-        ret = originRequire(js.toString());
-        js = null;
-        _GBL_FILE_VALUE_CACHE[jsName] = ret;
-    }
+    // ロードしてキャッシュセット.
+    ret = originRequire(js.toString());
+    js = null;
+    _GBL_FILE_VALUE_CACHE[jsName] = ret;
+
     return ret;
 }
 

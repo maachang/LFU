@@ -4,6 +4,9 @@
 (function(_g) {
 'use strict'
 
+// HttpErrorを利用可能に設定.
+require("./httpError.js");
+
 // frequire利用可能に設定.
 require("./freqreg.js");
 
@@ -418,7 +421,6 @@ const regRequestRequireFunc = function(env) {
             return _g.gcontents(path, currentPath,
                 response);
         }
-
     }
 }
 
@@ -518,6 +520,16 @@ const getPathToExtends = function(path) {
         return undefined;
     }
     return obj.substring(p + 1).trim().toLowerCase();
+}
+
+// 現状の拡張子に対するResourceModelを設定.
+// extension 拡張子を設定します.
+const initResponseModel = function(extension) {
+    if(extension == undefined) {
+        _g['_$js_$model'] = "js";
+    } else {
+        _g['_$js_$model'] = "jhtml";
+    }
 }
 
 // パス情報の変換処理.
@@ -661,7 +673,13 @@ const resultJsOut = function(resState, resHeader, resBody) {
 // event 対象のイベントを設定します.
 // 戻り値: リクエスト情報(object)が返却されます.
 const createRequest = function(event) {
+    // pathを取得.
     const path = convertHttpPath(event.rawPath);
+    // 拡張子を取得.
+    const extension = getPathToExtends(path);
+    // 拡張子に対するResourceModelを設定.
+    initResponseModel(extension);
+
     // リクエスト情報.
     return {
         // httpメソッド.
@@ -676,7 +694,7 @@ const createRequest = function(event) {
         ,queryParams: getQueryParams(event)
         // EndPoint(string)パスに対するファイルの拡張子.
         // undefinedの場合、js実行結果を返却させる.
-        ,extension: getPathToExtends(path)
+        ,extension: extension
         // 拡張子mimeType変換用.
         ,mimeType: getMimeType
         // 元のeventをセット.
