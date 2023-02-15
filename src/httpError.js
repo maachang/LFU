@@ -154,7 +154,7 @@ const httpErrorConstructor = function(args) {
 
 // HTTPエラーレスポンス情報を返却.
 const httpErrorResponse = async function(
-    request, httpStatus, httpHeader, status, message, model,
+    httpStatus, httpHeader, status, message, model,
     templatePath, params) {
     // httpStatusをセット.
     httpStatus.setStatus(status);
@@ -439,13 +439,12 @@ class HttpError extends Error {
         return this.#error;
     }
     // このエラーのレスポンス状況を取得.
-    // request httpリクエストを設定します.
     // httpStatus HttpStatus.jsオブジェクトを設定します.
     // httpHeader response用のhttpHeader.jsオブジェクトを設定します.
     // 戻り値: responseBody(文字列)が返却されます.
-    async toResponse(request, httpStatus, httpHeader) {
+    async toResponse(httpStatus, httpHeader) {
         return await httpErrorResponse(
-            request, httpStatus, httpHeader,
+            httpStatus, httpHeader,
             this.#status, this.#message, this.#model,
             this.#templatePath, this.#params);
     }

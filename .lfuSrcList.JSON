@@ -6,12 +6,12 @@
         ,"src/greqreg.js"
         ,"src/index.js"
         ,"src/s3reqreg.js"
+        ,"src/httpHeader.js"
         ,"src/lib/awsSignatureV4.js"
         ,"src/lib/httpStatus.js"
         ,"src/lib/httpError.js"
         ,"src/lib/jhtml.js"
         ,"src/lib/s3client.js"
-        ,"src/lib/httpHeader.js"
         ,"src/lib/httpsClient.js"
         ,"src/lib/mimeType.js"
         ,"src/lib/s3restApi.js"
@@ -28,6 +28,7 @@
          "src/@public/js/raw.githubusercontent.js"
     ]
     ,"//": "(任意)拡張LFUライブラリ群."
+    ,"//": "この条件は存在しない場合は処理されません."
     ,"custom": [
          "src/filter.js"
         ,"src/mime.js"

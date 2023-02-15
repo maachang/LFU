@@ -789,6 +789,18 @@ var setRequestParameter = function(event, request) {
     event.isBase64Encoded = false;
 }
 
+// 返却条件を取得.
+// 戻り値: 以下の文字列が返却されます.
+//   "js" の場合は、JSON返却でHTTPエラー返却を行います.
+//   "jhtml" の場合、HTML返却でHTTPエラー返却を行います.
+const getResponseModel = function() {
+    const ret = _g['_$js_$model'];
+    if(isNull(ret)) {
+        return "js";
+    }
+    return ret;
+}
+
 // 不正な拡張子一覧.
 const BAD_EXTENSION = [
     ".js.html"
@@ -1011,16 +1023,29 @@ const main_handler = async function(event, context) {
         }
 
     } catch(err) {
-        // エラーオブジェクトにHTTPステータスが付与されているかチェック.
-        let status = err.status;
-        let message = err.message;
-        if(status == undefined) {
-            // 設定されていない場合はエラー500.
-            status = 500;
-        }
-        // エラーメッセージが設定されていない場合.
-        if(message == undefined) {
-            message = "" + err;
+        let status, message, resBody;
+        // 返却Body初期化.
+        resBody = null;
+        // resHeaderを初期化.
+        resHeader = httpHeader.create();
+        // httpErrorの場合.
+        if(err instanceof HttpError) {
+            // ステータスとメッセージを取得.
+            status = err.getStatus();
+            message = err.getMessage();
+        // 通常エラーの場合.
+        } else {
+            // エラーオブジェクトにHTTPステータスが付与されているかチェック.
+            status = err.status;
+            message = err.message;
+            if(status == undefined) {
+                // 設定されていない場合はエラー500.
+                status = 500;
+            }
+            // エラーメッセージが設定されていない場合.
+            if(message == undefined) {
+                message = "" + err;
+            }
         }
 
         // エラーログ出力.
@@ -1030,18 +1055,51 @@ const main_handler = async function(event, context) {
             console.error(err);
         }
 
-        // エラーの場合.
-        const resBody =
-            "error " + status + ": " + httpStatus.toMessage(status);
-        // 新しいレスポンスヘッダを作成.
-        resHeader = httpHeader.create();
-        // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
-        resHeader.put("content-type", getMimeType("text").type);
+        // httpErrorの場合.
+        if(err instanceof HttpError) {
+            // statusをセット
+            resState.setStatus(status);
+            // httpErrorレスポンスBodyを取得.
+            resBody = err.toResponse(
+                resState,
+                resHeader
+            );
+
+        // 通常エラーの場合.
+        } else {
+            // 現状のModelを取得.
+            const model = getResponseModel();
+            // statusをセット
+            resState.setStatus(status);
+            // modelがjsの場合.
+            if(model == "js") {
+                resBody = defaultJsonError(
+                    resState,
+                    resHeader,
+                    message
+                )
+            // modelがjhtmlの場合.
+            } else if(model == "jhtml") {
+                resBody = defaultHttpError(
+                    resState,
+                    resHeader,
+                    message
+                )
+            }
+        }
+        // 返却Bodyが作成されてない場合.
+        if(resBody == null) {
+            // text形式で最小エラー情報返却用Bodyを作成.
+            resBody =
+                "error " + status + ": " + httpStatus.toMessage(status);
+            // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
+            resHeader.put("content-type", getMimeType("text").type);
+        }
         // レスポンス返却.
         return returnResponse(
             status,
             resHeader.toHeaders(),
-            resHeader.toCookies(),
+            [], // エラーなのでcookie返却なし
             resBody);
     }
 }
