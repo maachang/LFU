@@ -532,6 +532,18 @@ const initResponseModel = function(extension) {
     }
 }
 
+// 返却条件を取得.
+// 戻り値: 以下の文字列が返却されます.
+//   "js" の場合は、JSON返却でHTTPエラー返却を行います.
+//   "jhtml" の場合、HTML返却でHTTPエラー返却を行います.
+const getResponseModel = function() {
+    const ret = _g['_$js_$model'];
+    if(isNull(ret)) {
+        return "js";
+    }
+    return ret;
+}
+
 // パス情報の変換処理.
 // 戻り値: ディレクトリ指定の場合は 環境変数で設定された
 //        IndexPathを追加します.
@@ -787,18 +799,6 @@ var setRequestParameter = function(event, request) {
     // event.bodyを削除.
     event.body = undefined;
     event.isBase64Encoded = false;
-}
-
-// 返却条件を取得.
-// 戻り値: 以下の文字列が返却されます.
-//   "js" の場合は、JSON返却でHTTPエラー返却を行います.
-//   "jhtml" の場合、HTML返却でHTTPエラー返却を行います.
-const getResponseModel = function() {
-    const ret = _g['_$js_$model'];
-    if(isNull(ret)) {
-        return "js";
-    }
-    return ret;
 }
 
 // 不正な拡張子一覧.
@@ -1065,7 +1065,7 @@ const main_handler = async function(event, context) {
                 resHeader
             );
 
-        // 通常エラーの場合.
+        // httpError以外のエラーの場合.
         } else {
             // 現状のModelを取得.
             const model = getResponseModel();
@@ -1085,15 +1085,14 @@ const main_handler = async function(event, context) {
                     resHeader,
                     message
                 )
+            // modelが不明な場合.
+            } else {
+                // text形式で最小エラー情報返却用Bodyを作成.
+                resBody =
+                    "error " + status + ": " + httpStatus.toMessage(status);
+                // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
+                resHeader.put("content-type", getMimeType("text").type);
             }
-        }
-        // 返却Bodyが作成されてない場合.
-        if(resBody == null) {
-            // text形式で最小エラー情報返却用Bodyを作成.
-            resBody =
-                "error " + status + ": " + httpStatus.toMessage(status);
-            // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
-            resHeader.put("content-type", getMimeType("text").type);
         }
         // レスポンス返却.
         return returnResponse(
