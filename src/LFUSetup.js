@@ -524,23 +524,14 @@ const getPathToExtends = function(path) {
 
 // 現状の拡張子に対するResourceModelを設定.
 // extension 拡張子を設定します.
-const initResponseModel = function(extension) {
+const responseModel = function(extension) {
+    let ret;
     if(extension == undefined) {
-        _g['_$js_$model'] = "js";
+        ret = "js";
     } else {
-        _g['_$js_$model'] = "jhtml";
+        ret = "jhtml";
     }
-}
-
-// 返却条件を取得.
-// 戻り値: 以下の文字列が返却されます.
-//   "js" の場合は、JSON返却でHTTPエラー返却を行います.
-//   "jhtml" の場合、HTML返却でHTTPエラー返却を行います.
-const getResponseModel = function() {
-    const ret = _g['_$js_$model'];
-    if(isNull(ret)) {
-        return "js";
-    }
+    _g['_$js_$model'] = ret;
     return ret;
 }
 
@@ -689,8 +680,9 @@ const createRequest = function(event) {
     const path = convertHttpPath(event.rawPath);
     // 拡張子を取得.
     const extension = getPathToExtends(path);
+
     // 拡張子に対するResourceModelを設定.
-    initResponseModel(extension);
+    responseModel(extension);
 
     // リクエスト情報.
     return {
@@ -1067,8 +1059,8 @@ const main_handler = async function(event, context) {
 
         // httpError以外のエラーの場合.
         } else {
-            // 現状のModelを取得.
-            const model = getResponseModel();
+            // 拡張子からResourceModelを取得.
+            const model = responseModel(request.extension);
             // statusをセット
             resState.setStatus(status);
             // modelがjsの場合.
