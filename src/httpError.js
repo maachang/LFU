@@ -319,6 +319,8 @@ const DEFAULT_HTTP_TEMPLATE_VALUE =
     '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">' +
     '<head><meta name="robots" content="noindex"><meta name="robots"' +
     ' content="noindex"></head><body>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<link rel="icon" href="/favicon.ico"></link>' +
     'error ${status}&nbsp;${message}' +
     '</body></hrml>'
 ;

@@ -1044,11 +1044,14 @@ const main_handler = async function(event, context) {
             }
         }
 
-        // エラーログ出力.
-        console.error("## error(" + status + "): " + message);
-        // error500以上の場合は詳細出力.
-        if(status >= 500) {
-            console.error(err);
+        // favicon.ico直下の場合はエラー表示させない.
+        if(request.path != "/favicon.ico") {
+            // エラーログ出力.
+            console.error("## error(" + status + "): " + message);
+            // error500以上の場合は詳細出力.
+            if(status >= 500) {
+                console.error(err);
+            }
         }
 
         // httpErrorの場合.
@@ -1056,7 +1059,7 @@ const main_handler = async function(event, context) {
             // statusをセット
             resState.setStatus(status);
             // httpErrorレスポンスBodyを取得.
-            resBody = err.toResponse(
+            resBody = await err.toResponse(
                 resState,
                 resHeader
             );
@@ -1083,14 +1086,14 @@ const main_handler = async function(event, context) {
                     message
                 );
             }
+        }
 
-            // modelが不明な場合.
-            if(resBody == null) {
-                // text形式で最小エラー情報返却用Bodyを作成.
-                resBody = "error " + status + ": " + httpStatus.toMessage(status);
-                // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
-                resHeader.put("content-type", getMimeType("text").type);
-            }
+        // modelが不明な場合.
+        if(resBody == null) {
+            // text形式で最小エラー情報返却用Bodyを作成.
+            resBody = "error " + status + ": " + httpStatus.toMessage(status);
+            // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
+            resHeader.put("content-type", getMimeType("text").type);
         }
         // レスポンス返却.
         return returnResponse(

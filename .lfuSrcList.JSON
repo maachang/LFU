@@ -32,5 +32,6 @@
     ,"custom": [
          "src/filter.js"
         ,"src/mime.js"
+        ,"src/favicon.ico"
     ]
 }

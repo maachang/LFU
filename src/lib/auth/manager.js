@@ -481,7 +481,7 @@ const isLogin = async function(level, resHeader, request) {
         // トークンの解析.
         const keyCode = getLoginTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
-
+ 
         // expire値を超えている場合.
         if(Date.now() >= dtoken.expire) {
             // ログインされていない.
@@ -492,7 +492,7 @@ const isLogin = async function(level, resHeader, request) {
             // level=1的にログイン担保.
             return true;
         }
-        // ユーザーセッションをアップデート.
+        // ユーザーセッションをアップデート(この処理が結構重い).
         const ret = await updateSession(
             dtoken.user, dtoken.passCode, dtoken.sessionId);
         // アップデート成功の場合.
