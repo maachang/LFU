@@ -57,11 +57,11 @@ var qrcode = new QRCode(document.getElementById("$id"), {
 **/
 
 // frequireが設定されていない場合.
-let frequire = _g.frequire;
+let frequire = global.frequire;
 if(frequire == undefined) {
     // frequire利用可能に設定.
     require("../../freqreg.js");
-    frequire = _g.frequire;
+    frequire = global.frequire;
 }
 
 // xor128ランダム.

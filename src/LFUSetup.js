@@ -524,6 +524,7 @@ const getPathToExtends = function(path) {
 
 // 現状の拡張子に対するResourceModelを設定.
 // extension 拡張子を設定します.
+// 戻り値: modelが返却されます.
 const responseModel = function(extension) {
     let ret;
     if(extension == undefined) {
@@ -816,9 +817,12 @@ const main_handler = async function(event, context) {
     // レスポンスヘッダ.
     let resHeader = httpHeader.create();
 
+    // リクエストオブジェクト.
+    let request = null;
+
     try {
         // リクエストを生成.
-        const request = createRequest(event);
+        request = createRequest(event);
 
         // リクエストパラメータを設定.
         setRequestParameter(event, request);
@@ -1058,7 +1062,8 @@ const main_handler = async function(event, context) {
             );
 
         // httpError以外のエラーの場合.
-        } else {
+        // request情報が存在する場合.
+        } else if(request != undefined && request != null) {
             // 拡張子からResourceModelを取得.
             const model = responseModel(request.extension);
             // statusをセット
@@ -1069,19 +1074,20 @@ const main_handler = async function(event, context) {
                     resState,
                     resHeader,
                     message
-                )
+                );
             // modelがjhtmlの場合.
             } else if(model == "jhtml") {
                 resBody = defaultHttpError(
                     resState,
                     resHeader,
                     message
-                )
+                );
+            }
+
             // modelが不明な場合.
-            } else {
+            if(resBody == null) {
                 // text形式で最小エラー情報返却用Bodyを作成.
-                resBody =
-                    "error " + status + ": " + httpStatus.toMessage(status);
+                resBody = "error " + status + ": " + httpStatus.toMessage(status);
                 // レスポンス返却のHTTPヘッダに対象拡張子MimeTypeをセット.
                 resHeader.put("content-type", getMimeType("text").type);
             }

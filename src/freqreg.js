@@ -16,10 +16,10 @@ if(_g.frequire != undefined) {
 }
 
 // HttpErrorが設定されていない場合.
-let HttpError = _g.HttpError;
+let HttpError = global.HttpError;
 if(HttpError == undefined) {
     require("./httpError.js");
-    HttpError = _g.HttpError;
+    HttpError = global.HttpError;
 }
 
 // nodejs library.
@@ -75,8 +75,7 @@ const readFile = function(name) {
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
     "(function(_g) {\n" +
     "'use strict';\n" +
-    "_g['_$js_$model']='js';\n" +
-    "return async function(args){\n" +
+    "return function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
@@ -89,8 +88,6 @@ const ORIGIN_REQUIRE_SCRIPT_FOODER =
 // js load対象のjsソース・ファイルを設定します.
 // 戻り値: exportsに設定された内容が返却されます.
 const originRequire = function(name, js) {
-    // 現状のResourceModelを取得.
-    const oldRModel = _g['_$js_$model'];
     // origin的なrequireスクリプトを生成.
     let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
         + js
@@ -118,9 +115,6 @@ const originRequire = function(name, js) {
         console.error(
             "## [ERROR] originRequire name: " + name);
         throw e;
-    } finally {
-        // ResourceModelを元に戻す.
-        _g['_$js_$model'] = oldRModel;
     }
 }
 
