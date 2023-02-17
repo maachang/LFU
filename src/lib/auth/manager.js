@@ -1,7 +1,7 @@
 //////////////////////////////////////////
 // ログインマネージャー.
 //////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -705,4 +705,4 @@ exports.filter = filter;
 exports.createTimedSession = createTimedSession;
 exports.isTimedSession = isTimedSession;
 
-})(global);
+})();

@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////
 // lambda-func-url の環境設定用セットアップ.
 //////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // HttpErrorを利用可能に設定.
@@ -88,23 +88,23 @@ const arrayToMap = function(keys, array) {
 // LFUのrequire系キャッシュを削除.
 const clearRequireCache = function() {
     // git requireキャッシュ削除.
-    if(_g["grequire"] != undefined) {
+    if(global["grequire"] != undefined) {
         try {
             // エラー無視.
-            _g["grequire"].clearCache();
+            global["grequire"].clearCache();
         } catch(e) {}
     }
     // s3 requireキャッシュ削除.
-    if(_g["s3require"] != undefined) {
+    if(global["s3require"] != undefined) {
         try {
             // エラー無視.
-            _g["s3require"].clearCache();
+            global["s3require"].clearCache();
         } catch(e) {}
     }
     // lambda requireキャッシュ削除.
-    if(_g["frequire"] != undefined) {
+    if(global["frequire"] != undefined) {
         try {
-            _g["frequire"].clearCache();
+            global["frequire"].clearCache();
         } catch(e) {}
     }
 
@@ -339,10 +339,10 @@ const regRequestRequireFunc = function(env) {
             // javascript実行呼び出し.
             if(jsFlag == true) {
                 // キャッシュしないs3require実行.
-                ret = await _g.s3require(path, env.requestPath, true, response);
+                ret = await global.s3require(path, env.requestPath, true, response);
             } else {
                 // s3contentsを実行してコンテンツを取得.
-                ret = await _g.s3contents(path, env.requestPath, response);
+                ret = await global.s3contents(path, env.requestPath, response);
             }
             // レスポンスが設定されている場合.
             if(response != undefined && response != null) {
@@ -354,26 +354,26 @@ const regRequestRequireFunc = function(env) {
 
         // s3用のhead処理.
         //_requestHeadFunc = function(path) {
-        //    return _g.s3head(path, env.requestPath);
+        //    return global.s3head(path, env.requestPath);
         //}
 
         // s3内で利用するrequire処理.
-        _g.exrequire = function(
+        global.exrequire = function(
             path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
                 currentPath = env.requestPath;
             }
-            return _g.s3require(path, currentPath,
+            return global.s3require(path, currentPath,
                 noneCache, response);
         }
 
         // s3内で利用するcontains処理.
-        _g.excontents = function(
+        global.excontents = function(
             path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
                 currentPath = env.requestPath;
             }
-            return _g.s3contents(path, currentPath,
+            return global.s3contents(path, currentPath,
                 response);
         }
 
@@ -384,10 +384,10 @@ const regRequestRequireFunc = function(env) {
             // javascript実行呼び出し.
             if(jsFlag == true) {
                 // キャッシュしないgrequire実行.
-                ret = await _g.grequire(path, env.requestPath, true, response);
+                ret = await global.grequire(path, env.requestPath, true, response);
             } else {
                 // gcontentsを実行してコンテンツを取得.
-                ret = await _g.gcontents(path, env.requestPath, response);
+                ret = await global.gcontents(path, env.requestPath, response);
             }
             // レスポンスが設定されている場合.
             if(response != undefined && response != null) {
@@ -399,26 +399,26 @@ const regRequestRequireFunc = function(env) {
 
         // github用のhead処理.
         //_requestHeadFunc = function(path) {
-        //    return _g.ghead(path, env.requestPath);
+        //    return global.ghead(path, env.requestPath);
         //}
 
         // github内で利用するrequire処理
-        _g.exrequire = function(
+        global.exrequire = function(
             path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
                 currentPath = env.requestPath;
             }
-            return _g.grequire(path, currentPath,
+            return global.grequire(path, currentPath,
                 noneCache, response);
         }
 
         // github内で利用するcontains処理.
-        _g.excontents = function(
+        global.excontents = function(
             path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
                 currentPath = env.requestPath;
             }
-            return _g.gcontents(path, currentPath,
+            return global.gcontents(path, currentPath,
                 response);
         }
     }
@@ -532,7 +532,7 @@ const responseModel = function(extension) {
     } else {
         ret = "jhtml";
     }
-    _g['_$js_$model'] = ret;
+    global['_$js_$model'] = ret;
     return ret;
 }
 
@@ -894,7 +894,7 @@ const main_handler = async function(event, context) {
 
                 // 圧縮対象の場合.
                 // または環境変数で、圧縮なし指定でない場合.
-                if(resMimeType.gz == true && _g.ENV.noneGzip != true) {
+                if(resMimeType.gz == true && global.ENV.noneGzip != true) {
                     // 圧縮処理を行う.
                     resBody = await mime.compressToContents(
                         request.header, resHeader, resBody);
@@ -933,7 +933,7 @@ const main_handler = async function(event, context) {
                     name, resBody, request, resState, resHeader);
 
                 // 環境変数で、圧縮なし指定でない場合.
-                if(_g.ENV.noneGzip != true) {
+                if(global.ENV.noneGzip != true) {
                     // 圧縮処理を行う.
                     resBody = await mime.compressToContents(
                         request.header, resHeader, resBody);
@@ -976,7 +976,7 @@ const main_handler = async function(event, context) {
 
             // 圧縮対象の場合.
             // または環境変数で、圧縮なし指定でない場合.
-            if(resMimeType.gz == true && _g.ENV.noneGzip != true) {
+            if(resMimeType.gz == true && global.ENV.noneGzip != true) {
                 // 圧縮処理を行う.
                 resBody = await mime.compressToContents(
                     request.header, resHeader, resBody);
@@ -1184,6 +1184,39 @@ const start = function(event, filterFunc, originMime) {
     // requestFunction呼び出し処理のFunction登録
     regRequestRequireFunc(env);
 
+    // defaultのfavicon.icoが設定されている場合.  
+    if(event.rawPath == "/favicon.ico" ||
+        event.rawPath == "/default/favicon.ico") {
+        // fcontentsからfavicon.icoを取得.
+        return async function() {
+            try {
+                // lambda設定直下のfavicon.icoを取得.
+                const res = await fcontents("./favicon.ico");
+                // レスポンスヘッダ.
+                const resHeader = httpHeader.create();
+                resHeader.put("content-type", getMimeType("ico").type);
+                // レスポンス出力.
+                return returnResponse(
+                    200, // status.
+                    resHeader.toHeaders(), // headers.
+                    [], // cookies.
+                    // body.
+                    res
+                );
+            } catch(e) {
+                console.log(e)
+                // 404レスポンス出力.
+                return returnResponse(
+                    404, /// status.
+                    {}, // headers.
+                    [], // cookies.
+                    // body.
+                    null
+                );
+            }
+        }
+    }
+
     // filterFuncをセット.
     _filterFunction = undefined;
     if(filterFunc != undefined && filterFunc != null) {
@@ -1197,7 +1230,7 @@ const start = function(event, filterFunc, originMime) {
     }
 
     // ENVをglobalに設定.
-    _g.ENV = env;
+    global.ENV = env;
 
     // main_handlerを返却.
     return main_handler;
@@ -1208,4 +1241,4 @@ const start = function(event, filterFunc, originMime) {
 /////////////////////////////////////////////////////
 exports.start = start;
 
-})(global);
+})();

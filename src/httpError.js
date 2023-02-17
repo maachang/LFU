@@ -1,11 +1,11 @@
 ///////////////////////////////////////////////////////////
 // HTTPエラー処理.
 ///////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // 1度httpError.jsをrequireされている場合.
-if(_g.HttpError != undefined) {
+if(global.HttpError != undefined) {
     // 再読み込みしない.
     return;
 }
@@ -99,7 +99,7 @@ const getErrorHttpTemplatePath = function() {
 //   "js" の場合は、JSON返却でHTTPエラー返却を行います.
 //   "jhtml" の場合、HTML返却でHTTPエラー返却を行います.
 const getResponseModel = function() {
-    const ret = _g['_$js_$model'];
+    const ret = global['_$js_$model'];
     if(isNull(ret)) {
         return "js";
     }
@@ -214,7 +214,7 @@ const httpErrorResponseToJSON = function(
 // excontentsが利用できるかチェック.
 // 戻り値: trueの場合利用できます.
 const isExContains = function() {
-    return typeof(_g["excontents"]) == "function";
+    return typeof(global["excontents"]) == "function";
 }
 
 // 指定パスから文字列コンテンツを取得.
@@ -320,7 +320,7 @@ const DEFAULT_HTTP_TEMPLATE_VALUE =
     '<head><meta name="robots" content="noindex"><meta name="robots"' +
     ' content="noindex"></head><body>' +
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-    '<link rel="icon" href="/favicon.ico"></link>' +
+    '<link rel="icon" href="/default/favicon.ico"></link>' +
     'error ${status}&nbsp;${message}' +
     '</body></hrml>'
 ;
@@ -498,19 +498,19 @@ const defaultHttpError = function(
 // 初期設定.
 const init = function() {
     // HttpErrorオブジェクト.
-    Object.defineProperty(_g, "HttpError",
+    Object.defineProperty(global, "HttpError",
         {writable: false, value: HttpError});
 
     // デフォルトのHTTPエラー返却.
-    Object.defineProperty(_g, "defaultJsonError",
+    Object.defineProperty(global, "defaultJsonError",
         {writable: false, value: defaultJsonError});
 
     // デフォルトのHTTPエラー返却.
-    Object.defineProperty(_g, "defaultHttpError",
+    Object.defineProperty(global, "defaultHttpError",
         {writable: false, value: defaultHttpError});
 }
 
 // 初期処理実行.
 init();
 
-})(global);
+})();

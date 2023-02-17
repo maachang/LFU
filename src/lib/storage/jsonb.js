@@ -4,7 +4,7 @@
 // ものを、バイナリ変換して本来のJSONのファイルサイズを
 // 減らします.
 //////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -43,5 +43,5 @@ const decode = function(bin) {
 exports.encode = encode;
 exports.decode = decode;
 
-})(global);
+})();
     

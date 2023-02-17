@@ -39,7 +39,7 @@
 //     レスポンス用のHTTPヘッダが設定される.
 //   $jhtml = jhtml用専用メソッド.
 //////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -256,13 +256,13 @@ const JHTML_JS_ARGS =
 
 // jhtml実行js用ヘッダ.
 const JHTML_JS_HEADER =
-    "(function(_g) {\n" +
+    "(function() {\n" +
     "'use strict';\n" +
     "return async function(" + JHTML_JS_ARGS + "){\n";
 
 // jhtml実行js用フッダ.
 const JHTML_JS_FOODER =
-    "\n};\n})(global);";
+    "\n};\n})();";
 
 // jhtmlを実行.
 // name jhtmlのファイルパスを設定します.
@@ -287,9 +287,9 @@ const executeJhtml = async function(
         }
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
-        let memory = _g;
+        let memory = global;
         let context = vm.createContext(memory);
-    
+
         // スクリプト実行環境を生成.
         let script = new vm.Script(srcScript, {filename: name});
         srcScript = null;
@@ -451,4 +451,4 @@ const jhtmlMethod = function($out, $params, $request, $status, $response) {
 exports.convertJhtmlToJs = convertJhtmlToJs;
 exports.executeJhtml = executeJhtml;
 
-})(global);
+})();

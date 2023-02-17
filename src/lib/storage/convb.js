@@ -3,7 +3,7 @@
 // 主要なjsの型をバイナリ変換する.
 // バイナリで、データ格納する事で１つのファイル容量を減らします.
 ////////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -757,5 +757,5 @@ const decodeValue = function(pos, bin) {
 // 外部定義.
 exports.decodeValue = decodeValue;
 
-})(global);
+})();
     

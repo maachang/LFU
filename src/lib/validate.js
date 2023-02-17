@@ -2,7 +2,7 @@
 // validate処理.
 // HTTPのGETやPOSTのパラメータのvalidate処理を行う.
 ///////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -333,34 +333,34 @@ const execute = function(method, validate, request) {
 /////////////////////////////////////////////////////
 
 // [validate定数]methodALL.
-_g["VM_ALL"] = "*";
+global["VM_ALL"] = "*";
 
 // [validate定数]methodGET.
-_g["VM_GET"] = "GET";
+global["VM_GET"] = "GET";
 
 // [validate定数]methodPOST.
-_g["VM_POST"] = "POST";
+global["VM_POST"] = "POST";
 
 // [validate定数]methodDEALETE.
-_g["VM_DELETE"] = "DELETE";
+global["VM_DELETE"] = "DELETE";
 
 // [validate定数]methodPUT.
-_g["VM_PUT"] = "PUT";
+global["VM_PUT"] = "PUT";
 
 // [validate定数]methodPATCH.
-_g["VM_PATCH"] = "PATCH";
+global["VM_PATCH"] = "PATCH";
 
 // [validate定数]変換型定義名.
 for(let k in MODEL) {
-    _g["VC_" + MODEL[k].toUpperCase()] = MODEL[k];
+    global["VC_" + MODEL[k].toUpperCase()] = MODEL[k];
 }
 
 // [validate定数]validate条件.
 for(let k in V_TERMS) {
-    _g["VT_" + k.toUpperCase()] = V_TERMS[k];
+    global["VT_" + k.toUpperCase()] = V_TERMS[k];
 }
 
 // validate処理.
 exports.execute = execute;
 
-})(global);
+})();

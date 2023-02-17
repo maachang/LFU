@@ -141,7 +141,7 @@ const httpError = function(status, message) {
 
 // originRequire読み込みスクリプトheader.
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
-    "(function(_g) {\n" +
+    "(function() {\n" +
     "'use strict';\n" +
     "return function(args){\n" +
     "const exports = args;\n";
@@ -149,7 +149,7 @@ const ORIGIN_REQUIRE_SCRIPT_HEADER =
 
 // originRequire読み込みスクリプトfooder.
 const ORIGIN_REQUIRE_SCRIPT_FOODER =
-    "\n};\n})(global);";
+    "\n};\n})();";
 
 // originRequireを実施.
 // name load対象のNameを設定します.
@@ -173,7 +173,7 @@ const originRequire = function(name, js) {
         script = null; context = null; memory = null;
     
         // スクリプトを実行して、exportsの条件を取得.
-        var ret = {};
+        const ret = {};
         executeJs(ret);
     
         // 実行結果を返却.

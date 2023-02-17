@@ -7,11 +7,11 @@
 // 悪い.
 // 代替え的にrequireを利用できるようにして、lmdLib以下のrequireもできるようにする.
 ///////////////////////////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // すでに定義済みの場合.
-if(_g.frequire != undefined) {
+if(global.frequire != undefined) {
     return;
 }
 
@@ -23,7 +23,6 @@ if(HttpError == undefined) {
 }
 
 // nodejs library.
-const vm = require('vm');
 const fs = require('fs');
 
 // カレントパス名.
@@ -64,70 +63,20 @@ const isFile = function(name) {
 // 戻り値: ファイル内容がstringで返却されます.
 //        存在しない場合は null が返却されます.
 const readFile = function(name) {
-    const fileName = _CURRENT_PATH + name;
-    if(isFile(fileName)) {
-        return fs.readFileSync(fileName);
+    if(isFile(name)) {
+        return fs.readFileSync(_CURRENT_PATH + name);
     }
     return null;
 }
 
-// originRequire読み込みスクリプトheader.
-const ORIGIN_REQUIRE_SCRIPT_HEADER =
-    "(function(_g) {\n" +
-    "'use strict';\n" +
-    "return function(args){\n" +
-    "const exports = args;\n";
-    "const module = {exports: args};\n";
-
-// originRequire読み込みスクリプトfooder.
-const ORIGIN_REQUIRE_SCRIPT_FOODER =
-    "\n};\n})(global);";
-
-// originRequireを実施.
-// name load対象のNameを設定します.
-// js load対象のjsソース・ファイルを設定します.
-// 戻り値: exportsに設定された内容が返却されます.
-const originRequire = function(name, js) {
-    // origin的なrequireスクリプトを生成.
-    let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
-        + js
-        + ORIGIN_REQUIRE_SCRIPT_FOODER;
-    try {
-        // Contextを生成.
-        // runInContextはsandboxなので、現在のglobalメモリを設定する.
-        let memory = _g;
-        let context = vm.createContext(memory);
-        memory = null;
-    
-        // スクリプト実行環境を生成.
-        let script = new vm.Script(srcScript, {filename: name});
-        srcScript = null;
-        const executeJs = script.runInContext(context, {filename: name});
-        script = null; context = null;
-    
-        // スクリプトを実行して、exportsの条件を取得.
-        var ret = {};
-        executeJs(ret);
-    
-        // 実行結果を返却.
-        return ret;
-    } catch(e) {
-        console.error(
-            "## [ERROR] originRequire name: " + name);
-        throw e;
-    }
-}
-
-// frequireeでloadした内容をCacheする.
-const _GBL_FILE_VALUE_CACHE = {};
-
 // 禁止requireファイル群.
 const _FORBIDDEN_FREQUIRES = {
+    "httpError.js": true,
     "freqreg.js": true,
     "s3reqreg.js": true,
     "greqreg.js": true,
     "LFUSetup.js": true,
-    "index.js": true
+    "index.js": true,
 };
 
 // file or 元のrequire 用の require.
@@ -143,28 +92,13 @@ const frequire = function(name) {
             "Forbidden require destinations specified: " +
             name);
     }
-    // キャッシュ情報から取得.
-    let ret = _GBL_FILE_VALUE_CACHE[jsName];
-    // キャッシュ情報に存在する場合.
-    if(ret != undefined) {
-        return ret;
-    // JSON取得の場合.
-    } else if(jsName.toLowerCase().endsWith(".json")) {
-        // json返却.
-        return JSON.parse(js.toString());
+    // ファイルが存在する場合.
+    if(isFile(jsName)) {
+        // currentPath入りで、読み込む.
+        return srcRequire(_CURRENT_PATH + jsName);
     }
-    // ファイル内容を取得.
-    let js = readFile(jsName);
-    if(js == null) {
-        // 存在しない場合はrequireで取得.
-        return srcRequire(name);
-    }
-    // ロードしてキャッシュセット.
-    ret = originRequire(js.toString());
-    js = null;
-    _GBL_FILE_VALUE_CACHE[jsName] = ret;
-
-    return ret;
+    // 指定のまま読み込む.
+    return srcRequire(name);
 }
 
 // file 用の contents.
@@ -172,7 +106,7 @@ const frequire = function(name) {
 // 戻り値: contains結果(binary)が返却されます.
 const fcontents = function(name) {
     // ファイル名を整形.
-    const containsName = trimPath(false, name);
+    const containsName = trimPath(false, name); 
     // ファイル内容を取得.
     const ret = readFile(containsName);
     if(ret == null) {
@@ -185,8 +119,10 @@ const fcontents = function(name) {
 
 // キャッシュをクリア.
 const clearCache = function() {
-    for(let k in _GBL_FILE_VALUE_CACHE) {
-        delete _GBL_FILE_VALUE_CACHE[k];
+    // srcRequireキャッシュ削除.
+    const cache = srcRequire.cache;
+    for(let k in cache) {
+        delete cache[k];
     }
 }
 
@@ -194,13 +130,13 @@ const clearCache = function() {
 const init = function() {
     // キャッシュクリアをセット.
     frequire.clearCache = clearCache;
-    Object.defineProperty(_g, "frequire",
+    Object.defineProperty(global, "frequire",
         {writable: false, value: frequire});
-    Object.defineProperty(_g, "fcontents",
+    Object.defineProperty(global, "fcontents",
         {writable: false, value: fcontents});
 }
 
 // 初期化設定を行って `frequire` をgrobalに登録.
 init();
 
-})(global);
+})();

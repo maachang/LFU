@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////
 // httpsClient.
 ///////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -215,4 +215,4 @@ exports.convertUrlParams = convertUrlParams;
 exports.encodeURIToPath = encodeURIToPath;
 exports.request = request;
 
-})(global);
+})();
