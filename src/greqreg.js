@@ -10,12 +10,12 @@
 // 呼び出しに対して、共通ライブラリの管理がgithub管理で利用する事ができる。
 // ただ、AWS Lambdaから外部参照するので、多分通信コストが発生する.
 ///////////////////////////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // すでに定義済みの場合.
-if(_g.grequire != undefined) {
-    const m = _g.grequire.exports;
+if(global.grequire != undefined) {
+    const m = global.grequire.exports;
     for(let k in m) {
         exports[k] = m[k];
     }
@@ -251,7 +251,7 @@ const setOptions = function(option) {
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
     "(function() {\n" +
     "'use strict';\n" +
-    "return async function(args){\n" +
+    "return function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
@@ -268,11 +268,10 @@ const originRequire = function(path, js) {
     let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
         + js
         + ORIGIN_REQUIRE_SCRIPT_FOODER;
-    
     try {
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
-        let memory = _g;
+        let memory = global;
         let context = vm.createContext(memory);
     
         // スクリプト実行環境を生成.
@@ -282,7 +281,7 @@ const originRequire = function(path, js) {
         script = null; context = null; memory = null;
     
         // スクリプトを実行して、exportsの条件を取得.
-        var ret = {};
+        const ret = {};
         executeJs(ret);
     
         // 実行結果を返却.
@@ -415,13 +414,13 @@ const init = function() {
     // キャッシュクリアをセット.
     grequire.clearCache = clearCache;
     // grequireをglobalに登録(書き換え禁止).
-    Object.defineProperty(_g, "grequire",
+    Object.defineProperty(global, "grequire",
         {writable: false, value: grequire});
     // gcontentsをglobalに登録(書き換え禁止).
-    Object.defineProperty(_g, "gcontents",
+    Object.defineProperty(global, "gcontents",
         {writable: false, value: gcontents});
     // gheadをglobalに登録(書き換え禁止).
-    Object.defineProperty(_g, "ghead",
+    Object.defineProperty(global, "ghead",
         {writable: false, value: ghead});
 
     // exportsを登録.
@@ -443,4 +442,4 @@ const init = function() {
 // 初期化設定を行って `grequire`, `gcontents` をgrobalに登録.
 init();
 
-})(global);
+})();

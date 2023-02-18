@@ -150,8 +150,12 @@ const executeMinify = function(path, srcList) {
             throw new Error("[base]The specified file "
                 + path + "/" + baseList[i] + " does not exist.");
         }
-        // minify化.
-        cmdMimify(path, baseList[i], MINIFY_DIR);
+        // js ファイルのみminify化.
+        if(baseList[i].trim().toLowerCase().endsWith(".js")) {
+            cmdMimify(path, baseList[i], MINIFY_DIR);
+        } else {
+            cmdCopy(path, baseList[i], MINIFY_DIR);
+        }
         console.log("> [base]" + baseList[i]);
     }
 
@@ -191,8 +195,12 @@ const executeMinify = function(path, srcList) {
             // 存在しない場合は処理しない.
             continue;
         }
-        // minify化.
-        cmdMimify(path, costomList[i], MINIFY_DIR);
+        // js ファイルのみminify化.
+        if(costomList[i].trim().toLowerCase().endsWith(".js")) {
+            cmdMimify(path, costomList[i], MINIFY_DIR);
+        } else {
+            cmdCopy(path, costomList[i], MINIFY_DIR);
+        }
         console.log("> [costom]" + costomList[i]);
         count ++;
     }

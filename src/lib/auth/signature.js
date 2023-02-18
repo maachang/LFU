@@ -1,7 +1,7 @@
 //////////////////////////////////////////
 // ログイン用のシグニチャーを作成.
 //////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -439,4 +439,4 @@ const decodeToken = function(keyCode, token) {
 }
 exports.decodeToken = decodeToken;
 
-})(global);
+})();

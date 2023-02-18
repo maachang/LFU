@@ -143,7 +143,7 @@ const httpError = function(status, message) {
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
     "(function() {\n" +
     "'use strict';\n" +
-    "return async function(args){\n" +
+    "return function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
@@ -173,7 +173,7 @@ const originRequire = function(name, js) {
         script = null; context = null; memory = null;
     
         // スクリプトを実行して、exportsの条件を取得.
-        var ret = {};
+        const ret = {};
         executeJs(ret);
     
         // 実行結果を返却.

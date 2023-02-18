@@ -18,7 +18,7 @@
 // (async function() {
 // require("s3reqreg.js").setOption(
 //   {contentPath: "s3://bucket/prefix/"});
-// const hoge = async s3require("hoge.js");
+// const hoge = await s3require("hoge.js");
 //   ・・・・・
 // })();
 //
@@ -40,12 +40,12 @@
 // また、s3requireは一度呼び出したものはキャッシュ化されるので、２度目からの
 // 実行コストは軽減されます.
 ///////////////////////////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // すでに定義済みの場合.
-if(_g.s3require != undefined) {
-    const m = _g.s3require.exports;
+if(global.s3require != undefined) {
+    const m = global.s3require.exports;
     for(let k in m) {
         exports[k] = m[k];
     }
@@ -229,7 +229,7 @@ const loadS3 = async function(params, response) {
 const ORIGIN_REQUIRE_SCRIPT_HEADER =
     "(function() {\n" +
     "'use strict';\n" +
-    "return async function(args){\n" +
+    "return function(args){\n" +
     "const exports = args;\n";
     "const module = {exports: args};\n";
 
@@ -249,11 +249,10 @@ const originRequire = function(name, js) {
     let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
         + _TEXT_DECODE.decode(js)
         + ORIGIN_REQUIRE_SCRIPT_FOODER;
-    
     try {
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
-        let memory = _g;
+        let memory = global;
         let context = vm.createContext(memory);
     
         // スクリプト実行環境を生成.
@@ -263,7 +262,7 @@ const originRequire = function(name, js) {
         script = null; context = null; memory = null;
     
         // スクリプトを実行して、exportsの条件を取得.
-        var ret = {};
+        const ret = {};
         executeJs(ret);
     
         // 実行結果を返却.
@@ -372,13 +371,13 @@ const init = function() {
     // キャッシュクリアをセット.
     s3require.clearCache = clearCache;
     // s3requireをglobalに登録(書き換え禁止).
-    Object.defineProperty(_g, "s3require",
+    Object.defineProperty(global, "s3require",
         {writable: false, value: s3require});
     // s3contentsをglobalに登録(書き換え禁止).
-    Object.defineProperty(_g, "s3contents",
+    Object.defineProperty(global, "s3contents",
         {writable: false, value: s3contents});
     // s3headをglobalに登録(書き換え禁止).
-    Object.defineProperty(_g, "s3head",
+    Object.defineProperty(global, "s3head",
         {writable: false, value: s3head});
 
     // exportsを登録.
@@ -399,4 +398,4 @@ const init = function() {
 // grobalに登録.
 init();
 
-})(global);
+})();

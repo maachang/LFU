@@ -39,7 +39,7 @@
 //     レスポンス用のHTTPヘッダが設定される.
 //   $jhtml = jhtml用専用メソッド.
 //////////////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict'
 
 // frequireが設定されていない場合.
@@ -270,19 +270,26 @@ const JHTML_JS_FOODER =
 // request 対象のリクエスト情報を設定します.
 // status 対象のステータスを設定します.
 // response 対象のレスポンスを設定します.
+// params request.paramsでない、パラメータを設定する場合は、
+//        こちらに設定します.
 // 戻り値: 実行結果(string)が返却されます.
 const executeJhtml = async function(
-    name, js, request, status, response) {
+    name, js, request, status, response, params) {
     // jhtml実行JSのスクリプトを生成.
     let srcScript = JHTML_JS_HEADER
         + js
         + JHTML_JS_FOODER;
     try {
+        // paramsが指定されていない場合.
+        if(params == undefined || params == null) {
+            // request.paramsをセット.
+            params = request.params;
+        }
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
-        let memory = _g;
+        let memory = global;
         let context = vm.createContext(memory);
-    
+
         // スクリプト実行環境を生成.
         let script = new vm.Script(srcScript, {filename: name});
         srcScript = null;
@@ -302,8 +309,8 @@ const executeJhtml = async function(
             return out;
         }
         // スクリプトを実行して、exportsの条件を取得.
-        await executeJs(out, request.params, request, status, response,
-                jhtmlMethod(out, request.params, request, status, response));
+        await executeJs(out, params, request, status, response,
+                jhtmlMethod(out, params, request, status, response));
 
         // コンテンツタイプが設定されていない場合.
         if(response.get("content-type") == undefined) {
@@ -444,4 +451,4 @@ const jhtmlMethod = function($out, $params, $request, $status, $response) {
 exports.convertJhtmlToJs = convertJhtmlToJs;
 exports.executeJhtml = executeJhtml;
 
-})(global);
+})();
