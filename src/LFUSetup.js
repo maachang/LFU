@@ -361,7 +361,7 @@ const regRequestRequireFunc = function(env) {
         global.exrequire = function(
             path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = env.requestPath;
+                currentPath = ".";
             }
             return global.s3require(path, currentPath,
                 noneCache, response);
@@ -371,7 +371,7 @@ const regRequestRequireFunc = function(env) {
         global.excontents = function(
             path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = env.requestPath;
+                currentPath = ".";
             }
             return global.s3contents(path, currentPath,
                 response);
@@ -406,7 +406,7 @@ const regRequestRequireFunc = function(env) {
         global.exrequire = function(
             path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = env.requestPath;
+                currentPath = ".";
             }
             return global.grequire(path, currentPath,
                 noneCache, response);
@@ -416,7 +416,7 @@ const regRequestRequireFunc = function(env) {
         global.excontents = function(
             path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = env.requestPath;
+                currentPath = ".";
             }
             return global.gcontents(path, currentPath,
                 response);
