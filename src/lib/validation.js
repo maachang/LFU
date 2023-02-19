@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////
-// validate処理.
-// HTTPのGETやPOSTのパラメータのvalidate処理を行う.
+// validation処理.
+// HTTPのGETやPOSTのパラメータのvalidation処理を行う.
 ///////////////////////////////////////////////////////////
 (function() {
 'use strict'
@@ -16,33 +16,21 @@ if(frequire == undefined) {
 // Validate型.
 const MODEL = {
     "none": 0,
-    "no": 0,
-    "obj": 0,
-    "object": 0,
-    "str": 1,
     "string": 1,
-    "num": 2,
-    "number": 2,
+    "integer": 2,
     "float": 3,
-    "double": 3,
-    "bool": 4,
     "boolean": 4,
-    "date": 5,
-    "timestamp": 5
+    "calendar": 5,
+    "time": 6,
+    "timestamp": 7,
+    "date": 8
 };
 
-// 定義されていない場合.
-const isNull = function(value) {
-    return (value == null || value == undefined);
-}
-
-// valicateエラーの返却処理.
+// validateエラーの返却処理.
 // status 対象のHTTPステータスを設定します.
 // message 対象のHTTPステータスメッセージを設定します.
 const resultError = function(status, message) {
-    // とりあえず後で考える.
-
-
+    throw new HttpError(status, message);
 }
 
 // [validate]デフォルト定義.
@@ -57,6 +45,11 @@ const defaultValue = function(define, value) {
         return define;
     }
     return value;
+}
+
+// 定義されていない場合.
+const isNull = function(value) {
+    return (value == null || value == undefined);
 }
 
 // 数値のみの場合.
@@ -97,25 +90,30 @@ const convertFloat = function(value) {
 const conertValue = function(name, model, value) {
     // modelが定義されていない場合、そのまま返却.
     // または、define定義で文字列以外の場合.
-    if(isNull(model) || typeof(value) != "string") {
+    if(isNull(model)) {
         return value;
     }
     // 指定タイプを取得.
-    const modelNum = MODEL[(""+model).toLowerCase()];
+    const modelNum = isNumber(model) ?
+        parseInt(model) :
+        MODEL[(""+model).toLowerCase()];
+    // タイプが対象外 or noneの場合.
     if(modelNum == undefined || modelNum == 0) {
-        // タイプが対象外 or noneの場合.
         return value;
     }
-    // valueを文字列変換.
+    // valueを整形.
     value = (value == null || value == undefined) ?
-        "" : "" + value;
+        "" : value;
     // それぞれのタイプ変換.
     switch(modelNum) {
         case 1: return value;
         case 2: return convertInt(value);
         case 3: return convertFloat(value);
-        case 4: return value.toLowerCase() == "true";
-        case 5: return new Date(value);
+        case 4: return ("" + value.toLowerCase()) == "true";
+        case 5: return new Calendar(value);
+        case 6: return new Time(value);
+        case 7: return new Timestamp(value);
+        case 8: return new Timestamp(value);
     }
     // それ以外の該当しない条件の場合はエラー.
     resultError(500,
@@ -135,7 +133,8 @@ const cutQuotation = function(n) {
 
 // [validate]存在確認.
 const v_required = function(value) {
-    return value != null && value != undefined || value == "";
+    return value != null && value != undefined ||
+        (typeof(validate) == "string" && value.length > 0);
 }
 
 // [validate]正規表現.
@@ -161,10 +160,12 @@ const r_time =
 
 // validate条件.
 const V_TERMS = {
-    req: v_required,
-    required: v_required,
-    reg: v_regex,
-    regex: v_regex,
+    // [validate]存在確認.
+    required: function(reg) {
+        return function(value) {
+            return v_required(value, reg);
+        }
+    },
     // [validate]min.
     min: function(len) {
         return function(value, name, model) {
@@ -230,7 +231,7 @@ const V_TERMS = {
         }
     },
     // [validate]date正規表現.
-    date: function(name) {
+    date: function() {
         return function(value) {
             return v_regex(value, r_date);
         }
@@ -249,7 +250,7 @@ const V_TERMS = {
     }
 }
 
-// validate処理.
+// validation処理.
 // method このメソッド以外は対応しない条件を設定します.
 //        "all" or "*" or undefined or null で全てのHTTPメソッドを許可します.
 //        "GET" で、GETメソッドを許可します.

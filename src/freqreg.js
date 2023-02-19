@@ -10,16 +10,19 @@
 (function() {
 'use strict'
 
+// HttpErrorの読み込み.
+if(global.HttpError != undefined) {
+    require("./httpError.js");
+}
+
+// modelの読み込み.
+if(global["_$use%-%model"] != true) {
+    require("./model.js");
+}
+
 // すでに定義済みの場合.
 if(global.frequire != undefined) {
     return;
-}
-
-// HttpErrorが設定されていない場合.
-let HttpError = global.HttpError;
-if(HttpError == undefined) {
-    require("./httpError.js");
-    HttpError = global.HttpError;
 }
 
 // nodejs library.
