@@ -637,7 +637,7 @@ exports.decodeArray = decodeArray;
 const decodeCalendar = function(pos, bin) {
     const ret = new Calendar();
     ret.importBinary(bin, pos[0]);
-    pos[0] = ret.getByteLength();
+    pos[0] += ret.getByteLength();
     return ret;
 }
 // 外部定義.
@@ -652,7 +652,7 @@ exports.decodeCalendar = decodeCalendar;
 const decodeTime = function(pos, bin) {
     const ret = new Time();
     ret.importBinary(bin, pos[0]);
-    pos[0] = ret.getByteLength();
+    pos[0] += ret.getByteLength();
     return ret;
 }
 // 外部定義.
@@ -667,7 +667,7 @@ exports.decodeTime = decodeTime;
 const decodeTimestamp = function(pos, bin) {
     const ret = new Timestamp();
     ret.importBinary(bin, pos[0]);
-    pos[0] = ret.getByteLength();
+    pos[0] += ret.getByteLength();
     return ret;
 }
 // 外部定義.
