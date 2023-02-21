@@ -39,6 +39,12 @@ const TYPE_KEY = MASK_STRING | 0x02;
 const TYPE_BOOLEAN = 0x30;
 // Date型.
 const TYPE_DATE = 0x40;
+// Calendar型.
+const TYPE_CALENDAR = 0x41;
+// Time型.
+const TYPE_TIME = 0x42;
+// Timestamp型.
+const TYPE_TIMESTAMP = 0x43;
 // Array型.
 const TYPE_ARRAY = 0xe0;
 // Object型.
@@ -56,6 +62,10 @@ exports.TYPE_UINT8 = TYPE_UINT8;
 exports.TYPE_STRING = TYPE_STRING;
 exports.TYPE_KEY = TYPE_KEY;
 exports.TYPE_BOOLEAN = TYPE_BOOLEAN;
+exports.TYPE_DATE = TYPE_DATE;
+exports.TYPE_CALENDAR = TYPE_CALENDAR;
+exports.TYPE_TIME = TYPE_TIME;
+exports.TYPE_TIMESTAMP = TYPE_TIMESTAMP;
 exports.TYPE_DATE = TYPE_DATE;
 exports.TYPE_ARRAY = TYPE_ARRAY;
 exports.TYPE_OBJECT = TYPE_OBJECT;
@@ -164,6 +174,33 @@ const isDate = function(value) {
 }
 // 外部定義.
 exports.isDate = isDate;
+
+// 指定valueがCalendarオブジェクトかチェック.
+// value チェック条件を設定します.
+// 戻り値: true の場合Calendarオブジェクトです.
+const isCalendar = function(value) {
+    return value instanceof Calendar;
+}
+// 外部定義.
+exports.isCalendar = isCalendar;
+
+// 指定valueがTimeオブジェクトかチェック.
+// value チェック条件を設定します.
+// 戻り値: true の場合Timeオブジェクトです.
+const isTime = function(value) {
+    return value instanceof Time;
+}
+// 外部定義.
+exports.isTime = isTime;
+
+// 指定valueがTimestampオブジェクトかチェック.
+// value チェック条件を設定します.
+// 戻り値: true の場合Timeオブジェクトです.
+const isTimestamp = function(value) {
+    return value instanceof Timestamp;
+}
+// 外部定義.
+exports.isTimestamp = isTimestamp;
 
 // 指定valueがArrayオブジェクトかチェック.
 // value チェック条件を設定します.
@@ -439,6 +476,33 @@ const encodeString = function(out, value) {
 // 外部定義.
 exports.encodeString = encodeString;
 
+// Calendarオブジェクトをエンコード.
+// out バイナリをセットするArrayを設定します.
+// value オブジェクトを設定します.
+const encodeCalendar = function(out, value) {
+    value.exportBinary(out, out.length);
+}
+// 外部定義.
+exports.encodeCalendar = encodeCalendar;
+
+// Timeオブジェクトをエンコード.
+// out バイナリをセットするArrayを設定します.
+// value オブジェクトを設定します.
+const encodeTime = function(out, value) {
+    value.exportBinary(out, out.length);
+}
+// 外部定義.
+exports.encodeTime = encodeTime;
+
+// Timestampオブジェクトをエンコード.
+// out バイナリをセットするArrayを設定します.
+// value オブジェクトを設定します.
+const encodeTimestamp = function(out, value) {
+    value.exportBinary(out, out.length);
+}
+// 外部定義.
+exports.encodeTimestamp = encodeTimestamp;
+
 // デコード文字列を取得.
 // pos Array[number] バイナリのポジションを設定します.
 //                   またこの処理が終わった場合、バイナリのポジションは
@@ -563,6 +627,51 @@ const decodeArray = function(pos, bin) {
 }
 // 外部定義.
 exports.decodeArray = decodeArray;
+
+// Calendarオブジェクトのデコード.
+// pos Array[number] バイナリのポジションを設定します.
+//                   またこの処理が終わった場合、バイナリのポジションは
+//                   更新されます.
+// bin バイナリを設定します.
+// 戻り値: デコードされたオブジェクトが返却されます.
+const decodeCalendar = function(pos, bin) {
+    const ret = new Calendar();
+    ret.importBinary(bin, pos[0]);
+    pos[0] = ret.getByteLength();
+    return ret;
+}
+// 外部定義.
+exports.decodeCalendar = decodeCalendar;
+
+// Timeオブジェクトのデコード.
+// pos Array[number] バイナリのポジションを設定します.
+//                   またこの処理が終わった場合、バイナリのポジションは
+//                   更新されます.
+// bin バイナリを設定します.
+// 戻り値: デコードされたオブジェクトが返却されます.
+const decodeTime = function(pos, bin) {
+    const ret = new Time();
+    ret.importBinary(bin, pos[0]);
+    pos[0] = ret.getByteLength();
+    return ret;
+}
+// 外部定義.
+exports.decodeTime = decodeTime;
+
+// Timestampオブジェクトのデコード.
+// pos Array[number] バイナリのポジションを設定します.
+//                   またこの処理が終わった場合、バイナリのポジションは
+//                   更新されます.
+// bin バイナリを設定します.
+// 戻り値: デコードされたオブジェクトが返却されます.
+const decodeTimestamp = function(pos, bin) {
+    const ret = new Timestamp();
+    ret.importBinary(bin, pos[0]);
+    pos[0] = ret.getByteLength();
+    return ret;
+}
+// 外部定義.
+exports.decodeTimestamp = decodeTimestamp;
 
 // オブジェクトのエンコード.
 // out バイナリをセットするArrayを設定します.
@@ -693,9 +802,27 @@ const encodeValue = function(out, value) {
         encodeString(out, value);
     // date型.
     } else if(isDate(value)) {
-        out[out.length] = TYPE_DATE;
-        // long値の値をセット.
-        encodeLong(out, value.getTime());
+        /////////////////////////////////////////////////////
+        // calendar, time, timestamp はDateオブジェクトの派生.
+        /////////////////////////////////////////////////////
+        // calendar
+        if(isCalendar(value)) {
+            out[out.length] = TYPE_CALENDAR;
+            encodeCalendar(out, value);
+        // time.
+        } else if(isTime(value)) {
+            out[out.length] = TYPE_TIME;
+            encodeTime(out, value);
+        // timestamp.
+        } else if(isTimestamp(value)) {
+            out[out.length] = TYPE_TIMESTAMP;
+            encodeTimestamp(out, value);
+        // date.
+        } else {
+            out[out.length] = TYPE_DATE;
+            // long値の値をセット.
+            encodeLong(out, value.getTime());
+        }
     // boolean型.
     } else if(isBoolean(value)) {
         out[out.length] = TYPE_BOOLEAN;
@@ -738,6 +865,15 @@ const decodeValue = function(pos, bin) {
     } else if(type == TYPE_DATE) {
         let tm = decodeLong(pos, bin);
         return new Date(tm);
+    // calendar型.
+    } else if(type == TYPE_CALENDAR) {
+        return decodeCalendar(pos, bin);
+    // time型.
+    } else if(type == TYPE_TIME) {
+        return decodeTime(pos, bin);
+    // timestamp型.
+    } else if(type == TYPE_TIMESTAMP) {
+        return decodeTimestamp(pos, bin);
     // boolean型.
     } else if(type == TYPE_BOOLEAN) {
         return decodeBoolean(pos, bin);
