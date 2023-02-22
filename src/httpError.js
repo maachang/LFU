@@ -383,7 +383,7 @@ const httpErrorResponseToHTML = async function(
 //          (status, message以外)
 //          呼び出し元がjs形式の場合JSON 返却、templatePathがjhtmlの場合は
 //          その時のパラメータとして返却されます.
-class HttpError extends Error {
+const HttpError = class extends Error {
     #status;
     #message;
     #model;
