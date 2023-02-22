@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////
-// httpsClient.
+// [非同期]httpsClient.
 ///////////////////////////////////////////////////////////
 (function() {
 'use strict'
@@ -158,6 +158,10 @@ const request = function(host, path, options) {
     if(body != undefined && header["content-length"] == undefined &&
         header["transfer-encoding"] != "chunked") {
         header["content-length"] = Buffer.byteLength(body);
+    }
+    // hostにhttps://が存在する場合は除外.
+    if(host.startsWith("https://")) {
+        host = host.substring(8).trim();
     }
     // 非同期処理.
     return new Promise((resolve, reject) => {
