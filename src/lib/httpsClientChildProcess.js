@@ -2,6 +2,7 @@
 // [同期]httpsClient用子プロセス実行用.
 // この処理は 基本的に ./lib/httpsClientSync.js から呼ばれる.
 // この処理は ./lib/httpsClient.jsの結果を stdoutで処理する.
+// これにより同期で「HTTPSClient」アクセスができる.
 ///////////////////////////////////////////////////////////
 (function() {
 'use strict'
@@ -43,7 +44,7 @@ asyncHttpsClient.request(host, path, options)
         status: res != undefined ? res.status : undefined,
         header: res != undefined ? res.header : undefined,
         body: body.toString('base64')
-    }
+    };
     // コンソール出力.
     process.stdout.write(
         JSON.stringify(ret)
@@ -54,7 +55,7 @@ asyncHttpsClient.request(host, path, options)
 // 失敗処理.
 .catch((err) => {
     // エラーログを出力.
-    console.error("httpsError: host: " +
+    console.error("httpsClientError: host: " +
         host + " path: " + path, err);
     // エラーメッセージをコンソール出力.
     const ret = {"#error": err.toString()};
