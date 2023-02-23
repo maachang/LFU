@@ -333,9 +333,7 @@ const grequire = async function(
         const ret = cache[gpath];
         if(ret != undefined && ret[1] > Date.now()) {
             // キャッシュされている場合は返却(promise).
-            return new Promise((resolve) => {
-                resolve(ret[0]);
-            });
+            return ret[0];
         }
     }
     // gitのrepogitoryからデータを取得して実行.

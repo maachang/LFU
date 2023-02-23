@@ -309,9 +309,7 @@ const s3require = async function(path, currentPath, noneCache, response) {
         const ret = cache[s3name];
         if(ret != undefined && ret[1] > Date.now()) {
             // キャッシュされている場合は返却(promise).
-            return new Promise((resolve) => {
-                resolve(ret[0]);
-            });
+            return ret[0];
         }
     }
     // S3からデータを取得して実行してキャッシュ化する.
