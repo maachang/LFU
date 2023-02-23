@@ -104,6 +104,11 @@ const request = function(host, path, options) {
             maxBuffer = MAX_BUFFER
         }
     }
+    // options.bodyが存在する場合.
+    if(options.body != undefined && options.body != null) {
+        // base64変換.
+        options.body = Buffer.from(options.body).toString("base64");
+    }
     // [同期]子プロセスを作成して、nodejsのプログラムを実行.
     let result = chProc.execFileSync(process.execPath,
         [ __dirname + "/httpsClientChildProcess.js"], {

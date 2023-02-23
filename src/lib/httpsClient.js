@@ -178,9 +178,9 @@ const request = function(host, path, options) {
                 // response処理.
                 try {
                     // バイナリ受信.
-                    const body = [];
+                    const recvBody = [];
                     res.on("data", (chunk)=>{
-                        body.push(chunk);
+                        recvBody.push(chunk);
                     });
                     res.on("end", ()=>{
                         // レスポンス情報を受け付ける.
@@ -191,7 +191,7 @@ const request = function(host, path, options) {
                                 convertHeaderToLowerKey(
                                     res.headers);
                         }
-                        resolve(Buffer.concat(body));
+                        resolve(Buffer.concat(recvBody));
                     });
                     res.on("error", reject);
                 } catch (err) {

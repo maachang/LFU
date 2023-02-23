@@ -437,7 +437,7 @@ const create = function(options) {
     // index key, value ... を設定します. 
     // value valueを設定します.
     // 戻り値: trueの場合設定に成功しました.
-    const put = async function() {
+    const put = function() {
         // 0value, keyありで取得.
         let ap = tableAccessParams(1, arguments);
         const pm = getS3Params(
@@ -445,7 +445,7 @@ const create = function(options) {
         const value = convbEncode(ap.value[0]);
         ap = null;
         const response = {};
-        await s3.putObject(
+        s3.putObject(
             response, regionName, pm.Bucket, 
             pm.Key + S3KVS_EXTENSION, value,
             credential);
@@ -457,14 +457,14 @@ const create = function(options) {
     // index key, value ... を設定します. 
     // 戻り値: 検索結果(json)が返却されます.
     //         情報取得に失敗した場合は null が返却されます.
-    const get = async function() {
+    const get = function() {
         // 0value, keyありで取得.
         let ap = tableAccessParams(0, arguments);
         const pm = getS3Params(
             bucketName, prefixName, ap.tableName, ap.index);
         ap = null;
         const response = {};
-        const bin = await s3.getObject(
+        const bin = s3.getObject(
             response, regionName, pm.Bucket,
             pm.Key + S3KVS_EXTENSION,
             credential);
@@ -476,14 +476,14 @@ const create = function(options) {
     // tableName 対象のテーブル名を設定します.
     // index key, value ... を設定します. 
     // 戻り値: trueの場合削除に成功しました.
-    const remove = async function() {
+    const remove = function() {
         // 0value, keyありで取得.
         let ap = tableAccessParams(0, arguments);
         const pm = getS3Params(
             bucketName, prefixName, ap.tableName, ap.index);
         ap = null;
         const response = {};
-        await s3.deleteObject(
+        s3.deleteObject(
             response, regionName, pm.Bucket,
             pm.Key + S3KVS_EXTENSION,
             credential);
@@ -499,7 +499,7 @@ const create = function(options) {
     //     100件を超える設定はできません.
     // 戻り値: [{key: value} ... ]
     //        指定したpath位置以下のobject名のkeyValue群が返却されます.
-    const list = async function(tableName, page, max) {
+    const list = function(tableName, page, max) {
         page = page|0;
         max = max|0;
         // １度に取得できる最大リスト件数の範囲外の場合.
@@ -532,7 +532,7 @@ const create = function(options) {
             // response情報.
             res = {};
             // 対象のリストを取得.
-            ret = await s3.listObject(
+            ret = s3.listObject(
                 res, regionName, bucket, prefix, opt,
                 credential);
             // ページ番号の場合.

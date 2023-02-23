@@ -19,7 +19,7 @@ if(frequire == undefined) {
 }
 
 // httpsClient.
-const httpsClient = frequire("./lib/httpsClient.js");
+const httpsClient = frequire("./lib/httpsClientSync.js");
 
 // signatureVersion4.
 const awsSigV4 = frequire("./lib/awsSignatureV4.js");
@@ -254,7 +254,7 @@ const PUT_S3_MODE_STANDARD = "STANDARD";
 // body 対象のBody情報を設定します.
 // credential AWSクレデンシャルを設定します.
 // 戻り値: 対象のS3オブジェクトが返却されます.
-const putObject = async function(
+const putObject = function(
     response, region, bucket, key, body, credential) {
     if(typeof(key) != "string" || key.length == 0) {
         throw new Error("key does not exist.");
@@ -288,7 +288,7 @@ const putObject = async function(
         method, header, null, body);
 
     // HTTPSクライアント問い合わせ.
-    return await httpsClient.request(host, key, {
+    return httpsClient.request(host, key, {
         method: method,
         header: header,
         body: body,
@@ -307,7 +307,7 @@ const putObject = async function(
 // bucket 対象のS3バケット名を設定します.
 // key 対象のS3キー名を設定します.
 // credential AWSクレデンシャルを設定します.
-const deleteObject = async function(
+const deleteObject = function(
     response, region, bucket, key, credential) {
     if(typeof(key) != "string" || key.length == 0) {
         throw new Error("key does not exist.");
@@ -334,7 +334,7 @@ const deleteObject = async function(
     setSignature(credential, region, key, method, header);
 
     // HTTPSクライアント問い合わせ.
-    await httpsClient.request(host, key, {
+    httpsClient.request(host, key, {
         method: method,
         header: header,
         response: response
@@ -353,7 +353,7 @@ const deleteObject = async function(
 // key 対象のS3キー名を設定します.
 // credential AWSクレデンシャルを設定します.
 // 戻り値: 対象のS3オブジェクトが返却されます.
-const getObject = async function(
+const getObject = function(
     response, region, bucket, key, credential) {
     if(typeof(key) != "string" || key.length == 0) {
         throw new Error("key does not exist.");
@@ -380,7 +380,7 @@ const getObject = async function(
     setSignature(credential, region, key, method, header);
 
     // HTTPSクライアント問い合わせ.
-    return await httpsClient.request(host, key, {
+    return httpsClient.request(host, key, {
         method: method,
         header: header,
         response: response
@@ -398,7 +398,7 @@ const getObject = async function(
 // bucket 対象のS3バケット名を設定します.
 // key 対象のS3キー名を設定します.
 // credential AWSクレデンシャルを設定します.
-const headObject = async function(
+const headObject = function(
     response, region, bucket, key, credential) {
     if(typeof(key) != "string" || key.length == 0) {
         throw new Error("key does not exist.");
@@ -425,7 +425,7 @@ const headObject = async function(
     setSignature(credential, region, key, method, header);
 
     // HTTPSクライアント問い合わせ.
-    await httpsClient.request(host, key, {
+    httpsClient.request(host, key, {
         method: method,
         header: header,
         response: response
@@ -461,7 +461,7 @@ const headObject = async function(
 //         options.keyOnly == trueの場合.
 //         [key, key, ...]
 //         Arrayに取得Key一覧が返却されます.
-const listObject = async function(
+const listObject = function(
     response, region, bucket, prefix, options, credential) {
     if(typeof(prefix) != "string") {
         throw new Error("prefix does not exist.");
@@ -519,12 +519,12 @@ const listObject = async function(
         urlParams);
 
     // HTTPSクライアント問い合わせ.
-    const xml = (await httpsClient.request(host, "", {
+    const xml = httpsClient.request(host, "", {
         method: method,
         header: header,
         urlParams: urlParams,
         response: response
-    })).toString();
+    }).toString();
 
     // ステータスが400以上の場合.
     if(response.status >= 400) {

@@ -71,7 +71,7 @@ const create = function(region, credential) {
     //         - key: オブジェクト名.
     //         - lastModified: 最終更新時間(yyyy/MM/ddTHH:mm:ssZ).
     //         - size: ファイルサイズ.
-    ret.listObjects = async function(params) {
+    ret.listObjects = function(params) {
         // バケット名を取得.
         const bucket = getBucketName(params.Bucket);
         const options = {
@@ -83,7 +83,7 @@ const create = function(region, credential) {
         // リスト取得.
         const response = {};
         params.response = response;
-        const ret = await s3.listObject(
+        const ret = s3.listObject(
             response, region, bucket, params.Prefix,
             options, credential);
         // レスポンスステータスが400以上の場合エラー.
@@ -105,13 +105,13 @@ const create = function(region, credential) {
     // 戻り値: {lastModified: string, size: number}
     //         - lastModified: 最終更新時間(yyyy/MM/ddTHH:mm:ssZ).
     //         - size: ファイルサイズ.
-    ret.headObject = async function(params) {
+    ret.headObject = function(params) {
         // バケット名を取得.
         const bucket = getBucketName(params.Bucket);
         // オブジェクト取得.
         const response = {};
         params.response = response;
-        const ret = await s3.headObject(
+        const ret = s3.headObject(
             response, region, bucket, params.Key, credential);
         // レスポンスステータスが400以上の場合エラー.
         if(response.status >= 400) {
@@ -129,13 +129,13 @@ const create = function(region, credential) {
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: 処理結果のBufferが返却されます.
-    ret.getObject = async function(params) {
+    ret.getObject = function(params) {
         // バケット名を取得.
         const bucket = getBucketName(params.Bucket);
         // オブジェクト取得.
         const response = {};
         params.response = response;
-        const ret = await s3.getObject(
+        const ret = s3.getObject(
             response, region, bucket, params.Key, credential);
         // レスポンスステータスが400以上の場合エラー.
         if(response.status >= 400) {
@@ -153,8 +153,8 @@ const create = function(region, credential) {
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: 処理結果が文字列で返却されます.
-    ret.getString = async function(params) {
-        return (await ret.getObject(params))
+    ret.getString = function(params) {
+        return ret.getObject(params)
             .toString();
     }
 
@@ -166,13 +166,13 @@ const create = function(region, credential) {
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: trueの場合、正常に設定されました.
-    ret.putObject = async function(params) {
+    ret.putObject = function(params) {
         // バケット名を取得.
         const bucket = getBucketName(params.Bucket);
         // bodyをput.
         const response = {};
         params.response = response;
-        await s3.putObject(
+        s3.putObject(
             response, region, bucket, params.Key,
             params.Body, credential);
         // レスポンスステータスが400以上の場合エラー.
@@ -191,13 +191,13 @@ const create = function(region, credential) {
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: trueの場合、正常に設定されました.
-    ret.deleteObject = async function(params) {
+    ret.deleteObject = function(params) {
         // バケット名を取得.
         const bucket = getBucketName(params.Bucket);
         // オブジェクト取得.
         const response = {};
         params.response = response;
-        await s3.getObject(
+        s3.getObject(
             response, region, bucket, params.Key, credential);
         // レスポンスステータスが400以上の場合エラー.
         if(response.status >= 400) {

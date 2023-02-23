@@ -331,9 +331,9 @@ const executeJhtml = async function(
 //      ここでのパスの解釈はexcontentで処理されます.
 // charset 文字コードを設定します.
 // 戻り値: 文字列が返却されます.
-const getStringContents = async function(path, charset) {
+const getStringContents = function(path, charset) {
     // 設定された環境からコンテンツを取得.
-    let ret = await excontents(path);
+    let ret = excontents(path);
     // charsetが設定されている場合.
     if(typeof(charset) == "string") {
         // binaryから文字列変換(charsetで変換).
@@ -399,7 +399,7 @@ const jhtmlMethod = function($out, $params, $request, $status, $response) {
         // 対象パスが.jhtml拡張子の場合変換.
         path = convertJhtmlPath(path);
         // 設定された環境からコンテンツを取得.
-        let ret = await getStringContents(path, charset);
+        let ret = getStringContents(path, charset);
         // jhtmlの場合、JHTML実行.
         if(isJsHTML(path)) {
             ret = await execJHTML(path, ret, $request, $status, $response);
@@ -421,7 +421,7 @@ const jhtmlMethod = function($out, $params, $request, $status, $response) {
         // 対象パスが.jhtml拡張子の場合変換.
         path = convertJhtmlPath(path);
         // 設定された環境からコンテンツを取得.
-        let ret = await getStringContents(path, charset);
+        let ret = getStringContents(path, charset);
         // jhtmlの場合、JHTML実行.
         if(isJsHTML(path)) {
             ret = await execJHTML(path, ret, $request, $status, $response);

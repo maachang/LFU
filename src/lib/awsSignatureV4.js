@@ -17,9 +17,6 @@ if(frequire == undefined) {
 // crypto.
 const crypto = frequire('crypto');
 
-// httpsClient.
-const httpsClient = frequire("./lib/httpsClient.js");
-
 // CredentialScope のアルゴリズム名.
 const ALGORITHM = "AWS4-HMAC-SHA256";
 
@@ -170,6 +167,33 @@ const getRequestHeaderKeys = function(header) {
     return ret;
 }
 
+// urlParamsを文字列に変換する.
+// urlParams 解析されたURLパラメータを設定します.
+// 戻り値: 変換された文字列が返却されます.
+const convertUrlParams = function(urlParams) {
+    if(urlParams == undefined || urlParams == null) {
+        return "";
+    } else if(typeof(urlParams) == "string") {
+        return urlParams;
+    }
+    const list = [];
+    for(let k in urlParams) {
+        list[list.length] =
+            encodeURIComponent(k) + "=" +
+            encodeURIComponent(urlParams[k]);
+    }
+    list.sort();
+    const len = list.length;
+    let ret = "";
+    for(let i = 0; i < len; i ++) {
+        if(i != 0) {
+            ret += "&";
+        }
+        ret += list[i];
+    }
+    return ret;
+}
+
 // step1.署名バージョン4の正規リクエストを作成する.
 // https://docs.aws.amazon.com/ja_jp/general/latest/gr/sigv4-create-canonical-request.html
 //  CanonicalRequest =
@@ -215,7 +239,7 @@ const signatureV4Step1 = function(
         payload = "";
     }
     // urlParamsを取得.
-    urlParams = httpsClient.convertUrlParams(urlParams);
+    urlParams = convertUrlParams(urlParams);
     // x-amz-dateが存在しない場合.
     if(header["x-amz-date"] == undefined) {
         const date = new Date();

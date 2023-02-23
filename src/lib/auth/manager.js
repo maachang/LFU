@@ -94,19 +94,19 @@ const useString = function(s) {
 // user 対象のユーザ名を設定します.
 // 戻り値: {password: string, .... }
 //         password: パスワード(sha256)が返却されます.
-const getUser = async function(user) {
+const getUser = function(user) {
     if(!useString(user)) {
         throw new Error("User has not been set.");
     }
-    return await userTable.get("user", user);
+    return userTable.get("user", user);
 }
 
 // ユーザー情報が存在するかチェック.
 // user 対象のユーザ名を設定します.
 // 戻り値: trueの場合存在します.
-const isUser = async function(user) {
+const isUser = function(user) {
     try {
-        return await getUser(user) != null;
+        return getUser(user) != null;
     } catch(e) {
         return false;
     }
@@ -117,12 +117,12 @@ const isUser = async function(user) {
 // password 対象のパスワードを設定します.
 // options ユーザオプションを設定します.
 // 戻り値: trueの場合登録できました.
-const createUser = async function(user, password, options) {
+const createUser = function(user, password, options) {
     if(!useString(password)) {
         throw new Error("Password has not been set.");
     }
     // 既にユーザ情報が存在する場合.
-    if(await getUser(user) != null) {
+    if(getUser(user) != null) {
         throw new Error(
             "User (" + user + ") already exists.")
     }
@@ -137,19 +137,19 @@ const createUser = async function(user, password, options) {
     }
     // パスワードをセット.
     userInfo["password"] = password;
-    return await userTable.put("user", user, userInfo);
+    return userTable.put("user", user, userInfo);
 }
 
 // ユーザ削除.
 // user 対象のユーザ名を設定します.
 // 戻り値: trueの場合ユーザ情報が削除できました.
-const removeUser = async function(user) {
+const removeUser = function(user) {
     // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
+    const userInfo = getUser(user);
     if(userInfo == null) {
         return false;
     }
-    return await userTable.remove("user", user);
+    return userTable.remove("user", user);
 }
 
 // パスワード変更.
@@ -157,7 +157,7 @@ const removeUser = async function(user) {
 // srcPassword 元のパスワードを設定します.
 // newPassword 新しいパスワードを設定します.
 // 戻り値: trueの場合パスワードの変更ができました.
-const changePassword = async function(
+const changePassword = function(
     user, srcPassword, newPassword) {
     if(!useString(srcPassword)) {
         throw new Error("srcPassword has not been set.");
@@ -165,7 +165,7 @@ const changePassword = async function(
         throw new Error("newPassword has not been set.");
     }
     // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
+    const userInfo = getUser(user);
     if(userInfo == null) {
         throw new Error(
             "User (" + user + ") no longer exists.")
@@ -179,7 +179,7 @@ const changePassword = async function(
     // 新しいパスワードをsha256変換.
     newPassword = sha256(newPassword);
     userInfo["password"] = newPassword;
-    return await userTable.put("user", user, userInfo)
+    return userTable.put("user", user, userInfo)
 }
 
 // オプションを設定/削除.
@@ -187,9 +187,9 @@ const changePassword = async function(
 // user 対象のユーザー名を設定します.
 // options ユーザオプションを設定します.
 // 戻り値: trueの場合正常に処理できました.
-const settingOption = async function(putFlag, user, options) {
+const settingOption = function(putFlag, user, options) {
     // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
+    const userInfo = getUser(user);
     if(userInfo == null) {
         throw new Error(
             "User (" + user + ") no longer exists.")
@@ -211,7 +211,7 @@ const settingOption = async function(putFlag, user, options) {
             }
         }
     }
-    return await userTable.put("user", user, userInfo);
+    return userTable.put("user", user, userInfo);
 }
 
 // ユーザ名一覧を取得.
@@ -220,12 +220,12 @@ const settingOption = async function(putFlag, user, options) {
 // max １ページで表示する数を設定します.
 //     最大は100で、設定しない場合は 環境変数 `LOGIN_USER_LIST_LIMIT` の
 //     値が設定され、存在しない場合は25が設定されます.
-const userList = async function(page, max) {
+const userList = function(page, max) {
     if(max == undefined || max == null) {
         max = LOGIN_USER_LIST_LIMIT;
     }
     // １ページの情報を取得.
-    const list = await userTable.list(max, page);
+    const list = userTable.list(max, page);
     // 情報が存在しない場合.
     if(list == null) {
         return [];
@@ -234,7 +234,7 @@ const userList = async function(page, max) {
     const len = list.length;
     for(let i = 0; i < len; i ++) {
         // ユーザー情報をセット(passwordを除く).
-        const userInfo = await getUser(list[i]["value"]);
+        const userInfo = getUser(list[i]["value"]);
         delete userInfo["password"];
         ret[i] = userInfo;
     }
@@ -248,9 +248,9 @@ const userList = async function(page, max) {
 //        passCode パスコードが返却されます.
 //        sessionId セッションIDが返却されます.
 //        lastModified セッション生成時間(ミリ秒)が設定されます.
-const createSession = async function(user) {
+const createSession = function(user) {
     // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
+    const userInfo = getUser(user);
     if(userInfo == null) {
         throw new Error(
             "User (" + user + ") no longer exists.")
@@ -264,7 +264,7 @@ const createSession = async function(user) {
     // パスワードを削除.
     delete userInfo["password"];
     // セッション登録.
-    if(await sessionTable.put("user", user, userInfo) == true) {
+    if(sessionTable.put("user", user, userInfo) == true) {
         return userInfo;
     }
     return null;
@@ -277,8 +277,8 @@ const createSession = async function(user) {
 //        passCode パスコードが返却されます.
 //        sessionId セッションIDが返却されます.
 //        lastModified セッション生成時間(ミリ秒)が設定されます.
-const getSession = async function(user) {
-    return await sessionTable.get("user", user);
+const getSession = function(user) {
+    return sessionTable.get("user", user);
 }
 
 // ユーザーセッションを削除.
@@ -286,9 +286,9 @@ const getSession = async function(user) {
 // passCode 対象のパスコードを設定します.
 // sessionId 対象のセッションIDを設定します.
 // 戻り値: trueの場合ユーザーセッションは削除できました.
-const removeSession = async function(
+const removeSession = function(
     user, passCode, sessionId) {
-    const sessionInfo = await sessionTable.get("user", user);
+    const sessionInfo = sessionTable.get("user", user);
     if(sessionInfo == null) {
         // 取得出来ない場合は削除失敗.
         return false;
@@ -300,7 +300,7 @@ const removeSession = async function(
         return false;
     }
     // セッション更新
-    return await sessionTable.remove("user", user);
+    return sessionTable.remove("user", user);
 }
 
 // ユーザーセッションが保持する最終更新時間がexpire時間を
@@ -320,9 +320,9 @@ const isUserSessionToExpire = function(lastModified) {
 // passCode 対象のパスコードを設定します.
 // sessionId 対象のセッションIDを設定します.
 // 戻り値: trueの場合、ユーザーセッションの更新成功です.
-const updateSession = async function(
+const updateSession = function(
     user, passCode, sessionId) {
-    const sessionInfo = await sessionTable.get("user", user);
+    const sessionInfo = sessionTable.get("user", user);
     if(sessionInfo == null) {
         // 取得出来ない場合は更新失敗.
         return false;
@@ -338,19 +338,19 @@ const updateSession = async function(
     // 更新時間を更新する.
     sessionInfo.lastModified = Date.now();
     // セッション更新
-    return await sessionTable.put("user", user, sessionInfo);
+    return sessionTable.put("user", user, sessionInfo);
 }
 
 // ユーザーログイン確認.
 // user 対象のユーザ名を設定します.
 // password パスワードを設定します.
 // 戻り値: trueの場合、ログイン成功です.
-const confirmLogin = async function(user, password) {
+const confirmLogin = function(user, password) {
     if(!useString(password)) {
         return false;
     }
     // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
+    const userInfo = getUser(user);
     if(userInfo == null) {
         return false;
     }
@@ -384,15 +384,15 @@ const getLoginTokenKeyCode = function(request) {
 // user 対象のユーザー名を設定します.
 // password 対象のパスワードを設定します.
 // 戻り値: trueの場合、ログインに成功しました.
-const login = async function(resHeader, request,
+const login = function(resHeader, request,
     user, password) {
     try {
         // ログイン処理.
-        const result = await confirmLogin(user, password);
+        const result = confirmLogin(user, password);
         // ログイン成功.
         if(result == true) {
             // 新しいセッションを作成.
-            const sessions = await createSession(user);
+            const sessions = createSession(user);
             if(sessions == null) {
                 // 新しいセッション取得に失敗.
                 throw new Error("Failed to get a login session.");
@@ -421,7 +421,7 @@ const login = async function(resHeader, request,
 // resHeader レスポンスヘッダ(./lib/httpHeader.js)
 // request Httpリクエスト情報.
 // 戻り値: trueの場合、ログアウトに成功しました.
-const logout = async function(resHeader, request) {
+const logout = function(resHeader, request) {
     try {
         // cookieからログイントークンを取得.
         const token = request.header.getCookie(COOKIE_SESSION_KEY);
@@ -433,7 +433,7 @@ const logout = async function(resHeader, request) {
         const keyCode = getLoginTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
         // ユーザーセッションを削除.
-        const res = await removeSession(
+        const res = removeSession(
             dtoken.user, dtoken.passCode, dtoken.sessionId);
         // ユーザセッション削除に成功した場合.
         if(res == true) {
@@ -459,7 +459,7 @@ const logout = async function(resHeader, request) {
 // resHeader レスポンスヘッダ(./lib/httpHeader.js)
 // request Httpリクエスト情報.
 // 戻り値: trueの場合、ログインされています.
-const isLogin = async function(level, resHeader, request) {
+const isLogin = function(level, resHeader, request) {
     // マイナス値の場合は処理しない.
     level = level|0;
     if(level < 0) {
@@ -493,7 +493,7 @@ const isLogin = async function(level, resHeader, request) {
             return true;
         }
         // ユーザーセッションをアップデート(この処理が結構重い).
-        const ret = await updateSession(
+        const ret = updateSession(
             dtoken.user, dtoken.passCode, dtoken.sessionId);
         // アップデート成功の場合.
         if(ret == true) {
@@ -525,7 +525,7 @@ const isLogin = async function(level, resHeader, request) {
 //        user: ログイン中のユーザー名が返却されます.
 //        それ以外は設定されているタグ名(たとえば admin など)が
 //        設定されたりします.
-const getLoginInfo = async function(request) {
+const getLoginInfo = function(request) {
     let user = null;
     try {
         // cookieからログイントークンを取得.
@@ -550,7 +550,7 @@ const getLoginInfo = async function(request) {
         return {};
     }
     // ユーザ情報を取得.
-    const userInfo = await getUser(user);
+    const userInfo = getUser(user);
     if(userInfo == null) {
         // ユーザー情報が存在しない場合エラー返却.
         throw new Error(
@@ -625,7 +625,7 @@ const filter = async function(
         level = -1;
     }
     // ログインされていない事を確認.
-    if(!(await isLogin(level, resHeader, request))) {
+    if(!isLogin(level, resHeader, request)) {
         // エラー403返却.
         resState.setStatus(403);
         return true;

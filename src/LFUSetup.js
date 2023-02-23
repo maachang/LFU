@@ -334,15 +334,15 @@ const analysisEnv = function() {
 const regRequestRequireFunc = function(env) {
     if(env.mainExternal == _MAIN_S3_EXTERNAL) {
         // s3用のrequest処理.
-        _requestFunction = async function(jsFlag, path, response) {
+        _requestFunction = function(jsFlag, path, response) {
             let ret = null;
             // javascript実行呼び出し.
             if(jsFlag == true) {
                 // キャッシュしないs3require実行.
-                ret = await global.s3require(path, env.requestPath, true, response);
+                ret = global.s3require(path, env.requestPath, true, response);
             } else {
                 // s3contentsを実行してコンテンツを取得.
-                ret = await global.s3contents(path, env.requestPath, response);
+                ret = global.s3contents(path, env.requestPath, response);
             }
             // レスポンスが設定されている場合.
             if(response != undefined && response != null) {
@@ -379,15 +379,15 @@ const regRequestRequireFunc = function(env) {
 
     } else {
         // github用のrequest処理.
-        _requestFunction = async function(jsFlag, path, response) {
+        _requestFunction = function(jsFlag, path, response) {
             let ret = null;
             // javascript実行呼び出し.
             if(jsFlag == true) {
                 // キャッシュしないgrequire実行.
-                ret = await global.grequire(path, env.requestPath, true, response);
+                ret = global.grequire(path, env.requestPath, true, response);
             } else {
                 // gcontentsを実行してコンテンツを取得.
-                ret = await global.gcontents(path, env.requestPath, response);
+                ret = global.gcontents(path, env.requestPath, response);
             }
             // レスポンスが設定されている場合.
             if(response != undefined && response != null) {
@@ -833,7 +833,7 @@ const main_handler = async function(event, context) {
             const path = process.env[_ENV_FILTER_FUNCTION];
             if(typeof(path) == "string") {
                 // データーロード.
-                const res = await exrequire(path, true, "");
+                const res = exrequire(path, true, "");
                 setFilterFunction(res);
             }
         }
@@ -919,7 +919,7 @@ const main_handler = async function(event, context) {
                     0, request.path.length - 6) + ".js.html";
                 
                 // jhtml内容を取得.
-                resBody = await _requestFunction(false, name);
+                resBody = _requestFunction(false, name);
                 // 取得内容(binary)を文字変換.
                 resBody = Buffer.from(resBody).toString();
 
@@ -949,7 +949,7 @@ const main_handler = async function(event, context) {
 
             // 対象パスのコンテンツ情報を取得.
             let response = {};
-            resBody = await _requestFunction(false, request.path, response);
+            resBody = _requestFunction(false, request.path, response);
 
             // mimeTypeを取得.
             const resMimeType = getMimeType(request.extension);
@@ -996,7 +996,7 @@ const main_handler = async function(event, context) {
         {
             // 対象Javascriptを取得.
             // 拡張子は `.lfu.js`
-            let func = await _requestFunction(
+            let func = _requestFunction(
                 true, request.path + ".lfu.js");
             // 実行メソッド(handler)を取得.
             if(typeof(func["handler"]) == "function") {
@@ -1059,7 +1059,7 @@ const main_handler = async function(event, context) {
             // statusをセット
             resState.setStatus(status);
             // httpErrorレスポンスBodyを取得.
-            resBody = await err.toResponse(
+            resBody = err.toResponse(
                 resState,
                 resHeader
             );
@@ -1191,7 +1191,7 @@ const start = function(event, filterFunc, originMime) {
         return async function() {
             try {
                 // lambda設定直下のfavicon.icoを取得.
-                const res = await fcontents("./favicon.ico");
+                const res = fcontents("./favicon.ico");
                 // レスポンスヘッダ.
                 const resHeader = httpHeader.create();
                 resHeader.put("content-type", getMimeType("ico").type);

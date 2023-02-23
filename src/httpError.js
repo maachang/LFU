@@ -153,7 +153,7 @@ const httpErrorConstructor = function(args) {
 }
 
 // HTTPエラーレスポンス情報を返却.
-const httpErrorResponse = async function(
+const httpErrorResponse = function(
     httpStatus, httpHeader, status, message, model,
     templatePath, params) {
     // httpStatusをセット.
@@ -184,7 +184,7 @@ const httpErrorResponse = async function(
         );
     }
     // htmlのエラーテンプレートを返却.
-    return await httpErrorResponseToHTML(
+    return httpErrorResponseToHTML(
         httpStatus, httpHeader, status, message,
         templatePath, params
     )
@@ -222,9 +222,9 @@ const isExContains = function() {
 //      ここでのパスの解釈はexcontentで処理されます.
 // charset 文字コードを設定します.
 // 戻り値: 文字列が返却されます.
-const getStringContents = async function(path, charset) {
+const getStringContents = function(path, charset) {
     // 設定された環境からコンテンツを取得.
-    let ret = await excontents(path);
+    let ret = excontents(path);
     // charsetが設定されている場合.
     if(typeof(charset) == "string") {
         // binaryから文字列変換(charsetで変換).
@@ -339,7 +339,7 @@ const httpErrorResponseToDefaultHTML = function(
 }
 
 // htmlテンプレートのHTTPエラー返却.
-const httpErrorResponseToHTML = async function(
+const httpErrorResponseToHTML = function(
     httpStatus, httpHeader, status, message,
     templatePath, params
 ) {
@@ -353,7 +353,7 @@ const httpErrorResponseToHTML = async function(
             );
         }
         // 指定テンプレートを取得.
-        const ret = await getStringContents(templatePath);
+        const ret = getStringContents(templatePath);
 
         // レスポンスヘッダをセット.
         httpHeader.put("content-type", "text/html");
@@ -444,8 +444,8 @@ const HttpError = class extends Error {
     // httpStatus HttpStatus.jsオブジェクトを設定します.
     // httpHeader response用のhttpHeader.jsオブジェクトを設定します.
     // 戻り値: responseBody(文字列)が返却されます.
-    async toResponse(httpStatus, httpHeader) {
-        return await httpErrorResponse(
+    toResponse(httpStatus, httpHeader) {
+        return httpErrorResponse(
             httpStatus, httpHeader,
             this.#status, this.#message, this.#model,
             this.#templatePath, this.#params);

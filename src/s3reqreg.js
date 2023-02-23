@@ -15,24 +15,23 @@
 // 
 // <例>
 // [Lambda]index.js
-// (async function() {
 // require("s3reqreg.js").setOption(
 //   {contentPath: "s3://bucket/prefix/"});
-// const hoge = await s3require("hoge.js");
+// const hoge = s3require("hoge.js");
 //   ・・・・・
 // })();
 //
 // s3://bucket/prefix/hoge.js
-// (async function() {
-//    const convert = await s3require("convert.js");
+// function() {
+//    const convert = s3require("convert.js");
 // })();
 // 
 // 従来なら
-// > const hoge = async s3require("hoge.js");
-// > const convert = await s3require("convert.js");
+// > const hoge = s3require("hoge.js");
+// > const convert = s3require("convert.js");
 // は
-// > const hoge = async s3require("s3://bucket/prefix/hoge.js");
-// > const convert = await s3require("s3://bucket/prefix/convert.js");
+// > const hoge = s3require("s3://bucket/prefix/hoge.js");
+// > const convert = s3require("s3://bucket/prefix/convert.js");
 //
 // の定義が必要ですが、currentPathを設定することでこれらの設定は不要と
 // なり、環境に依存した記載をしなくて済みます.
@@ -210,12 +209,12 @@ const getS3Path = function(path, currentPath) {
 // 指定S3からオブジェクトを取得.
 // params urlをgetS3Path()で処理した内容を設定します.
 // response レスポンス情報を取得したい場合設定します.
-// 戻り値: promiseが返却されます.
-const loadS3 = async function(params, response) {
+// 戻り値: objectが返却されます.
+const loadS3 = function(params, response) {
     if(response == undefined || response == null) {
         response = {};
     }
-    const ret = await s3.getObject(
+    const ret = s3.getObject(
         response, getRegion(), params.Bucket, params.Key)
     if(response.status >= 400) {
         // ステータス入りエラー返却.
@@ -279,18 +278,14 @@ const originRequire = function(name, js) {
 // currentPath 今回有効にしたいcurrentPathを設定する場合、設定します.
 // noneCache キャッシュしない場合は trueを設定します.
 // response レスポンス情報を取得したい場合設定します.
-// 戻り値: promiseが返却されます.
+// 戻り値: objectが返却されます.
 //         利用方法として以下の感じで行います.
+//           const conv = s3require("s3://hoge/moge/conv.js");
 //           ・・・・・・
 //           exports.handler = function(event, context) {
-//              const conv = await s3require("s3://hoge/moge/conv.js");
 //             ・・・・・・
 //           }
-//         
-//         面倒なのは、s3requireを利用する毎に毎回(async function() {})()
-//         定義が必要なことと、通常のrequireのように、function外の呼び出し
-//         定義ができない点(必ずFunction内で定義が必須)です.
-const s3require = async function(path, currentPath, noneCache, response) {
+const s3require = function(path, currentPath, noneCache, response) {
     // noneCacheモードを取得.
     if(typeof(noneCache) != "boolean") {
         // 取得できない場合は、デフォルトのnoneCacheモードをセット.
@@ -308,14 +303,12 @@ const s3require = async function(path, currentPath, noneCache, response) {
         // ただしタイムアウトを経過していない場合.
         const ret = cache[s3name];
         if(ret != undefined && ret[1] > Date.now()) {
-            // キャッシュされている場合は返却(promise).
-            return new Promise((resolve) => {
-                resolve(ret[0]);
-            });
+            // キャッシュされている場合は返却.
+            return ret[0];
         }
     }
     // S3からデータを取得して実行してキャッシュ化する.
-    const js = (await loadS3(s3params, response)).toString();
+    const js = loadS3(s3params, response).toString();
     // ただし指定内容がJSONの場合はJSON.parseでキャッシュ
     // なしで返却.
     if(path.toLowerCase().endsWith(".json")) {
@@ -340,7 +333,7 @@ const s3require = async function(path, currentPath, noneCache, response) {
 // path requireするs3pathを設定します.
 // currentPath 今回有効にしたいcurrentPathを設定する場合、設定します.
 // response レスポンス情報を取得したい場合設定します.
-// 戻り値: promiseが返却されます.
+// 戻り値: objectが返却されます.
 const s3contents = function(path, currentPath, response) {
     // s3pathをBucket, Keyに分解.
     // S3からコンテンツ(binary)を返却.
@@ -350,11 +343,11 @@ const s3contents = function(path, currentPath, response) {
 // s3情報のレスポンス情報を取得.
 // path requireするs3pathを設定します.
 // currentPath 今回有効にしたいcurrentPathを設定する場合、設定します.
-// 戻り値: promiseが返却されます.
-const s3head = async function(path, currentPath) {
+// 戻り値: objectが返却されます.
+const s3head = function(path, currentPath) {
     const response = {}
     const params = getS3Path(path, currentPath);
-    await s3.headObject(
+    s3.headObject(
         response, getRegion(), params.Bucket, params.Key);
     return response;
 }

@@ -33,6 +33,12 @@ if(options.response == true) {
     options.response = undefined;
 }
 
+// options.bodyが存在する場合.
+if(options.body != undefined && options.body != null) {
+    // base64デコードする.
+    options.body = Buffer.from(options.body, "base64");
+}
+
 // 非同期HTTPSClientを子プロセスで実行.
 asyncHttpsClient.request(host, path, options)
 // 正常処理.
