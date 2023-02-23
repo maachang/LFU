@@ -14,8 +14,6 @@
         ,"src/lib/jhtml.js"
         ,"src/lib/s3client.js"
         ,"src/lib/httpsClient.js"
-        ,"src/lib/httpsClientSync.js"
-        ,"src/lib/httpsClientChildProcess.js"
         ,"src/lib/mimeType.js"
         ,"src/lib/s3restApi.js"
         ,"src/lib/util/xor128.js"
