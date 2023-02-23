@@ -150,10 +150,7 @@ const getGithubObject = function(method, path, token, response) {
 // response レスポンス情報を取得したい場合設定します.
 // 戻り値: HTTPレスポンスBodyが返却されます.
 const getGithubObjectToJs = function(path, token, response) {
-    return getGithubObject("GET", path, token, response)
-    .then((body) => {
-        return body.toString();
-    });
+    return getGithubObject("GET", path, token, response).toString();
 }
 
 // デフォルトの接続先organization.
