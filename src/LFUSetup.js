@@ -697,6 +697,8 @@ const createRequest = function(event) {
         ,header: httpHeader.create(event.headers, event.cookies)
         // urlパラメータ(Object).
         ,queryParams: getQueryParams(event)
+        // rawUrlパラメータ(string).
+        ,rawQueryString: event.rawQueryString
         // EndPoint(string)パスに対するファイルの拡張子.
         // undefinedの場合、js実行結果を返却させる.
         ,extension: extension

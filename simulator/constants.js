@@ -62,4 +62,7 @@ exports.ENV_LOGGER_LEVEL = "LFU_LOGGER_LEVEL";
 // logTimes名.
 exports.LOG_TIMES = "lfu-simurator";
 
+// 乱数発行デフォルトバイナリ長.
+exports.DEF_RANDOM_BINARY = 48;
+
 })(global);

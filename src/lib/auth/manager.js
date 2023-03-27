@@ -62,6 +62,32 @@ const userTable = defS3Kvs.currentTable("loginUser");
 // セッションログイン管理テーブル.
 const sessionTable = defS3Kvs.currentTable("loginSession");
 
+// [UserInfo]ユーザー名.
+const USER_INFO_USER = "@user";
+
+// [UserInfo]パスワード.
+const USER_INFO_PASSWORD = "@password";
+
+// [UserInfo]ログインタイプ.
+const USER_INFO_LOGIN_TYPE = "@loginType";
+    // [ログインタイプ]パスワード.
+    USER_INFO_LOGIN_TYPE.PASSWORD = "password";
+    // [ログインタイプ]oauth.
+    USER_INFO_LOGIN_TYPE.OAUTH = "oauth";
+
+// [userOptions]認証タイプ.
+const USER_OPTIONS_AUTH_TYPE = "authType";
+    // [認証タイプ]全て.
+    USER_OPTIONS_AUTH_TYPE.ALL = "all";
+    // [認証タイプ]パスワード.
+    USER_OPTIONS_AUTH_TYPE.PASSWORD = USER_INFO_LOGIN_TYPE.PASSWORD;
+    // [認証タイプ]oauth.
+    USER_OPTIONS_AUTH_TYPE.OAUTH = USER_INFO_LOGIN_TYPE.OAUTH;
+
+// [userOptions]パスワード除外.
+const USER_OPTIONS_NONE_PASSWORD = "nonePassword";
+
+
 // base64の最後の=を削除.
 // code 対象のbase64文字列を設定.
 // 戻り値 最後の=を除いた値が返却.
@@ -90,66 +116,241 @@ const useString = function(s) {
     return typeof(s) == "string" && s.length > 0;
 }
 
-// ユーザ名に対する情報を取得.
+// ユーザ情報オプションを生成します.
+// arguments
+//   [key, value ...]
+//   引数に対してkey, valueを設定します.
+// 戻り値: ユーザー情報オプションが返却されます.
+const createUserOptions = function() {
+    const args = arguments;
+    const len = args.length;
+    const ret = {};
+    for(let i = 0; i < len; i += 2) {
+        ret[i] = ret[i + 1];
+    }
+    return ret;
+}
+
+// S3に登録されているユーザー情報を取得.
 // user 対象のユーザ名を設定します.
-// 戻り値: {password: string, .... }
-//         password: パスワード(sha256)が返却されます.
-const getUser = async function(user) {
+// 戻り値: {@password: string, .... }
+//         @password: パスワード(sha256)が返却されます.
+//         それ以外のパラメータも設定されています.
+const _getUser = async function(user) {
     if(!useString(user)) {
         throw new Error("User has not been set.");
     }
-    return await userTable.get("user", user);
+    try {
+        // ユーザー情報を取得.
+        const ret = await userTable.get("user", user);
+        if(ret != undefined && ret != null) {
+            // 取得成功.
+            return ret;
+        }
+    } catch(e) {
+        // 例外.
+        throw new Error("The user ("
+            + user + ") does not exist.", e);
+    }
+    // 取得失敗.
+    throw new Error("The user ("
+        + user + ") does not exist.");
 }
 
-// ユーザー情報が存在するかチェック.
+// 指定ユーザー名が物理的に登録されているかチェック.
 // user 対象のユーザ名を設定します.
 // 戻り値: trueの場合存在します.
 const isUser = async function(user) {
     try {
-        return await getUser(user) != null;
+        // ここでは、単純にユーザ情報が登録されているかを
+        // 確認する.
+        await _getUser(user);
+        return true;
     } catch(e) {
         return false;
     }
 }
 
-// ユーザ登録.
+// ユーザーオプションを指定したユーザ情報を取得.
+// user 対象のユーザ名を設定します.
+// userInfo ユーザー情報オプションを設定します.
+//          ここに 取得したいauthTypeを設定します.
+//          またパスワードを取得しない場合はnonePassword = trueを
+//          設定します.
+// 戻り値: ユーザー情報返却が返却されます.
+const getUser = async function(user, userInfo) {
+    // ユーザー情報オプションの存在チェック.
+    userInfo = userInfo == undefined || userInfo == null ?
+        {} : userInfo;
+    // ユーザーオプションからauthTypeを取得.
+    let authType = userInfo[USER_OPTIONS_AUTH_TYPE];
+    // 存在しない場合は全ての条件の情報を取得.
+    if(authType == undefined) {
+        authType = USER_OPTIONS_AUTH_TYPE.ALL;
+    }
+    // 認証タイプ別で情報を取得.
+    try {
+        let ret = null;
+        switch(authType) {
+            case USER_OPTIONS_AUTH_TYPE.ALL:
+                // 条件なし(_getUserで取得).
+                ret = await _getUser(user);
+                break;
+            case USER_OPTIONS_AUTH_TYPE.PASSWORD: 
+                // パスワード認証用のユーザー情報を取得.
+                ret = await getUserToAuthPassword(user);
+                break;
+            case USER_OPTIONS_AUTH_TYPE.OAUTH: 
+                // oauth認証用のユーザー情報を取得.
+                ret = await getUserToOAuth(user);
+                break;
+        }
+        // UserInfoからパスワードを除外する場合.
+        if(("" + userInfo[USER_OPTIONS_NONE_PASSWORD]) == "true") {
+            // パスワードは不要なので除外.
+            delete ret[USER_INFO_PASSWORD];
+        }
+        return ret;
+    } catch(e) {}
+    // 取得失敗.
+    throw new Error(
+        "Authentication type not found for user ("
+            + user + "): " + authType);
+}
+
+// パスワード認証用のユーザー情報を取得.
+// user 対象のユーザ名を設定します.
+// 戻り値: ユーザー情報が返却されます.
+const getUserToAuthPassword = async function(user) {
+    // 指定ユーザ登録情報を取得.
+    const ret = await _getUser(user);
+    // 登録ユーザがパスワード認証でない場合.
+    if(ret[USER_INFO_LOGIN_TYPE] != USER_INFO_LOGIN_TYPE.PASSWORD) {
+        // エラー返却.
+        throw new Error(
+            "User (" + user +
+            ") is not a password authenticated user.")
+    }
+    return ret;
+}
+
+// oAuth用のユーザー情報を取得.
+// user 対象のユーザ名を設定します.
+// 戻り値: ユーザー情報が返却されます.
+const getUserToOAuth = async function(user) {
+    let ret = null;
+    try {
+        // 指定ユーザ登録情報を取得.
+        ret = await _getUser(user);
+        // 対象ユーザーがoauthユーザとして作成されていない場合.
+        if(ret[USER_INFO_LOGIN_TYPE] != USER_INFO_LOGIN_TYPE.OAUTH) {
+            // oauthユーザじゃないので、ユーザなし.
+            ret = {};
+        }
+    } catch(e) {
+        // oauthユーザじゃないので、ユーザなし.
+        ret = {}
+    }
+    // パスワードは不要なので除外.
+    delete ret[USER_INFO_PASSWORD];
+    return ret;
+}
+
+// ユーザー情報を生成.
+// user 対象のユーザ名を設定します.
+// userInfo ユーザ情報オプションを設定します.
+// 戻り値: trueの場合登録できました.
+const _createUser = async function(user, userInfo) {
+    // 既にユーザ情報が存在する場合.
+    if(!await isUser(user)) {
+        throw new Error(
+            "User (" + user + ") already exists.");
+    // ログインタイプが設定されていない場合.
+    } else if(userInfo[USER_INFO_LOGIN_TYPE] == undefined) {
+        throw new Error(
+            "Unknown authentication type for user (" + user+ ").");
+    }
+    // 登録対象ユーザー情報を生成.
+    const regUserInfo = {};
+    // 設定されたオプションをセット.
+    if(userInfo != undefined && userInfo != null) {
+        for(let k in userInfo) {
+            regUserInfo[k] = userInfo[k];
+        }
+    }
+    // ユーザー名をセット.
+    regUserInfo[USER_INFO_USER] = user;
+    // ユーザー情報を登録.
+    return await userTable.put("user", user, regUserInfo);
+}
+
+// パスワード認証用のユーザー情報を生成.
 // user 対象のユーザ名を設定します.
 // password 対象のパスワードを設定します.
-// options ユーザオプションを設定します.
+// userInfo ユーザ情報オプションを設定します.
 // 戻り値: trueの場合登録できました.
-const createUser = async function(user, password, options) {
+const createPasswordAuthUser = async function(
+    user, password, userInfo) {
     if(!useString(password)) {
         throw new Error("Password has not been set.");
     }
-    // 既にユーザ情報が存在する場合.
-    if(await getUser(user) != null) {
-        throw new Error(
-            "User (" + user + ") already exists.")
-    }
-    // パスワードをsha256変換.
-    password = sha256(password);
-    const userInfo = {};
-    // オプションをセット.
-    if(options != undefined && options != null) {
-        for(let k in options) {
-            userInfo[k] = options[k];
+    // 登録ユーザ情報.
+    const regUserInfo = {};
+    if(userInfo != undefined && userInfo != null) {
+        let kk;
+        for(let k in userInfo) {
+            // 先頭に@があるのは、追加できない.
+            if((kk = k.trim()).startsWith("@")) {
+                continue;
+            }
+            regUserInfo[kk] = userInfo[k];
         }
     }
-    // パスワードをセット.
-    userInfo["password"] = password;
-    return await userTable.put("user", user, userInfo);
+    // password認証として登録.
+    regUserInfo[USER_INFO_LOGIN_TYPE] =
+        USER_INFO_LOGIN_TYPE.PASSWORD;
+    // パスワードをsha256変換.
+    regUserInfo[USER_INFO_PASSWORD] = sha256(password);
+    // 登録.
+    return await _createUser(user, regUserInfo);
+}
+
+// oAuth認証用のユーザ登録.
+// user 対象のユーザ名を設定します.
+// userInfo ユーザ情報オプションを設定します.
+// 戻り値: trueの場合登録できました.
+const createOAuthUser = async function(user, userInfo) {
+    // 登録ユーザ情報.
+    const regUserInfo = {};
+    if(userInfo != undefined && userInfo != null) {
+        let kk;
+        for(let k in userInfo) {
+            // 先頭に@があるのは、追加できない.
+            if((kk = k.trim()).startsWith("@")) {
+                continue;
+            }
+            regUserInfo[kk] = userInfo[k];
+        }
+    }
+    // oauth認証として登録.
+    regUserInfo[USER_INFO_LOGIN_TYPE] =
+        USER_INFO_LOGIN_TYPE.OAUTH;
+    // 登録.
+    return await _createUser(user, regUserInfo);
 }
 
 // ユーザ削除.
 // user 対象のユーザ名を設定します.
 // 戻り値: trueの場合ユーザ情報が削除できました.
 const removeUser = async function(user) {
-    // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
-    if(userInfo == null) {
-        return false;
-    }
-    return await userTable.remove("user", user);
+    // ユーザ情報を削除.
+    try {
+        if(await isUser(user)) {
+            return await userTable.remove("user", user);
+        }
+    } catch(e) {}
+    // 存在しない場合.
+    return false;
 }
 
 // パスワード変更.
@@ -164,54 +365,51 @@ const changePassword = async function(
     } else if(!useString(newPassword)) {
         throw new Error("newPassword has not been set.");
     }
-    // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
-    if(userInfo == null) {
-        throw new Error(
-            "User (" + user + ") no longer exists.")
-    }
+    // パスワード認証のユーザ情報を取得.
+    const userInfo = await getUser(
+        user, createUserOptions(USER_OPTIONS_AUTH_TYPE,
+            USER_OPTIONS_AUTH_TYPE.PASSWORD));
     // 元のパスワードをsha256変換.
     srcPassword = sha256(srcPassword);
     // パスワードが不一致.
-    if(userInfo.password != srcPassword) {
+    if(userInfo[USER_INFO_PASSWORD] != srcPassword) {
         throw new Error("Original password does not match.");
     }
     // 新しいパスワードをsha256変換.
     newPassword = sha256(newPassword);
-    userInfo["password"] = newPassword;
+    userInfo[USER_INFO_PASSWORD] = newPassword;
+    // 再登録.
     return await userTable.put("user", user, userInfo)
 }
 
 // オプションを設定/削除.
 // putFlag 設定の場合はtrue.
 // user 対象のユーザー名を設定します.
-// options ユーザオプションを設定します.
+// userInfo 変更/削除用のユーザ情報オプションを設定します.
 // 戻り値: trueの場合正常に処理できました.
-const settingOption = async function(putFlag, user, options) {
-    // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
-    if(userInfo == null) {
-        throw new Error(
-            "User (" + user + ") no longer exists.")
-    }
-    // オプションをセット.
-    if(options != undefined && options != null) {
-        for(let k in options) {
-            // オプションにパスワードがセットされている
-            // 場合は読み飛ばす.
-            if(k == "password") {
+const settingOption = async function(putFlag, user, userInfo) {
+    // パスワードを除いたユーザー情報.
+    const loadUserInfo = await getUser(
+        user, createUserOptions(
+            USER_OPTIONS_NONE_PASSWORD, true));
+    // 変更/削除用のユーザ情報オプションをセット.
+    if(userInfo != undefined && userInfo != null) {
+        let kk;
+        for(let k in userInfo) {
+            // 先頭に@があるのは、処理できない.
+            if((kk = k.trim()).startsWith("@")) {
                 continue;
-            }
             // 設定.
-            if(putFlag) {
-                userInfo[k] = options[k];
+            } else if(putFlag) {
+                loadUserInfo[kk] = userInfo[k];
             // 削除.
             } else {
-                delete userInfo[k];
+                delete loadUserInfo[kk];
             }
         }
     }
-    return await userTable.put("user", user, userInfo);
+    return await userTable.put(
+        "user", user, loadUserInfo);
 }
 
 // ユーザ名一覧を取得.
@@ -232,37 +430,51 @@ const userList = async function(page, max) {
     }
     const ret = [];
     const len = list.length;
+
+    // ユーザー情報オプションを生成.
+    // パスワードなしで取得.
+    const userOptions = createUserOptions(
+        USER_OPTIONS_NONE_PASSWORD, true);
     for(let i = 0; i < len; i ++) {
-        // ユーザー情報をセット(passwordを除く).
-        const userInfo = await getUser(list[i]["value"]);
-        delete userInfo["password"];
+        // パスワードを除いたユーザー情報.
+        const userInfo = await getUser(
+            user, userOptions);
         ret[i] = userInfo;
     }
     return ret;
 }
 
+// token区切り文字.
+const TOKEN_DELIMIRATER = "$_\n";
+
 // ユーザーセッションを作成.
+// request Httpリクエスト情報を設定します.
 // user 対象のユーザ名を設定します.
+// userOptions ユーザーオプションを設定します.
 // 戻り値: nullでない場合正常に処理されました.
 //        {passCode: string, sessionId: stringm lastModified: number}
 //        passCode パスコードが返却されます.
 //        sessionId セッションIDが返却されます.
 //        lastModified セッション生成時間(ミリ秒)が設定されます.
-const createSession = async function(user) {
+const createSession = async function(request, user, userOptions) {
     // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
-    if(userInfo == null) {
-        throw new Error(
-            "User (" + user + ") no longer exists.")
+    const userInfo = await getUser(user, userOptions);
+    // パスワードを取得.
+    let pass = userInfo[USER_INFO_PASSWORD];
+    if(pass == undefined) {
+        // パスワードが存在しない場合(oauthなど).
+        pass = "$noPassword";
     }
     // パスコードを設定.
-    userInfo.passCode = sig.getPassCode(user, userInfo.password);
+    userInfo.passCode = sig.getPassCode(
+        user, request.host + TOKEN_DELIMIRATER + userInfo[USER_INFO_LOGIN_TYPE]
+            + TOKEN_DELIMIRATER + pass);
     // セッションIDを設定.
     userInfo.sessionId = sig.createSessionId();
     // 更新時間.
     userInfo.lastModified = Date.now();
     // パスワードを削除.
-    delete userInfo["password"];
+    delete userInfo[USER_INFO_PASSWORD];
     // セッション登録.
     if(await sessionTable.put("user", user, userInfo) == true) {
         return userInfo;
@@ -341,7 +553,7 @@ const updateSession = async function(
     return await sessionTable.put("user", user, sessionInfo);
 }
 
-// ユーザーログイン確認.
+// パスワード認証ログイン確認.
 // user 対象のユーザ名を設定します.
 // password パスワードを設定します.
 // 戻り値: trueの場合、ログイン成功です.
@@ -349,15 +561,14 @@ const confirmLogin = async function(user, password) {
     if(!useString(password)) {
         return false;
     }
-    // ユーザ情報が存在しない場合.
-    const userInfo = await getUser(user);
-    if(userInfo == null) {
-        return false;
-    }
+    // パスワード認証のユーザ情報が存在しない場合.
+    const userInfo = await getUser(
+        user, createUserOptions(USER_OPTIONS_AUTH_TYPE,
+            USER_OPTIONS_AUTH_TYPE.PASSWORD));
     // パスワードをsha256変換.
     password = sha256(password);
     // パスワードが不一致.
-    if(userInfo.password != password) {
+    if(userInfo[USER_INFO_PASSWORD] != password) {
         return false;
     }
     // ログイン成功.
@@ -378,14 +589,13 @@ const getLoginTokenKeyCode = function(request) {
     return ret;
 }
 
-// ログイン処理.
+// パスワード認証でのログイン処理.
 // resHeader レスポンスヘッダ(./lib/httpHeader.js)
 // request Httpリクエスト情報.
 // user 対象のユーザー名を設定します.
 // password 対象のパスワードを設定します.
 // 戻り値: trueの場合、ログインに成功しました.
-const login = async function(resHeader, request,
-    user, password) {
+const login = async function(resHeader, request, user, password) {
     try {
         // ログイン処理.
         const result = await confirmLogin(user, password);
@@ -406,7 +616,7 @@ const login = async function(resHeader, request,
                 keyCode, user, sessions.passCode,
                 sessions.sessionId, LOGIN_TOKEN_EXPIRE);
 
-            // レスポンスにセッションキーを設定.
+            // レスポンスCookieにセッションキーを設定.
             resHeader.putCookie(COOKIE_SESSION_KEY, {value: token});
             return true;
         }
@@ -519,13 +729,19 @@ const isLogin = async function(level, resHeader, request) {
 
 // 現在のログイン中ユーザー情報を取得.
 // request 対象のHTTPリクエストを設定します.
+// userOptions ユーザーオプションを設定します.
+//             {authType: string}
+//               authType: "password"
+//                 パスワード認証のユーザ情報を取得します.
+//               authType: "oauth"
+//                 oauth認証のユーザ情報を取得します.
 // 戻り値: 現在ログイン中のユーザー情報が返却されます.
 //        ただし、パスワードは除外されます.
-//        {user: string, ....}
-//        user: ログイン中のユーザー名が返却されます.
+//        {@user: string, ....}
+//        @user: ログイン中のユーザー名が返却されます.
 //        それ以外は設定されているタグ名(たとえば admin など)が
 //        設定されたりします.
-const getLoginInfo = async function(request) {
+const getLoginInfo = async function(request, userOptions) {
     let user = null;
     try {
         // cookieからログイントークンを取得.
@@ -550,7 +766,8 @@ const getLoginInfo = async function(request) {
         return {};
     }
     // ユーザ情報を取得.
-    const userInfo = await getUser(user);
+    const userInfo = await getUser(
+        user, userOptions);
     if(userInfo == null) {
         // ユーザー情報が存在しない場合エラー返却.
         throw new Error(
@@ -561,12 +778,12 @@ const getLoginInfo = async function(request) {
     const ret = {};
     for(let k in userInfo) {
         // パスワードは格納しない.
-        if(k == "password") {
+        if(k == USER_INFO_PASSWORD) {
             continue;
         }
         ret[k] = userInfo[k];
     }
-    ret["user"] = user;
+    ret[USER_INFO_USER] = user;
     return ret;
 }
 
@@ -593,12 +810,14 @@ const isLoginOption = function(request, option) {
 }
 
 // ログイン済みか確認をするfilter実行.
-// _ Array[0]に返却対象の処理結果のレスポンスBodyを設定します.
+// _ Array[0]に返却対象の処理結果のレスポンスBodyを設定します
+//   ※ 設定無用.
 // resState: レスポンスステータス(httpStatus.js).
 // resHeader レスポンスヘッダ(httpHeader.js).
 // request Httpリクエスト情報.
 // noCheckPaths チェック対象外のパス郡を設定します.
 //              {"/index.html", true} のような感じで.
+//              ※ 条件を設定しない場合は対象としません.
 // 戻り値: true / false(boolean).
 //        trueの場合filter処理で処理終了となります.
 const filter = async function(
@@ -680,9 +899,18 @@ const isTimedSession = function(request, timedSession) {
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
-exports.getUser = getUser;
+// 定義内容.
+exports.USER_INFO_USER = USER_INFO_USER;
+exports.USER_INFO_PASSWORD = USER_INFO_PASSWORD;
+exports.USER_INFO_LOGIN_TYPE = USER_INFO_LOGIN_TYPE;
+exports.USER_OPTIONS_AUTH_TYPE = USER_OPTIONS_AUTH_TYPE;
+exports.USER_OPTIONS_NONE_PASSWORD = USER_OPTIONS_NONE_PASSWORD;
+
+// 定義メソッド.
+exports.createUserOptions = createUserOptions;
 exports.isUser = isUser;
-exports.createUser = createUser;
+exports.createPasswordAuthUser = createPasswordAuthUser;
+exports.createOAuthUser = createOAuthUser;
 exports.removeUser = removeUser;
 exports.changePassword = changePassword;
 exports.putOption = function(user, options) {
