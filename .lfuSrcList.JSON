@@ -20,8 +20,10 @@
         ,"src/lib/storage/convb.js"
         ,"src/lib/storage/jsonb.js"
         ,"src/lib/storage/s3kvs.js"
+        ,"src/lib/auth/gasAuth.js"
         ,"src/lib/auth/manager.js"
         ,"src/lib/auth/mfa.js"
+        ,"src/lib/auth/passwordAuth.js"
         ,"src/lib/auth/signature.js"
     ]
     ,"//": "@publicなブラウザ提供情報."

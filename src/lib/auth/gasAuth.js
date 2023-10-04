@@ -1,6 +1,6 @@
 //////////////////////////////////////////////
 // gas(GoogleAppsScript)に認証アクセスして処理.
-//  - GASのユーザ確認(OAuth).
+//  - GASのユーザ(googleメアド)認証+取得(OAuth).
 //  - 営業日を取得.
 // を実現するためのモジュール.
 //////////////////////////////////////////////
@@ -27,6 +27,9 @@ const loginMan = frequire("./lib/auth/manager.js");
 // login用signature.
 const sig = frequire("./lib/auth/signature.js");
 
+// authUtil.
+const authUtil = frequire("./lib/auth/util.js");
+
 // [ENV]問い合わせ先のGAS認証URL.
 const ENV_GAS_AUTH_URL = "GAS_AUTH_URL";
 
@@ -38,11 +41,17 @@ const ENV_GAS_ALLOW_AUTH_KEY_CODE = "ALLOW_GAS_AUTH_KEY_CODE";
 // のリダイレクト先条件を設定します.
 const ENV_REDIRECT_OAUTH_PATH = "REDIRECT_OAUTH_PATH";
 
-// [ENV]tokenKey作成長.
+// [ENV]tokenKey長.
 const ENV_GAS_OAUTH_TOKEN_KEY_LENGTH = "GAS_OAUTH_TOKEN_KEY_LENGTH";
 
-// [DEFAULT]tokenKey作成長.
-const DEF_CREATE_TOKEN_KEY_LENGTH = 18;
+// [ENV]tokenKeyのexpire値(分).
+const ENV_GAS_OAUTH_TOKEN_KEY_EXPIRE = "GAS_OAUTH_TOKEN_KEY_EXPIRE";
+
+// [DEFAULT]tokenKey長.
+const DEF_GAS_OAUTH_TOKEN_KEY_LENGTH = 19;
+
+// [DEFAULT]tokenKeyのexpire値(分).
+const DEF_GAS_OAUTH_TOKEN_KEY_EXPIRE = 30;
 
 // [実行パラメータ]処理タイプ.
 const PARAMS_EXECUTE_TARGET = "target";
@@ -56,43 +65,74 @@ const PARAMS_SEND_TOKEN_KEY = "request-token-key";
 // request側で作成したToken.
 const PARAMS_SEND_TOKEN = "request-token";
 
-// 数字変換が可能かチェック.
-const isNumeric = function(o) {
-    return !isNaN(parseFloat(o));
-}
-
-// crypto.
-const crypto = frequire('crypto');
-
-// [hex]hmacSHA256で変換.
-// signature signatureを設定します.
-// tokenKey tokenKeyを設定します.
-// 戻り値 変換結果が返却されます.
-const hmacSHA256 = function(signature, tokenKey) {
-    return crypto.createHmac("sha256", signature)
-        .update(tokenKey).digest("hex");
+// oAuth認証用のユーザ登録.
+// user 対象のユーザ名を設定します.
+// userInfo ユーザ情報オプションを設定します.
+// 戻り値: trueの場合登録できました.
+const createUser = async function(user, userInfo) {
+    // 登録ユーザ情報.
+    const regUserInfo = {};
+    if(userInfo != undefined && userInfo != null) {
+        let kk;
+        for(let k in userInfo) {
+            // 先頭に@があるのは、追加できない.
+            if((kk = k.trim()).startsWith("@")) {
+                continue;
+            }
+            regUserInfo[kk] = userInfo[k];
+        }
+    }
+    // oauth認証として登録.
+    regUserInfo[USER_INFO_LOGIN_TYPE] =
+        USER_INFO_LOGIN_TYPE.OAUTH;
+    // 登録.
+    return await loginMan.createUser(user, regUserInfo);
 }
 
 // tokenKeyを生成.
 const createTokenKey = function() {
-    let len = DEF_CREATE_TOKEN_KEY_LENGTH;
-    let eLen = parseInt(process.env[ENV_GAS_OAUTH_TOKEN_KEY_LENGTH]);
+    // tokeyKey長を取得.
+    let len = DEF_GAS_OAUTH_TOKEN_KEY_LENGTH;
+    const eLen = parseInt(process.env[ENV_GAS_OAUTH_TOKEN_KEY_LENGTH]);
     if(!isNaN(eLen)) {
+        // 数字の場合はその値をセット.
         len = eLen;
+        // 最小値以下(8文字以下).
+        if(len < 8) {
+            len = 8;
+        // 最大値を超える場合(128文字以上).
+        } else if(len > 128) {
+            len = 128;
+        }
     }
+    // tokeyExpire値(秒)を取得.
+    let expire = DEF_GAS_OAUTH_TOKEN_KEY_EXPIRE;
+    const eExpire = parseInt(process.env[ENV_GAS_OAUTH_TOKEN_KEY_EXPIRE]);
+    if(!isNaN(eExpire)) {
+        expire = eExpire;
+        // 最小値以下(1分未満).
+        if(expire < 1) {
+            expire = 1
+        // 最大値を超える場合(１日以上).
+    } else if(expire > 86400) {
+            expire = 86400;
+        }
+    }
+    // tokeyExpire値(秒)をミリ秒に変換.
+    expire = Date.now() + (expire * 60000)
     // tokenには
     // - randomToken(任意の長さ).base64
-    // - _
-    // - Date.now().16進数
+    // - /
+    // - expire(UnixTimeミリ秒).16進数
     // で生成する.
     // 日付を入れる理由は、このトークンが時限である事を示す.
-    return (xor128.create(xor128.getNanoTime())
+    return sig.cutEndBase64Eq(xor128.create(xor128.getNanoTime())
         .getBytes(len).toString("base64")) + "_" +
-            (Date.now().toString(16));
+            (expire.toString(16));
 }
 
 // token区切り文字.
-const TOKEN_DELIMIRATER = "$_\n";
+const TOKEN_DELIMIRATER = "$_$/\n";
 
 // gasAuthにアクセスするためのToken作成.
 // target GASの引数`target`を設定します.
@@ -103,7 +143,7 @@ const TOKEN_DELIMIRATER = "$_\n";
 //         request-token: tokenを設定します.
 //         request-token-key tokenKeyを設定します.
 const createSendToken = function(target, paramsArray) {
-    // tokenKeyを生成.
+    // 新しいtokenKeyを生成.
     const tokenKeyCode = createTokenKey();
     // allowAuthKeyCodeを環境変数から取得.
     const authKeyCode = process.env[ENV_GAS_ALLOW_AUTH_KEY_CODE];
@@ -117,9 +157,9 @@ const createSendToken = function(target, paramsArray) {
             TOKEN_DELIMIRATER + paramsArray[i + 1];
     }
     const ret = {};
-    // [token生成]hmacSHA256計算でhex返却.
-    ret[PARAMS_SEND_TOKEN] = hmacSHA256(signature, tokenKeyCode)
-        .toString("hex");
+    // [token生成]hmacSHA256計算で16進数で返却.
+    ret[PARAMS_SEND_TOKEN] = authUtil.hmacSHA256(
+        signature, tokenKeyCode);
     // createTokenKeyをセット.
     ret[PARAMS_SEND_TOKEN_KEY] = tokenKeyCode;
     return ret;
@@ -156,7 +196,7 @@ const getGasAccessURLEncodeGetParams = function(
     // paramsをGETパラメータ変換.
     const len = paramsArray.length;
     for(let i = 0; i < len; i += 2) {
-        getParams += "&" +encodeURIComponent(paramsArray[i]) + "="
+        getParams += "&" + encodeURIComponent(paramsArray[i]) + "="
             + encodeURIComponent(paramsArray[i + 1]);
     }
     // oAuthParamsをGETパラメータ変換.
@@ -233,14 +273,14 @@ const createOAuthURL = function(request) {
 // resState: レスポンスステータス(httpStatus.js).
 // resHeader レスポンスヘッダ(httpHeader.js).
 // request 対象のrequest情報を設定します.
-// 戻り値: trueの場合、OAuthの認証が必要となります.
-const getOAuth = async function(resState, resHeader, request) {
+// 戻り値: trueの場合、gasOAuthの認証が必要となります.
+const executeOAuth = async function(resState, resHeader, request) {
     // 必須パラメータチェック.
     checEnvOAuth();
 
-    // ログイン済みでない事を確認.
+    // ログインしていない事を確認.
     if(!(await loginMan.isLogin(2, resHeader, request))) {
-        // リレイレクト返却.
+        // createOAuthURLにリダイレクト処理.
         resState.setStatus(301);
         resHeader["location"] = createOAuthURL(request);
         return true;
@@ -249,7 +289,7 @@ const getOAuth = async function(resState, resHeader, request) {
     return false;
 }
 
-// getOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
+// executeOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
 // resState: レスポンスステータス(httpStatus.js).
 // resHeader レスポンスヘッダ(httpHeader.js).
 // request 対象のrequest情報を設定します.
@@ -312,13 +352,13 @@ const getBusinessDayToGetParams = function(
     businessDay, startDate) {
 
     // 計算したい営業日が指定無しの場合.
-    if(!isNumeric(businessDay)) {
+    if(!authUtil.isNumeric(businessDay)) {
         businessDay = 0;
     }
 
     // 営業日計算の開始日が数字指定の場合
     // Dateオブジェクトとして再作成.
-    if(isNumeric(startDate)) {
+    if(authUtil.isNumeric(startDate)) {
         startDate = new Date(parseInt(startDate));
     }
 
@@ -411,7 +451,9 @@ const getBusinessDay = async function(businessDay, startDate) {
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
-exports.getOAuth = getOAuth;
+exports.manager = loginMan;
+exports.createUser = createUser;
+exports.executeOAuth = executeOAuth;
 exports.redirectOAuth = redirectOAuth;
 exports.getBusinessDay = getBusinessDay;
 

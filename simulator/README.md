@@ -12,7 +12,7 @@ LFU (Lambda-Function-URLs) をシミュレーションして、ローカル環�
 
 1. コンテンツを変更.
 2. コンテンツを所定のS3にUpdate.
-3. LAMBDAの関数URLにブラウザでアクセスして動作確認.
+3. aws lambdaの関数URLにブラウザでアクセスして動作確認.
 
 また 所定のgithub repogitoryに対して同様の事を行う場合も同時に以下の工程が必要となります.
 
@@ -21,7 +21,7 @@ LFU (Lambda-Function-URLs) をシミュレーションして、ローカル環�
 3. プルリクの作成・approve.
 4. プルリクのりベースマージ.
 5. circleciなどの色々処理等.
-6. LAMBDAの関数URLにブラウザでアクセスして動作確認.
+6. ars lambdaの関数URLにブラウザでアクセスして動作確認.
 
 一方、ローカル環境で試す場合以下の工程となり、テストドリブンの確認は瞬時に行えます.
 
@@ -59,9 +59,8 @@ LFU-Simuratorで設定が必要なものは以下の通り.
 $ cd ~/
 $ mkdir project
 $ cd project
-$ git clone git@github.com:maachang/lambda-func-url.git
-$ ls
-lambda-func-url
+$ git clone git@github.com:maachang/LFU.git
+LFU
 $
 ~~~
 

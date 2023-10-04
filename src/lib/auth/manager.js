@@ -12,8 +12,8 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// crypto.
-const crypto = frequire('crypto');
+// auth/util.
+const authUtil = frequire(".lib/auth/util.js");
 
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
@@ -87,35 +87,6 @@ const USER_OPTIONS_AUTH_TYPE = "authType";
 // [userOptions]パスワード除外.
 const USER_OPTIONS_NONE_PASSWORD = "nonePassword";
 
-
-// base64の最後の=を削除.
-// code 対象のbase64文字列を設定.
-// 戻り値 最後の=を除いた値が返却.
-const cutEndBase64Eq = function(code) {
-    const len = code.length;
-    for(let i = len - 1; i >= 0; i --) {
-        if(code[i] != "=") {
-            return code.substring(0, i + 1);
-        }
-    }
-    return "";
-}
-
-// sha256変換.
-// code 変換元の内容を返却します.
-// 戻り値 変換結果(base64)が返却されます.
-const sha256 = function(code) {
-    return cutEndBase64Eq(crypto.createHash('sha256')
-        .update(code).digest("base64"));
-}
-
-// 文字列が存在するかチェック.
-// s 文字列を設定します.
-// 戻り値: trueの場合、文字列が存在します.
-const useString = function(s) {
-    return typeof(s) == "string" && s.length > 0;
-}
-
 // ユーザ情報オプションを生成します.
 // arguments
 //   [key, value ...]
@@ -137,7 +108,7 @@ const createUserOptions = function() {
 //         @password: パスワード(sha256)が返却されます.
 //         それ以外のパラメータも設定されています.
 const _getUser = async function(user) {
-    if(!useString(user)) {
+    if(!authUtil.useString(user)) {
         throw new Error("User has not been set.");
     }
     try {
@@ -260,7 +231,7 @@ const getUserToOAuth = async function(user) {
 // user 対象のユーザ名を設定します.
 // userInfo ユーザ情報オプションを設定します.
 // 戻り値: trueの場合登録できました.
-const _createUser = async function(user, userInfo) {
+const createUser = async function(user, userInfo) {
     // 既にユーザ情報が存在する場合.
     if(!await isUser(user)) {
         throw new Error(
@@ -284,61 +255,6 @@ const _createUser = async function(user, userInfo) {
     return await userTable.put("user", user, regUserInfo);
 }
 
-// パスワード認証用のユーザー情報を生成.
-// user 対象のユーザ名を設定します.
-// password 対象のパスワードを設定します.
-// userInfo ユーザ情報オプションを設定します.
-// 戻り値: trueの場合登録できました.
-const createPasswordAuthUser = async function(
-    user, password, userInfo) {
-    if(!useString(password)) {
-        throw new Error("Password has not been set.");
-    }
-    // 登録ユーザ情報.
-    const regUserInfo = {};
-    if(userInfo != undefined && userInfo != null) {
-        let kk;
-        for(let k in userInfo) {
-            // 先頭に@があるのは、追加できない.
-            if((kk = k.trim()).startsWith("@")) {
-                continue;
-            }
-            regUserInfo[kk] = userInfo[k];
-        }
-    }
-    // password認証として登録.
-    regUserInfo[USER_INFO_LOGIN_TYPE] =
-        USER_INFO_LOGIN_TYPE.PASSWORD;
-    // パスワードをsha256変換.
-    regUserInfo[USER_INFO_PASSWORD] = sha256(password);
-    // 登録.
-    return await _createUser(user, regUserInfo);
-}
-
-// oAuth認証用のユーザ登録.
-// user 対象のユーザ名を設定します.
-// userInfo ユーザ情報オプションを設定します.
-// 戻り値: trueの場合登録できました.
-const createOAuthUser = async function(user, userInfo) {
-    // 登録ユーザ情報.
-    const regUserInfo = {};
-    if(userInfo != undefined && userInfo != null) {
-        let kk;
-        for(let k in userInfo) {
-            // 先頭に@があるのは、追加できない.
-            if((kk = k.trim()).startsWith("@")) {
-                continue;
-            }
-            regUserInfo[kk] = userInfo[k];
-        }
-    }
-    // oauth認証として登録.
-    regUserInfo[USER_INFO_LOGIN_TYPE] =
-        USER_INFO_LOGIN_TYPE.OAUTH;
-    // 登録.
-    return await _createUser(user, regUserInfo);
-}
-
 // ユーザ削除.
 // user 対象のユーザ名を設定します.
 // 戻り値: trueの場合ユーザ情報が削除できました.
@@ -351,35 +267,6 @@ const removeUser = async function(user) {
     } catch(e) {}
     // 存在しない場合.
     return false;
-}
-
-// パスワード変更.
-// user 対象のユーザ名を設定します.
-// srcPassword 元のパスワードを設定します.
-// newPassword 新しいパスワードを設定します.
-// 戻り値: trueの場合パスワードの変更ができました.
-const changePassword = async function(
-    user, srcPassword, newPassword) {
-    if(!useString(srcPassword)) {
-        throw new Error("srcPassword has not been set.");
-    } else if(!useString(newPassword)) {
-        throw new Error("newPassword has not been set.");
-    }
-    // パスワード認証のユーザ情報を取得.
-    const userInfo = await getUser(
-        user, createUserOptions(USER_OPTIONS_AUTH_TYPE,
-            USER_OPTIONS_AUTH_TYPE.PASSWORD));
-    // 元のパスワードをsha256変換.
-    srcPassword = sha256(srcPassword);
-    // パスワードが不一致.
-    if(userInfo[USER_INFO_PASSWORD] != srcPassword) {
-        throw new Error("Original password does not match.");
-    }
-    // 新しいパスワードをsha256変換.
-    newPassword = sha256(newPassword);
-    userInfo[USER_INFO_PASSWORD] = newPassword;
-    // 再登録.
-    return await userTable.put("user", user, userInfo)
 }
 
 // オプションを設定/削除.
@@ -553,28 +440,6 @@ const updateSession = async function(
     return await sessionTable.put("user", user, sessionInfo);
 }
 
-// パスワード認証ログイン確認.
-// user 対象のユーザ名を設定します.
-// password パスワードを設定します.
-// 戻り値: trueの場合、ログイン成功です.
-const confirmLogin = async function(user, password) {
-    if(!useString(password)) {
-        return false;
-    }
-    // パスワード認証のユーザ情報が存在しない場合.
-    const userInfo = await getUser(
-        user, createUserOptions(USER_OPTIONS_AUTH_TYPE,
-            USER_OPTIONS_AUTH_TYPE.PASSWORD));
-    // パスワードをsha256変換.
-    password = sha256(password);
-    // パスワードが不一致.
-    if(userInfo[USER_INFO_PASSWORD] != password) {
-        return false;
-    }
-    // ログイン成功.
-    return true;
-}
-
 // ログイントークンキーコードを取得.
 // request Httpリクエスト情報.
 // 戻り値: ログイントークンキーコードが返却されます.
@@ -587,44 +452,6 @@ const getLoginTokenKeyCode = function(request) {
         ret = request.header.get("host");
     }
     return ret;
-}
-
-// パスワード認証でのログイン処理.
-// resHeader レスポンスヘッダ(./lib/httpHeader.js)
-// request Httpリクエスト情報.
-// user 対象のユーザー名を設定します.
-// password 対象のパスワードを設定します.
-// 戻り値: trueの場合、ログインに成功しました.
-const login = async function(resHeader, request, user, password) {
-    try {
-        // ログイン処理.
-        const result = await confirmLogin(user, password);
-        // ログイン成功.
-        if(result == true) {
-            // 新しいセッションを作成.
-            const sessions = await createSession(user);
-            if(sessions == null) {
-                // 新しいセッション取得に失敗.
-                throw new Error("Failed to get a login session.");
-            }
-
-            // ログイントークン作成用のキーコードを取得.
-            const keyCode = getLoginTokenKeyCode(request);
-
-            // ログイントークンを作成.
-            const token = sig.encodeToken(
-                keyCode, user, sessions.passCode,
-                sessions.sessionId, LOGIN_TOKEN_EXPIRE);
-
-            // レスポンスCookieにセッションキーを設定.
-            resHeader.putCookie(COOKIE_SESSION_KEY, {value: token});
-            return true;
-        }
-    } catch(e) {
-        console.error("I failed to login", e);
-    }
-    // ログイン失敗.
-    return false;
 }
 
 // ログアウト処理.
@@ -900,6 +727,8 @@ const isTimedSession = function(request, timedSession) {
 // 外部定義.
 ////////////////////////////////////////////////////////////////
 // 定義内容.
+exports.COOKIE_SESSION_KEY = COOKIE_SESSION_KEY;
+exports.LOGIN_TOKEN_EXPIRE = LOGIN_TOKEN_EXPIRE;
 exports.USER_INFO_USER = USER_INFO_USER;
 exports.USER_INFO_PASSWORD = USER_INFO_PASSWORD;
 exports.USER_INFO_LOGIN_TYPE = USER_INFO_LOGIN_TYPE;
@@ -907,24 +736,23 @@ exports.USER_OPTIONS_AUTH_TYPE = USER_OPTIONS_AUTH_TYPE;
 exports.USER_OPTIONS_NONE_PASSWORD = USER_OPTIONS_NONE_PASSWORD;
 
 // 定義メソッド.
+exports.getLoginTokenKeyCode = getLoginTokenKeyCode;
 exports.createUserOptions = createUserOptions;
 exports.isUser = isUser;
-exports.createPasswordAuthUser = createPasswordAuthUser;
-exports.createOAuthUser = createOAuthUser;
+exports.createUser = createUser;
 exports.removeUser = removeUser;
-exports.changePassword = changePassword;
 exports.putOption = function(user, options) {
     return settingOption(true, user, options);
 }
 exports.removeOption = function(user, options) {
     return settingOption(false, user, options);
 }
+exports.getUser = getUser;
 exports.userList = userList;
 exports.createSession = createSession;
 exports.getSession = getSession;
 exports.removeSession = removeSession;
 exports.updateSession = updateSession;
-exports.login = login;
 exports.logout = logout;
 exports.isLogin = isLogin;
 exports.getLoginInfo = getLoginInfo;
