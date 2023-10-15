@@ -46,6 +46,7 @@ if(typeof(params) != "string" || (params = params.trim()).length == 0) {
 params = params.substring(1);
 
 // 同期用ajaxで取得.
+// 通常ブラウザでは非推奨の同期用ajaxで処理する.
 // github-repogitoryがprivateの場合は読み込みが出来ないので注意.
 const syncAjx = function(url) {
     // timestampパラメータをセット.

@@ -11,23 +11,6 @@
 const executeGAS = function(params) {
 // ====================================.
 
-// (user-setting)[Token生成用]Auth用KeyCode定義.
-// 許可されたリクエストのみ利用が可能にするためのToken作成を行う
-// KeyCodeを設定します.
-// この内容はセンシティブな情報なので、GITにPushはNGです.
-const ALLOW_AUTH_KEY_CODE =
-    "Note: Do not upload to git";
-
-// (user-setting)[allow mail Domain]許可するメールアドレスのドメイン名群.
-const ALLOW_MAIL_DOMAINS = [
-    // ここにドメイン名(@除く文字列)を設定します.
-
-];
-
-// (user-setting)[favicon.ico]googleDrive上のfavicon.ico(png形式のみ).
-// ここではファイルIDを設定します.
-const GDRV_FAVICON_ICO_ID = "";
-
 // [default]デフォルトの営業日.
 const DEF_BUSINESS_DAY = 5;
 
@@ -66,7 +49,7 @@ const getParams = function() {
 const conv1byteToHex = function(n) {
     let ret = (n & 0x0ff).toString(16);
     if(ret.length == 1) {
-        ret += '0';
+        ret = '0' + ret;
     }
     return ret;
 }
@@ -135,7 +118,7 @@ const isAuthRequestAccessToken = function() {
 
     // PARAMS_REQUEST_TOKEN_KEYが存在するかチェック.
     const tokenKeyCode = params[PARAMS_REQUEST_TOKEN_KEY];
-    if(typeof(tokenKeyCode) != "string") {
+    if(typeof(tokenKeyCode) != "string" && tokenKeyCode == "") {
         return false;
     }
 
@@ -287,6 +270,35 @@ const PARAMS_REDIRECT_URL = "redirect-url";
 // 本来アクセスしたいURLが設定されます.
 const PARAMS_SOURCE_ACCESS_URL = "src-access-url";
 
+// redierctTokenごまかし的難読化テーブル.
+const REDIRECT_TOKEN_DF = {
+    "0": "_Q", "1": "O", "2": "p8", "3": "~c", "4": "jE", "5z": "8_9", "6": "u", "7": "3G",
+    "8": "n", "9": "E", "a": "~K", "b": "i", "c": "W6", "d": "d", "e": "=d", "f": "3E"   
+};
+
+// リダイレクト用Tokenを生成.
+const createRedirectToken = function(type) {
+    const requestTokenKey = params[PARAMS_REQUEST_TOKEN_KEY];
+    // 指定requestTokenKeyとtypeを融合する.
+    let len = requestTokenKey.length;
+    requestTokenKey =
+        "~=$_" +
+        requestTokenKey.substring(len >> 1)
+        TOKEN_DELIMIRATER +
+        type + "=_~!~" +
+        requestTokenKey.substring(0, len >> 1);
+    // tokenを生成.
+    const token = convertToHMmacSHA256(
+        ALLOW_AUTH_KEY_CODE, requestTokenKey);
+    // 対象Tokenに対して、ごまかし的難読化する.
+    len = token.length;
+    let ret = "";
+    for(let i = 0; i < len; i ++) {
+        ret += REDIRECT_TOKEN_DF[token[i]];
+    }
+    return ret;
+}
+
 /**
  * [HTML返却]GoogleAppScript(以降GAS)を会社で契約している場合に使える便利機能処理.
  * 
@@ -303,6 +315,9 @@ const PARAMS_SOURCE_ACCESS_URL = "src-access-url";
  * 今回はLFUが実行形態であるLambdaFunctionURLとの連携のような、ドメインが無いと
  * OAuthできないそのような環境において、GASを挟んでこのGASでログイン中の
  * メールアドレスを取得してユーザー情報を取得する形とします.
+ * 
+ * あと、元のrequestTokenとredirectTokenを元にredirectが正しく行われた事を
+ * 保証する条件を返却して、oauthの認可が正しいものかを設定します.
  */
 const executeOAuth = function() {
     try {
@@ -314,10 +329,8 @@ const executeOAuth = function() {
             throw new Error("gas login failed.");
         }
         const params = getParams();
-        const redirectURL = convString(
-            params[PARAMS_REDIRECT_URL]);
-        const srcAccessURL = convString(
-            params[PARAMS_SOURCE_ACCESS_URL]);
+        const redirectURL = convString(params[PARAMS_REDIRECT_URL]);
+        const srcAccessURL = convString(params[PARAMS_SOURCE_ACCESS_URL]);
         // メールアドレスが取得できている.
         // redirect先URLが存在する.
         // 元のアクセスURLが存在する.
@@ -332,10 +345,16 @@ const executeOAuth = function() {
                     "oAuthSuccess.html");
             // パラメータをセット.
             template.params = {
+                // タイプ,
+                type: PARAMS_TYPE_OAUTH,
                 // リダイレクトする時のURLを返却.
                 redirectUrl: redirectURL,
                 // アクセス元のURL.
                 srcAccessUrl: srcAccessURL,
+                // requestTokenKey.
+                tokenKey: params[PARAMS_REQUEST_TOKEN_KEY],
+                // redirectToken.
+                redirectToken: createRedirectToken(PARAMS_TYPE_OAUTH),
                 // googleWorkspaceにログインしているメールアドレス.
                 mail: mail,
             }
@@ -455,9 +474,19 @@ const executeBusinessDay = function() {
         const output = ContentService.createTextOutput();
         output.setMimeType(ContentService.MimeType.JSON);
         output.setContent(JSON.stringify({
+            // 正常終了.
             status: 200,
+            // タイプ.
+            type: PARAMS_TYPE_BUSINESS_DAY,
+            // メールアドレス.
             mail: mail,
+            // 計算された営業日返却.
             value: result,
+            // requestTokenKey.
+            tokenKey: params[PARAMS_REQUEST_TOKEN_KEY],
+            // redirectToken.
+            redirectToken: createRedirectToken(PARAMS_TYPE_BUSINESS_DAY),
+            // メッセージ.
             message: "success"
         }));
     } catch(e) {
@@ -465,10 +494,16 @@ const executeBusinessDay = function() {
         const output = ContentService.createTextOutput();
         output.setMimeType(ContentService.MimeType.JSON);
         output.setContent(JSON.stringify({
+            // 異常終了.
             status: 500,
+            // タイプ.
+            type: PARAMS_TYPE_BUSINESS_DAY,
+            // メールアドレス.
             mail: "",
+            // 計算された営業日返却.
             value: "",
-            message: "" + e
+            // メッセージ.
+            message: "[error]:" + e
         }));
     }
 }

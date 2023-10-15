@@ -33,11 +33,11 @@ const authUtil = frequire("./lib/auth/util.js");
 // [ENV]問い合わせ先のGAS認証URL.
 const ENV_GAS_AUTH_URL = "GAS_AUTH_URL";
 
-// [ENV]GASOAuth用KeyCode定義.
+// [ENV]GasOAuth用KeyCode定義.
 const ENV_GAS_ALLOW_AUTH_KEY_CODE = "ALLOW_GAS_AUTH_KEY_CODE";
 
 // [ENV]OAuth認証成功後のリダイレクト先URLのパス.
-//   ${host名}${REDIRECT_OAUTH_PATH}
+//   ${(httpHeader)host}${REDIRECT_OAUTH_PATH}
 // のリダイレクト先条件を設定します.
 const ENV_REDIRECT_OAUTH_PATH = "REDIRECT_OAUTH_PATH";
 
@@ -64,6 +64,16 @@ const PARAMS_SEND_TOKEN_KEY = "request-token-key";
 // [認証パラメータ]requestToken.
 // request側で作成したToken.
 const PARAMS_SEND_TOKEN = "request-token";
+
+// [パラメータ]ログインされていない時のURL指定
+const PARAMS_SRC_URL = "srcURL";
+
+// envが定義されていない場合.
+const isEmptyEnv = function(name) {
+    const value = process.env[name];
+    return value == undefined ||
+        value == null || ("" + value) == "";
+}
 
 // oAuth認証用のユーザ登録.
 // user 対象のユーザ名を設定します.
@@ -144,7 +154,7 @@ const TOKEN_DELIMIRATER = "$_$/\n";
 //         request-token-key tokenKeyを設定します.
 const createSendToken = function(target, paramsArray) {
     // 新しいtokenKeyを生成.
-    const tokenKeyCode = createTokenKey();
+    tokenKeyCode = createTokenKey();
     // allowAuthKeyCodeを環境変数から取得.
     const authKeyCode = process.env[ENV_GAS_ALLOW_AUTH_KEY_CODE];
     // シグニチャーを生成.
@@ -180,11 +190,11 @@ const getGasAccessURLEncodeGetParams = function(
         throw new Error("Specified target not set: " + target);
     }
     // [ENV]問い合わせ先のGAS-URL.
-    const url = process.env[ENV_GAS_AUTH_URL];
-    if(url == undefined) {
+    if(isEmptyEnv(ENV_GAS_AUTH_URL)) {
         throw new Error(
             "[ENV]The URL destination GoogleAppsScript is not set.");
     }
+    const url = process.env[ENV_GAS_AUTH_URL];
 
     // 指定TypeのTokenを生成.
     const oAuthParams = createSendToken(target, paramsArray);
@@ -223,16 +233,39 @@ const PARAMS_SOURCE_ACCESS_URL = "src-access-url";
 // [oAuth]必須環境変数チェック.
 const checEnvOAuth = function() {
     // [ENV]GASOAuth用KeyCode定義.
-    if(process.env[ENV_GAS_ALLOW_AUTH_KEY_CODE] == undefined) {
+    if(isEmptyEnv(ENV_GAS_ALLOW_AUTH_KEY_CODE)) {
         throw new Error(
             "[ENV]The KeyCode definition for OAuth has not been set.");
     }
     // [ENV]GASOAuthの正常結果のリダイレクト先Path定義.
-    else if(process.env[ENV_REDIRECT_OAUTH_PATH] == undefined) {
+    else if(isEmptyEnv(ENV_REDIRECT_OAUTH_PATH)) {
         throw new Error(
             "[ENV]The redirect destination Path for normal results for OAuth "
             + "has not been set.");
     }
+}
+
+// host名に対するprotocolを取得.
+// host 対象のホスト名を設定します.
+// 戻り値: protocolが返却されます.
+const getHttpProtocol = function(host) {
+    host = host.trim().toLowerCase();
+    if(!(host == "localhost" || host.startsWith("localhost:"))) {
+        let c;
+        const len = host.length;
+        for(let i = 0; i < len; i ++) {
+            c = host.charAt(i);
+            // ipアドレス以外.
+            if(!(
+                (c >= '0' && c <= '9') || c == '.' || c == ':'
+            )) {
+                // lambda関数URLのURLなのでhttps.
+                return "https://";
+            }
+        }
+    }
+    // localhostやip固定の場合はhttp.
+    return "http://";
 }
 
 // gasのOAuth用URLを生成.
@@ -240,33 +273,69 @@ const checEnvOAuth = function() {
 // request 対象のrequest情報を設定します.
 // 戻り値: GASに問い合わせるURLが返却されます.
 const createOAuthURL = function(request) {
+    const params = [];
+    const host = request.header.get("host");
     // oAuth成功後のリダイレクト先URLを生成.
-    const successRedirectURL = "https://"
-        + request.header.get("host") + 
-            (process.env[ENV_REDIRECT_OAUTH_PATH].startsWith("/") ?
-                process.env[ENV_REDIRECT_OAUTH_PATH] :
-                "/" + process.env[ENV_REDIRECT_OAUTH_PATH]);
-    
+    {
+        const redirectPath = process.env[ENV_REDIRECT_OAUTH_PATH];
+        const protocol = getHttpProtocol(host)
+        const successRedirectURL = protocol + host + 
+            (redirectPath.startsWith("/") ?
+                redirectPath : "/" + redirectPath);
+        params[params.length] = PARAMS_REDIRECT_URL;
+        params[params.length] = successRedirectURL;        
+    }
+
     // ログイン後の元のURLを取得.
     // 現在アクセス中のURL＋パラメータをセット.
-    const sourceAccessUrl = "https://"
-        + request.header.get("host")  + request.path
-            + ((typeof(request.rawQueryString) == "string" &&
-                request.rawQueryString.length > 0) ?
-                "?" + request.rawQueryString : "");
+    const srcUrl = request.queryParams[PARAMS_SRC_URL];
+    if(typeof(srcUrl) == "string") {
+        sourceAccessUrl = protocol + host +
+            (srcUrl.startsWith("/") ?
+                srcUrl : "/" + srcUrl);
+        params[params.length] = PARAMS_SOURCE_ACCESS_URL;
+        params[params.length] = sourceAccessUrl;        
+    }
     
-    // パラメータ用のリストを作成.
-    const params = [
-        PARAMS_REDIRECT_URL, successRedirectURL,
-        PARAMS_SOURCE_ACCESS_URL, sourceAccessUrl,
-    ];
-
     // Gasアクセス用のURL + URLEncodeのGetパラメータを生成.
     const urlAndParams = getGasAccessURLEncodeGetParams(
         PARAMS_TYPE_OAUTH, params);
     
     // OAuth用のURLを返却.
     return urlAndParams.url + "?" + urlAndParams.params;
+}
+
+// redierctTokenごまかし的難読化テーブル.
+const REDIRECT_TOKEN_DF = {
+    "0": "_Q", "1": "O", "2": "p8", "3": "~c", "4": "jE", "5z": "8_9", "6": "u", "7": "3G",
+    "8": "n", "9": "E", "a": "~K", "b": "i", "c": "W6", "d": "d", "e": "=d", "f": "3E"   
+};
+
+// リダイレクト用Tokenが正しいかチェックする.
+// redirectToken redirectされた時に渡されたパラメータ"redirectToken"を設定します.
+// type 実行パラメータを設定します.
+// requestTokenKey redirectされた時に渡されたパラメータ"tokenKey"を設定します.
+// 戻り値 trueの場合正しいです.
+const isRedirectToken = function(redirectToken, type, requestTokenKey) {
+    // 指定requestTokenKeyとtypeを融合する.
+    let len = requestTokenKey.length;
+    requestTokenKey =
+        "~=$_" +
+        requestTokenKey.substring(len >> 1)
+        TOKEN_DELIMIRATER +
+        type + "=_~!~" +
+        requestTokenKey.substring(0, len >> 1);
+    // tokenを生成.
+    const token = authUtil.hmacSHA256(
+        process.env[ENV_GAS_ALLOW_AUTH_KEY_CODE], requestTokenKey);
+    // 対象Tokenに対して、ごまかし的難読化する.
+    len = token.length;
+    let chkToken = "";
+    for(let i = 0; i < len; i ++) {
+        chkToken += REDIRECT_TOKEN_DF[token[i]];
+    }
+    // 内容が一致するかチェック.
+    return redirectToken == chkToken;
 }
 
 // GasでのOAuthを実施します.
@@ -303,7 +372,17 @@ const redirectOAuth = async function(resState, resHeader, request) {
             message: "gas oauth authentication failed."
         });
     }
-
+    // redirectTokenのチェック.
+    if(!isRedirectToken(
+        request.queryParams["redirectToken"],
+        request.queryParams["type"],
+        request.queryParams["tokenKey"])) {
+        // redirectTokenチェック失敗.
+        throw new HttpError({
+            status: 403,
+            message: "Failed to get response information: not equals response token."
+        });
+    }
     // [oauth]ログインセッションを生成.
     const sessions = await loginMan.createSession(request, aOuthMail,
         loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE,
@@ -442,10 +521,30 @@ const getBusinessDay = async function(businessDay, startDate) {
     // httpsClient.
     const httpsClient = frequire("./lib/httpsClient.js");
     // httpsClientでアクセスする.
-    return await httpsClient.request(
+    const json = httpsClient.toJSON(await httpsClient.request(
         hostPath.host, hostPath.url,
             {urlParams: urlParams.params,
-            port: hostPath.port});
+            port: hostPath.port}));
+    // 返却内容不正の場合.
+    if(json == undefined || json == null) {
+        throw new HttpError({
+            status: 400,
+            message: "Failed to get response information: not json."
+        });
+    // 返却内容がstatusが200(正常以外)の場合はエラー.
+    } else if(json.status != "200") {
+        return json;
+    }
+    // redirectTokenのチェック.
+    if(!isRedirectToken(json["redirectToken"], json["type"], json["tokenKey"])) {
+        // redirectTokenチェック失敗.
+        throw new HttpError({
+            status: 403,
+            message: "Failed to get response information: not equals response token."
+        });
+    }
+    // 正常.
+    return json;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -453,6 +552,7 @@ const getBusinessDay = async function(businessDay, startDate) {
 ////////////////////////////////////////////////////////////////
 exports.manager = loginMan;
 exports.createUser = createUser;
+exports.isRedirectToken = isRedirectToken;
 exports.executeOAuth = executeOAuth;
 exports.redirectOAuth = redirectOAuth;
 exports.getBusinessDay = getBusinessDay;

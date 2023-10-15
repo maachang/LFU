@@ -44,10 +44,16 @@
 
     <!-- リダイレクト処理. -->
     <script>
+        // アクセスタイプ.
+        const TYPE = "<?= params.type ?>";
         // アクセス元のURL.
         const SRC_ACCESS_URL = "<?= params.srcAccessUrl ?>";
         // メールアドレス.
         const MAIL = "<?= params.mail ?>";
+        // tokenKey.
+        const TOKEN_KEY = "<?= params.tokenKey ?>";
+        // redirectToken.
+        const REDIRECT_TOKEN = "<?= params.token ?>";
 
         // redirect先のURLを作成する.
         let redirectURL = "<?= params.redirectUrl ?>";
@@ -60,6 +66,12 @@
         redirectURL += "aOuthMail=" + encodeURIComponent(MAIL);
         // アクセス元のURLをセット.
         redirectURL += "&srcAccessUrl=" + encodeURIComponent(SRC_ACCESS_URL);
+        // アクセスタイプをセット.
+        redirectURL += "&type=" + encodeURIComponent(TYPE);
+        // redirectTokenをセット.
+        redirectURL += "&redirectToken=" + encodeURIComponent(REDIRECT_TOKEN);
+        // tokenKeyをセット.
+        redirectURL += "&tokenKey=" + encodeURIComponent(TOKEN_KEY);
 
         // GETでredirectする.
         location.href = redirectURL;

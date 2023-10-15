@@ -212,11 +212,29 @@ const request = function(host, path, options) {
     });
 }
 
+// レスポンスBodyを文字列変換.
+const toString = function(binary, charset) {
+    if(typeof(binary) == "string") {
+        return binary;
+    }
+    if(charset == undefined) {
+        charset = "utf-8";
+    }
+    return binary.toString(charset);
+}
+
+// レスポンスBodyをJSON変換.
+const toJSON = function(binary, charset) {
+    return JSON.parse(toString(binary, charset));
+}
+
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////
 exports.convertUrlParams = convertUrlParams;
 exports.encodeURIToPath = encodeURIToPath;
 exports.request = request;
+exports.toString = toString;
+exports.toJSON = toJSON;
 
 })();
