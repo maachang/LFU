@@ -4,6 +4,18 @@
 //  - 営業日を取得.
 // を実現するためのモジュール.
 //////////////////////////////////////////////
+
+//
+// ※gasのdoGetに対して、gasのアカウントデータアクセス許可が必要な場合、
+// これに対して `XMLHttpRequest` でのアクセスはすべて「エラー」になる.
+// https://qiita.com/faunsu/items/722ab6d7f6178508851c
+// 結局 lambda -> gas(doGet or doPost) のアクセスが可能なのは
+// `jsonp` だけとなるので注意(非常に不便).
+// 
+// あとlambda -> gas のアクセスは「ブラウザに紐づいてる」ので、lambdaから
+// httpClient等でアクセスしても「gasにアクセス」できないので注意.
+//
+
 (function() {
 'use strict'
 
