@@ -130,6 +130,8 @@ const convertHeaderToLowerKey = function(header) {
 //      status: number,
 //      header: object
 //    }
+// - directURL(boolean)
+//    trueを設定した場合、host = URLになります.
 // 戻り値: Promise(Buffer)が返却されます.
 const request = function(host, path, options) {
     // optionsが存在しない場合.
@@ -160,7 +162,7 @@ const request = function(host, path, options) {
         header["content-length"] = Buffer.byteLength(body);
     }
     // hostにhttps://が存在する場合は除外.
-    if(host.startsWith("https://")) {
+    if(options["directURL"] != true && host.startsWith("https://")) {
         host = host.substring(8).trim();
     }
     // 非同期処理.
@@ -168,12 +170,14 @@ const request = function(host, path, options) {
         // 接続パラメータを作成.
         const params = {
             "method": method,
-            "headers": header
+            "headers": header,
         };
         try {
+            // urlを取得.
+            const url = options["directURL"] == true ?
+                host: getUrl(host, path, port, urlParams);
             // request作成.
-            const req = https.request(
-                getUrl(host, path, port, urlParams), params, (res) => 
+            const req = https.request(url, params, (res) => 
             {
                 // response処理.
                 try {
@@ -212,11 +216,29 @@ const request = function(host, path, options) {
     });
 }
 
+// レスポンスBodyを文字列変換.
+const toString = function(binary, charset) {
+    if(typeof(binary) == "string") {
+        return binary;
+    }
+    if(charset == undefined) {
+        charset = "utf-8";
+    }
+    return binary.toString(charset);
+}
+
+// レスポンスBodyをJSON変換.
+const toJSON = function(binary, charset) {
+    return JSON.parse(toString(binary, charset));
+}
+
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////
 exports.convertUrlParams = convertUrlParams;
 exports.encodeURIToPath = encodeURIToPath;
 exports.request = request;
+exports.toString = toString;
+exports.toJSON = toJSON;
 
 })();

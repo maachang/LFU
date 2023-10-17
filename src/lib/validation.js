@@ -13,6 +13,16 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// method.
+const METHOD = {
+    "all": "*",
+    "get": "GET",
+    "post": "POST",
+    "delete": "DELETE",
+    "put": "PUT",
+    "patch": "PATCH"
+};
+
 // Validate型.
 const MODEL = {
     "none": 0,
@@ -333,27 +343,14 @@ const execute = function(method, validate, request) {
 // 外部定義.
 /////////////////////////////////////////////////////
 
-// [validate定数]methodALL.
-global["VM_ALL"] = "*";
-
-// [validate定数]methodGET.
-global["VM_GET"] = "GET";
-
-// [validate定数]methodPOST.
-global["VM_POST"] = "POST";
-
-// [validate定数]methodDEALETE.
-global["VM_DELETE"] = "DELETE";
-
-// [validate定数]methodPUT.
-global["VM_PUT"] = "PUT";
-
-// [validate定数]methodPATCH.
-global["VM_PATCH"] = "PATCH";
+// [validate定数]method.
+for(let k in METHOD) {
+    global["VM_" + k.toUpperCase()] = METHOD[k];
+}
 
 // [validate定数]変換型定義名.
 for(let k in MODEL) {
-    global["VC_" + MODEL[k].toUpperCase()] = MODEL[k];
+    global["VC_" + k.toUpperCase()] = MODEL[k];
 }
 
 // [validate定数]validate条件.

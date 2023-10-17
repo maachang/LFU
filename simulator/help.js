@@ -45,6 +45,13 @@ exports.print = function() {
     p("                    If not set, the environment variable `LFUS_CIPHOER_KEY` will be used.");
     p("     -p --path {path} Set an access pass.");
     p("                      If not set, the environment variable `LFUS_CIPHOER_PATH` will be used.");
+    p(" 3.Create a random string.");
+    p("   -g or --gen Set the conditions for the random number string to be created.");
+    p("     -l or --len Sets the binary length of the generated random number.");
+    p("     -t or --type Sets the output type of generated random numbers.");
+    p("       base64 Output in base64 format.");
+    p("       hex Output in hex format.");
+   
 }
 
 })(global);

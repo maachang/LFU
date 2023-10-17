@@ -349,7 +349,7 @@ const getStringContents = async function(path, charset) {
 // path パスを設定します.
 // 戻り値: パスが.jhtml拡張子の場合 .js.htmlに変換されます.
 const convertJhtmlPath = function(path) {
-    if(path.toLowerCase().endsWith().endsWith(".jhtml")) {
+    if(path.toLowerCase().endsWith(".jhtml")) {
         return path.substring(
             0, path.length - 6) + ".js.html";
     }

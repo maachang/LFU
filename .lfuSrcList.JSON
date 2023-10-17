@@ -16,13 +16,17 @@
         ,"src/lib/httpsClient.js"
         ,"src/lib/mimeType.js"
         ,"src/lib/s3restApi.js"
+        ,"src/lib/validation.js"
         ,"src/lib/util/xor128.js"
         ,"src/lib/storage/convb.js"
         ,"src/lib/storage/jsonb.js"
         ,"src/lib/storage/s3kvs.js"
+        ,"src/lib/auth/gasAuth.js"
         ,"src/lib/auth/manager.js"
         ,"src/lib/auth/mfa.js"
+        ,"src/lib/auth/passwordAuth.js"
         ,"src/lib/auth/signature.js"
+        ,"src/lib/auth/util.js"
     ]
     ,"//": "@publicなブラウザ提供情報."
     ,"@public": [

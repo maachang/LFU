@@ -12,6 +12,17 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// unix時間を取得.
+exports.getTime = function() {
+  return Date.now();
+}
+
+// ナノ時間を取得.
+exports.getNanoTime = function() {
+  const ret = process.hrtime()
+  return ((ret[0] * 1000000000) + ret[1]);
+}
+
 // xor128演算乱数装置.
 exports.create = function(seet) {
     let _a = 123456789;
@@ -75,6 +86,7 @@ exports.create = function(seet) {
     const getArray = function(out, len) {
         outByteList(out, out.length, len);
     }
+    // 初期乱数のコードをセット.
     setSeet(seet);
     return {
         setSeet: setSeet,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*!
- * lfu-simulator(Lambda function URLs Simulator).
+ * lfu-simulator(LFU[Lambda function URLs] Simulator).
  * Copyright(c) 2022 maachang.
  * MIT Licensed
  */
@@ -16,6 +16,9 @@ const cluster = require('cluster');
 
 // プログラム(node)引数.
 const args = require("./modules/args.js");
+
+// 定数定義.
+const cons = require("./constants.js");
 
 // クラスタ実行の場合、コマンド実行を行う.
 if(cluster.isMaster) {
@@ -63,6 +66,40 @@ if(cluster.isMaster) {
         console.log("src : %s", ret.src);
         console.log("dest: %s", ret.dest);
         return;
+    // 乱数発行を行う.
+    } else if(args.isValue("-g", "--gen")) {
+        // nums取得.
+        const nums = require("./modules/util/nums.js");
+        // nanoTimeを取得.
+        const key = nums.getNanoTime();
+        // 乱数作成.
+        const rand = nums.Xor128(key);
+        let len = key & 0x01f;
+        for(let i = 0; i < len; i ++) {
+            rand.next();
+        }
+        // 乱数の長さを取得.
+        len = args.get("-l", "--len");
+        if(!nums.isNumeric(len)) {
+            // 乱数の長さは28文字.
+            len = cons.DEF_RANDOM_BINARY;
+        } else {
+            // 指定された内容を数字変換.
+            len = parseInt(len);
+            if(len <= 0) {
+                // 長さが0以下の場合.
+                len = cons.DEF_RANDOM_BINARY;
+            }
+        }
+        const bin = rand.getBytes(len);
+        // 変換タイプを取得.
+        let type = args.get("-t", "--type");
+        if(type == "base64") { 
+            console.log(bin.toString("base64"));
+        } else {
+            console.log(bin.toString("hex"));
+        }
+        return;
     }
 }
 
@@ -72,9 +109,6 @@ if(cluster.isMaster) {
 
 // ユーティリティ.
 const util = require("./modules/util/util.js");
-
-// constants.
-const cons = require("./constants.js");
 
 // lfuPath.
 let lfuPath = null;

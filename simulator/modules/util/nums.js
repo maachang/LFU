@@ -125,8 +125,7 @@ o.Xor128 = function(seet) {
       n.c=s=1812433253*(s^(s>>30))+3;
       n.d=s=1812433253*(s^(s>>30))+4;
     }
-  }
-  
+  }  
   // 乱数取得.
   r.next = function() {
     const n = this.v;
@@ -149,9 +148,37 @@ o.Xor128 = function(seet) {
     n.d = r;
     return r;
   }
+  // 乱数取得.
   r.nextInt = function() {
     return this.next();
   }
+  // Byteリストの乱数を生成.
+  r.outByteList = function(out, cnt, len) {
+    let n, i;
+    const len4 = len >> 2;
+    const lenEtc = len & 0x03;
+    for(i = 0; i < len4; i ++) {
+        n = r.next();
+        out[cnt ++] = n & 0x0ff;
+        out[cnt ++] = (n & 0x0ff00) >> 8;
+        out[cnt ++] = (n & 0x0ff0000) >> 16;
+        out[cnt ++] = ((n & 0xff000000) >> 24) & 0x0ff;
+    }
+    for(i = 0; i < lenEtc; i ++) {
+        out[cnt ++] = r.next() & 0x0ff;
+    }
+  }
+  // ランダムバイナリを指定数取得.
+  r.getBytes = function(len) {
+      const ret = Buffer.alloc(len);
+      r.outByteList(ret, 0, len);
+      return ret;
+  }
+  // ランダムバイナリをout(Array)に格納.
+  r.getArray = function(out, len) {
+      r.outByteList(out, out.length, len);
+  }
+  // 初期乱数のコードをセット.
   r.setSeet(seet);
   return r;
 }

@@ -173,6 +173,7 @@ const cutEndBase64Eq = function(code) {
     }
     return "";
 }
+exports.cutEndBase64Eq = cutEndBase64Eq;
 
 // outのバイナリ情報にvalue内容を追加.
 // out 格納先のバイナリを設定します.
