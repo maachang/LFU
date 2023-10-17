@@ -48,10 +48,9 @@ if(LOGIN_USER_LIST_LIMIT >= 100) {
 }
 
 // [ENV]ログイントークン寿命を取得.
-let LOGIN_TOKEN_EXPIRE = process.env[ENV_LOGIN_TOKEN_EXPIRE];
-if(LOGIN_TOKEN_EXPIRE == undefined) {
-    LOGIN_TOKEN_EXPIRE = 1;
-}
+// 指定してない場合は１日.
+const LOGIN_TOKEN_EXPIRE = process.env[ENV_LOGIN_TOKEN_EXPIRE] == undefined ?
+    1: process.env[ENV_LOGIN_TOKEN_EXPIRE]|0;
 
 // デフォルトのS3Kvs.
 const defS3Kvs = s3kvs.create();

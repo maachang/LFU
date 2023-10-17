@@ -39,11 +39,6 @@ const ENV_GAS_AUTH_URL = "GAS_AUTH_URL";
 // [ENV]GasOAuth用KeyCode定義.
 const ENV_GAS_ALLOW_AUTH_KEY_CODE = "ALLOW_GAS_AUTH_KEY_CODE";
 
-// [ENV]OAuth認証成功後のリダイレクト先URLのパス.
-//   ${(httpHeader)host}${REDIRECT_OAUTH_PATH}
-// のリダイレクト先条件を設定します.
-const ENV_REDIRECT_OAUTH_PATH = "REDIRECT_OAUTH_PATH";
-
 // [ENV]tokenKey長.
 const ENV_GAS_OAUTH_TOKEN_KEY_LENGTH = "GAS_OAUTH_TOKEN_KEY_LENGTH";
 
@@ -238,12 +233,6 @@ const checEnvOAuth = function() {
         throw new Error(
             "[ENV]The KeyCode definition for OAuth has not been set.");
     }
-    // [ENV]GASOAuthの正常結果のリダイレクト先Path定義.
-    else if(isEmptyEnv(ENV_REDIRECT_OAUTH_PATH)) {
-        throw new Error(
-            "[ENV]The redirect destination Path for normal results for OAuth "
-            + "has not been set.");
-    }
 }
 
 // host名に対するprotocolを取得.
@@ -313,6 +302,87 @@ const createOAuthURL = function(request) {
     return urlAndParams.url + "?" + urlAndParams.params;
 }
 
+// GasのOAuthURLを作成します.
+// request 対象のrequest情報を設定します.
+// 戻り値: GasのOAuthURLが返却されます.
+const executeOAuthURL= function(request) {
+    // 必須パラメータチェック.
+    checEnvOAuth();
+
+    // gasのURLを生成.
+    return createOAuthURL(request);
+}
+
+// [実行パラメータ]営業日を取得.
+const PARAMS_TYPE_BUSINESS_DAY = "businessDay";
+
+// [bisinessパラメータ]営業日計算の開始日.
+const PARAMS_START_DATE = "start_date";
+
+// [bisinessパラメータ]計算したい営業日.
+const PARAMS_BUSINESS_DAY = "business_day";
+
+// gasの営業日取得用URLを作成.
+// businessDay 計算したい営業日を設定します.
+//             省略した場合はデフォルト日が設定されます.
+// startDate 営業日計算の開始日を設定します.
+//           省略した場合は当日が設定されます.
+// 戻り値: GASに問い合わせるURL, Paramsが返却されます.
+//         {url, params}
+const getBusinessDayToGetParams = function(
+    businessDay, startDate) {
+
+    // 計算したい営業日が指定無しの場合.
+    if(!authUtil.isNumeric(businessDay)) {
+        businessDay = 0;
+    }
+
+    // 営業日計算の開始日が数字指定の場合
+    // Dateオブジェクトとして再作成.
+    if(authUtil.isNumeric(startDate)) {
+        startDate = new Date(parseInt(startDate));
+    }
+
+    // 営業日計算の開始日が指定無しの場合.
+    if(startDate == undefined || startDate == null) {
+        startDate = "";
+    } else if(startDate instanceof Date) {
+        const y = startDate.getFullYear();
+        const m = "" + (startDate.getMonth() + 1);
+        const d = "" + startDate.getDate();
+        startDate = y + "-" +
+            "00".substring(m.length()) + m + "-" +
+            "00".substring(d.length()) + d;
+    } else {
+        startDate = "" + startDate;
+    }
+    
+    // パラメータ用のリストを作成.
+    const params = [
+        PARAMS_START_DATE, startDate,
+        PARAMS_BUSINESS_DAY, businessDay,
+    ];
+
+    // Gasアクセス用のURLEncodeのGetパラメータを生成.
+    return getGasAccessURLEncodeGetParams(
+        PARAMS_TYPE_BUSINESS_DAY, params);
+}
+
+// GASに対して営業日を取得するURLを取得..
+// businessDay 計算したい営業日を設定します.
+//             省略した場合はデフォルト日が設定されます.
+// startDate 営業日計算の開始日を設定します.
+//           省略した場合は当日が設定されます.
+const getBusinessDayURL = async function(businessDay, startDate) {
+    // 必須パラメータチェック.
+    checEnvOAuth();
+
+    // gasの営業日取得用URLを作成.
+    const urlAndParams = getBusinessDayToGetParams(businessDay, startDate);
+    // 営業日取得用のURLを返却.
+    return urlAndParams.url + "?" + urlAndParams.params;
+}
+
 // redierctTokenごまかし的難読化テーブル.
 const REDIRECT_TOKEN_DF = {
     "0": "_Q", "1": "O", "2": "p8", "3": "~c", "4": "jE", "5z": "8_9", "6": "u", "7": "3G",
@@ -344,17 +414,6 @@ const isRedirectToken = function(redirectToken, type, requestTokenKey) {
     }
     // 内容が一致するかチェック.
     return redirectToken == chkToken;
-}
-
-// GasのOAuthURLを作成します.
-// request 対象のrequest情報を設定します.
-// 戻り値: GasのOAuthURLが返却されます.
-const executeOAuthURL= function(request) {
-    // 必須パラメータチェック.
-    checEnvOAuth();
-
-    // gasのURLを生成.
-    return createOAuthURL(request);
 }
 
 // executeOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
@@ -414,151 +473,14 @@ const redirectOAuth = async function(resState, resHeader, request) {
     return false;
 }
 
-// [実行パラメータ]営業日を取得.
-const PARAMS_TYPE_BUSINESS_DAY = "businessDay";
-
-// [bisinessパラメータ]営業日計算の開始日.
-const PARAMS_START_DATE = "start_date";
-
-// [bisinessパラメータ]計算したい営業日.
-const PARAMS_BUSINESS_DAY = "business_day";
-
-// gasの営業日取得用URLを作成.
-// businessDay 計算したい営業日を設定します.
-//             省略した場合はデフォルト日が設定されます.
-// startDate 営業日計算の開始日を設定します.
-//           省略した場合は当日が設定されます.
-// 戻り値: GASに問い合わせるURL, Paramsが返却されます.
-//         {url, params}
-const getBusinessDayToGetParams = function(
-    businessDay, startDate) {
-
-    // 計算したい営業日が指定無しの場合.
-    if(!authUtil.isNumeric(businessDay)) {
-        businessDay = 0;
-    }
-
-    // 営業日計算の開始日が数字指定の場合
-    // Dateオブジェクトとして再作成.
-    if(authUtil.isNumeric(startDate)) {
-        startDate = new Date(parseInt(startDate));
-    }
-
-    // 営業日計算の開始日が指定無しの場合.
-    if(startDate == undefined || startDate == null) {
-        startDate = "";
-    } else if(startDate instanceof Date) {
-        const y = startDate.getFullYear();
-        const m = "" + (startDate.getMonth() + 1);
-        const d = "" + startDate.getDate();
-        startDate = y + "-" +
-            "00".substring(m.length()) + m + "-" +
-            "00".substring(d.length()) + d;
-    } else {
-        startDate = "" + startDate;
-    }
-    
-    // パラメータ用のリストを作成.
-    const params = [
-        PARAMS_START_DATE, startDate,
-        PARAMS_BUSINESS_DAY, businessDay,
-    ];
-
-    // Gasアクセス用のURLEncodeのGetパラメータを生成.
-    return getGasAccessURLEncodeGetParams(
-        PARAMS_TYPE_BUSINESS_DAY, params);
-}
-
-// 指定URLからHost名とPathに分離.
-// url URLを設定します.
-// 戻り値: URLとPathに分離された結果が返却されます.
-//         {host, path}
-const getUrlToHostNameAndPath = function(url) {
-    // protocol除外.
-    const protocolLen = url.startsWith("https://") ?
-        8 : url.startsWith("http://") ? 7 : -1;
-    if(protocolLen == -1) {
-        throw new Error("Unknown Protocol for URL: " + url);
-    }
-    let p, host, port, path;
-    // パス取得.
-    p = url.indexOf("/", protocolLen);
-    if(p == -1) {
-        // パスが存在しない場合.
-        host = url.substring(protocolLen);
-        path = "";
-    } else {
-        // パスが存在する場合.
-        host = url.substring(protocolLen, p);
-        path = url.substring(p); 
-    }
-    // hostに存在するport番号取得.
-    p = host.indexOf(":", protocolLen);
-    if(p != -1) {
-        // 指定内容を取得.
-        port = parseInt(host.substring(p + 1));
-        host = host.substring(0, p);
-    } else {
-        // デフォルト値.
-        port = 443;
-    }
-    // 返却処理.
-    return {
-        host: host,
-        path: path,
-        port: port
-    }
-}
-
-// GASに対して営業日を取得する.
-// businessDay 計算したい営業日を設定します.
-//             省略した場合はデフォルト日が設定されます.
-// startDate 営業日計算の開始日を設定します.
-//           省略した場合は当日が設定されます.
-const getBusinessDay = async function(businessDay, startDate) {
-    // GAS先のURLとパラメタを取得.
-    const urlParams = getBusinessDayToGetParams(
-        businessDay, startDate);
-    // URLをHostとPath(とport)に分離.
-    const hostPath = getUrlToHostNameAndPath(urlParams.url);
-    // httpsClient.
-    const httpsClient = frequire("./lib/httpsClient.js");
-    // httpsClientでアクセスする.
-    const json = httpsClient.toJSON(await httpsClient.request(
-        hostPath.host, hostPath.url,
-            {urlParams: urlParams.params,
-            port: hostPath.port}));
-    // 返却内容不正の場合.
-    if(json == undefined || json == null) {
-        throw new HttpError({
-            status: 400,
-            message: "Failed to get response information: not json."
-        });
-    // 返却内容がstatusが200(正常以外)の場合はエラー.
-    } else if(json.status != "200") {
-        return json;
-    }
-    // redirectTokenのチェック.
-    if(!isRedirectToken(json["redirectToken"], json["type"], json["tokenKey"])) {
-        // redirectTokenチェック失敗.
-        throw new HttpError({
-            status: 403,
-            message: "Failed to get response information: not equals response token."
-        });
-    }
-    // 正常.
-    return json;
-}
-
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
 exports.manager = loginMan;
 exports.createUser = createUser;
-exports.isRedirectToken = isRedirectToken;
 exports.allowAccountDataURL = allowAccountDataURL;
 exports.executeOAuthURL = executeOAuthURL;
+exports.getBusinessDayURL = getBusinessDayURL;
 exports.redirectOAuth = redirectOAuth;
-exports.getBusinessDay = getBusinessDay;
 
 })();
