@@ -30,6 +30,9 @@ const sig = frequire("./lib/auth/signature.js");
 // authUtil.
 const authUtil = frequire("./lib/auth/util.js");
 
+// httpClient.
+const httpClient = frequire("./lib/httpsClient.js");
+
 // [ENV]問い合わせ先のGAS認証URL.
 const ENV_GAS_AUTH_URL = "GAS_AUTH_URL";
 
@@ -93,8 +96,8 @@ const createUser = async function(user, userInfo) {
         }
     }
     // oauth認証として登録.
-    regUserInfo[USER_INFO_LOGIN_TYPE] =
-        USER_INFO_LOGIN_TYPE.OAUTH;
+    regUserInfo[USER_INFO_LOGIN_TYPE.name] =
+        USER_INFO_LOGIN_TYPE.oauth;
     // 登録.
     return await loginMan.createUser(user, regUserInfo);
 }
@@ -153,8 +156,15 @@ const TOKEN_DELIMIRATER = "$_$/\n";
 //         request-token: tokenを設定します.
 //         request-token-key tokenKeyを設定します.
 const createSendToken = function(target, paramsArray) {
+    /**
+     * authKeyCode + TOKEN_DELIMIRATER +
+     * target + TOKEN_DELIMIRATER +
+     * tokenKeyCode +
+     * TOKEN_DELIMIRATER + params.key
+     * TOKEN_DELIMIRATER + params.value
+     */
     // 新しいtokenKeyを生成.
-    tokenKeyCode = createTokenKey();
+    const tokenKeyCode = createTokenKey();
     // allowAuthKeyCodeを環境変数から取得.
     const authKeyCode = process.env[ENV_GAS_ALLOW_AUTH_KEY_CODE];
     // シグニチャーを生成.
@@ -215,20 +225,11 @@ const getGasAccessURLEncodeGetParams = function(
             + encodeURIComponent(oAuthParams[k]);
     }
     // URL, getParams.
-    return {url: url,
-        params: getParams};
+    return {url: url, params: getParams};
 }
 
 // [実行パラメータ]oAuth認証確認.
 const PARAMS_TYPE_OAUTH = "oAuth";
-
-// [oAuth用パラメータ]リダイレクトURL.
-// ログイン成功時のリダイレクトURLを設定します.
-const PARAMS_REDIRECT_URL = "redirect-url";
-
-// [oAuth用パラメータ]元のアクセスURL.
-// 本来アクセスしたいURLが設定されます.
-const PARAMS_SOURCE_ACCESS_URL = "src-access-url";
 
 // [oAuth]必須環境変数チェック.
 const checEnvOAuth = function() {
@@ -268,6 +269,22 @@ const getHttpProtocol = function(host) {
     return "http://";
 }
 
+// [実行パラメータ]アカウントデータの使用を許可.
+const PARAMS_TYPE_ALLOW_ACCOUNT_DATA = "allowAccountData";
+
+// アカウントデータ利用許可用URLを生成.
+// 戻り値: GASに対してアカウントデータ利用許可をするためのURLが返却されます.
+const allowAccountDataURL = function() {
+    let url = process.env[ENV_GAS_AUTH_URL];
+    if(url.indexOf("?") != -1) {
+        url += "&";
+    } else {
+        url += "?";
+    }
+    return url + encodeURIComponent(PARAMS_EXECUTE_TARGET) + "="
+        + encodeURIComponent(PARAMS_TYPE_ALLOW_ACCOUNT_DATA);
+}
+
 // gasのOAuth用URLを生成.
 // この処理で返却したURLをリダイレクトする事でgasに対してoAuthされます.
 // request 対象のrequest情報を設定します.
@@ -275,25 +292,16 @@ const getHttpProtocol = function(host) {
 const createOAuthURL = function(request) {
     const params = [];
     const host = request.header.get("host");
-    // oAuth成功後のリダイレクト先URLを生成.
-    {
-        const redirectPath = process.env[ENV_REDIRECT_OAUTH_PATH];
-        const protocol = getHttpProtocol(host)
-        const successRedirectURL = protocol + host + 
-            (redirectPath.startsWith("/") ?
-                redirectPath : "/" + redirectPath);
-        params[params.length] = PARAMS_REDIRECT_URL;
-        params[params.length] = successRedirectURL;        
-    }
 
     // ログイン後の元のURLを取得.
     // 現在アクセス中のURL＋パラメータをセット.
     const srcUrl = request.queryParams[PARAMS_SRC_URL];
     if(typeof(srcUrl) == "string") {
+        const protocol = getHttpProtocol(host);
         sourceAccessUrl = protocol + host +
             (srcUrl.startsWith("/") ?
                 srcUrl : "/" + srcUrl);
-        params[params.length] = PARAMS_SOURCE_ACCESS_URL;
+        params[params.length] = PARAMS_SRC_URL;
         params[params.length] = sourceAccessUrl;        
     }
     
@@ -338,24 +346,15 @@ const isRedirectToken = function(redirectToken, type, requestTokenKey) {
     return redirectToken == chkToken;
 }
 
-// GasでのOAuthを実施します.
-// resState: レスポンスステータス(httpStatus.js).
-// resHeader レスポンスヘッダ(httpHeader.js).
+// GasのOAuthURLを作成します.
 // request 対象のrequest情報を設定します.
-// 戻り値: trueの場合、gasOAuthの認証が必要となります.
-const executeOAuth = async function(resState, resHeader, request) {
+// 戻り値: GasのOAuthURLが返却されます.
+const executeOAuthURL= function(request) {
     // 必須パラメータチェック.
     checEnvOAuth();
 
-    // ログインしていない事を確認.
-    if(!(await loginMan.isLogin(2, resHeader, request))) {
-        // createOAuthURLにリダイレクト処理.
-        resState.setStatus(301);
-        resHeader["location"] = createOAuthURL(request);
-        return true;
-    }
-    // oauthは不要.
-    return false;
+    // gasのURLを生成.
+    return createOAuthURL(request);
 }
 
 // executeOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
@@ -364,8 +363,8 @@ const executeOAuth = async function(resState, resHeader, request) {
 // request 対象のrequest情報を設定します.
 const redirectOAuth = async function(resState, resHeader, request) {
     // [oauth]gas認証のメールアドレスを取得.
-    const aOuthMail = request.queryParams["mail"];
-    if(typeof(aOuthMail) != "string") {
+    const mail = request.queryParams["mail"];
+    if(typeof(mail) != "string") {
         // gasOauthメールアドレスが取得できない場合.
         throw new HttpError({
             status: 401,
@@ -384,31 +383,35 @@ const redirectOAuth = async function(resState, resHeader, request) {
         });
     }
     // [oauth]ログインセッションを生成.
-    const sessions = await loginMan.createSession(request, aOuthMail,
-        loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE,
-            loginMan.USER_OPTIONS_AUTH_TYPE.OAUTH));
+    const sessions = await loginMan.createSession(request, mail,
+        loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE.name,
+            loginMan.USER_OPTIONS_AUTH_TYPE.oauth));
     if(sessions == null) {
         // 新しいセッション作成に失敗.
         throw new Error("Failed to create a oauth session.");
     }
 
     // ログイントークン作成用のキーコードを取得.
-    const keyCode = getLoginTokenKeyCode(request);
+    const keyCode = loginMan.getLoginTokenKeyCode(request);
 
     // ログイントークンを作成.
     const token = sig.encodeToken(
-        keyCode, user, sessions.passCode,
-        sessions.sessionId, LOGIN_TOKEN_EXPIRE);
+        keyCode, mail, sessions.passCode,
+        sessions.sessionId, loginMan.LOGIN_TOKEN_EXPIRE);
 
     // レスポンスCookieにセッションキーを設定.
-    resHeader.putCookie(COOKIE_SESSION_KEY, {value: token});
+    resHeader.putCookie(loginMan.COOKIE_SESSION_KEY, {value: token});
 
     // リダイレクト先URLを取得します.
-    let redirectURL = request.queryParams["srcAccessUrl"];
+    let redirectURL = request.queryParams["srcURL"];
 
-    // リレイレクト先のURLを設定.
-    resState.setStatus(301);
-    resHeader["location"] = redirectURL;
+    // リレイレクト先のURLが存在しない場合はリダイレクト.
+    if(redirectURL != undefined && redirectURL != "") {
+        resState.setStatus(301);
+        resHeader.put("location", redirectURL);
+        return true;
+    }
+    return false;
 }
 
 // [実行パラメータ]営業日を取得.
@@ -553,7 +556,8 @@ const getBusinessDay = async function(businessDay, startDate) {
 exports.manager = loginMan;
 exports.createUser = createUser;
 exports.isRedirectToken = isRedirectToken;
-exports.executeOAuth = executeOAuth;
+exports.allowAccountDataURL = allowAccountDataURL;
+exports.executeOAuthURL = executeOAuthURL;
 exports.redirectOAuth = redirectOAuth;
 exports.getBusinessDay = getBusinessDay;
 

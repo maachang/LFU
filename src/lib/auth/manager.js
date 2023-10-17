@@ -13,7 +13,7 @@ if(frequire == undefined) {
 }
 
 // auth/util.
-const authUtil = frequire(".lib/auth/util.js");
+const authUtil = frequire("./lib/auth/util.js");
 
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
@@ -69,20 +69,25 @@ const USER_INFO_USER = "@user";
 const USER_INFO_PASSWORD = "@password";
 
 // [UserInfo]ログインタイプ.
-const USER_INFO_LOGIN_TYPE = "@loginType";
+const USER_INFO_LOGIN_TYPE = {
+    // タイプ名.
+    name: "@loginType",
     // [ログインタイプ]パスワード.
-    USER_INFO_LOGIN_TYPE.PASSWORD = "password";
+    password: "password",
     // [ログインタイプ]oauth.
-    USER_INFO_LOGIN_TYPE.OAUTH = "oauth";
+    oauth: "oauth"
+};
 
 // [userOptions]認証タイプ.
-const USER_OPTIONS_AUTH_TYPE = "authType";
+const USER_OPTIONS_AUTH_TYPE = {
+    name: "@authType",
     // [認証タイプ]全て.
-    USER_OPTIONS_AUTH_TYPE.ALL = "all";
+    all: "all",
     // [認証タイプ]パスワード.
-    USER_OPTIONS_AUTH_TYPE.PASSWORD = USER_INFO_LOGIN_TYPE.PASSWORD;
+    password: USER_INFO_LOGIN_TYPE.password,
     // [認証タイプ]oauth.
-    USER_OPTIONS_AUTH_TYPE.OAUTH = USER_INFO_LOGIN_TYPE.OAUTH;
+    oauth: USER_INFO_LOGIN_TYPE.oauth
+};
 
 // [userOptions]パスワード除外.
 const USER_OPTIONS_NONE_PASSWORD = "nonePassword";
@@ -97,7 +102,7 @@ const createUserOptions = function() {
     const len = args.length;
     const ret = {};
     for(let i = 0; i < len; i += 2) {
-        ret[i] = ret[i + 1];
+        ret[args[i]] = args[i + 1];
     }
     return ret;
 }
@@ -138,8 +143,8 @@ const isUser = async function(user) {
         await _getUser(user);
         return true;
     } catch(e) {
-        return false;
     }
+    return false;
 }
 
 // ユーザーオプションを指定したユーザ情報を取得.
@@ -154,24 +159,24 @@ const getUser = async function(user, userInfo) {
     userInfo = userInfo == undefined || userInfo == null ?
         {} : userInfo;
     // ユーザーオプションからauthTypeを取得.
-    let authType = userInfo[USER_OPTIONS_AUTH_TYPE];
+    let authType = userInfo[USER_OPTIONS_AUTH_TYPE.name];
     // 存在しない場合は全ての条件の情報を取得.
     if(authType == undefined) {
-        authType = USER_OPTIONS_AUTH_TYPE.ALL;
+        authType = USER_OPTIONS_AUTH_TYPE.all;
     }
     // 認証タイプ別で情報を取得.
     try {
         let ret = null;
         switch(authType) {
-            case USER_OPTIONS_AUTH_TYPE.ALL:
+            case USER_OPTIONS_AUTH_TYPE.all:
                 // 条件なし(_getUserで取得).
                 ret = await _getUser(user);
                 break;
-            case USER_OPTIONS_AUTH_TYPE.PASSWORD: 
+            case USER_OPTIONS_AUTH_TYPE.password: 
                 // パスワード認証用のユーザー情報を取得.
                 ret = await getUserToAuthPassword(user);
                 break;
-            case USER_OPTIONS_AUTH_TYPE.OAUTH: 
+            case USER_OPTIONS_AUTH_TYPE.oauth: 
                 // oauth認証用のユーザー情報を取得.
                 ret = await getUserToOAuth(user);
                 break;
@@ -182,11 +187,15 @@ const getUser = async function(user, userInfo) {
             delete ret[USER_INFO_PASSWORD];
         }
         return ret;
-    } catch(e) {}
+    } catch(e) {
+        console.log("Failed to obtain user information: " + user, e);
+    }
     // 取得失敗.
-    throw new Error(
-        "Authentication type not found for user ("
-            + user + "): " + authType);
+    throw new HttpError({
+        status: 500,
+        message: "Authentication type not found for user ("
+            + user + "): " + authType
+    });
 }
 
 // パスワード認証用のユーザー情報を取得.
@@ -196,11 +205,13 @@ const getUserToAuthPassword = async function(user) {
     // 指定ユーザ登録情報を取得.
     const ret = await _getUser(user);
     // 登録ユーザがパスワード認証でない場合.
-    if(ret[USER_INFO_LOGIN_TYPE] != USER_INFO_LOGIN_TYPE.PASSWORD) {
+    if(ret[USER_INFO_LOGIN_TYPE.name] != USER_INFO_LOGIN_TYPE.password) {
         // エラー返却.
-        throw new Error(
-            "User (" + user +
-            ") is not a password authenticated user.")
+        throw new HttpError({
+            status: 500,
+            message: "User (" + user +
+            ") is not a password authenticated user."
+        })
     }
     return ret;
 }
@@ -208,22 +219,30 @@ const getUserToAuthPassword = async function(user) {
 // oAuth用のユーザー情報を取得.
 // user 対象のユーザ名を設定します.
 // 戻り値: ユーザー情報が返却されます.
+//         
 const getUserToOAuth = async function(user) {
     let ret = null;
     try {
         // 指定ユーザ登録情報を取得.
         ret = await _getUser(user);
-        // 対象ユーザーがoauthユーザとして作成されていない場合.
-        if(ret[USER_INFO_LOGIN_TYPE] != USER_INFO_LOGIN_TYPE.OAUTH) {
-            // oauthユーザじゃないので、ユーザなし.
-            ret = {};
-        }
     } catch(e) {
-        // oauthユーザじゃないので、ユーザなし.
-        ret = {}
+        ret = null;
     }
-    // パスワードは不要なので除外.
-    delete ret[USER_INFO_PASSWORD];
+    // 対象ユーザーがoauthユーザとして作成されていない場合.
+    if(ret != null &&
+        ret[USER_INFO_LOGIN_TYPE.name] != USER_INFO_LOGIN_TYPE.oauth) {
+        // oauthユーザじゃないので、ユーザなし.
+        throw new HttpError({
+            status: 500,
+            message: "Target user (" + user + ") is not an oauth user."
+        });
+    // ユーザ情報に存在しない場合.
+    } else if(ret == null) {
+        // 最低限のoauthユーザ情報を返却.
+        ret = {};
+        ret[USER_INFO_LOGIN_TYPE.name] = USER_INFO_LOGIN_TYPE.oauth;
+        ret[USER_INFO_USER] = user;
+    }
     return ret;
 }
 
@@ -233,13 +252,15 @@ const getUserToOAuth = async function(user) {
 // 戻り値: trueの場合登録できました.
 const createUser = async function(user, userInfo) {
     // 既にユーザ情報が存在する場合.
-    if(!await isUser(user)) {
+    if(await isUser(user)) {
         throw new Error(
             "User (" + user + ") already exists.");
     // ログインタイプが設定されていない場合.
-    } else if(userInfo[USER_INFO_LOGIN_TYPE] == undefined) {
-        throw new Error(
-            "Unknown authentication type for user (" + user+ ").");
+    } else if(userInfo[USER_INFO_LOGIN_TYPE.name] == undefined) {
+        throw new HttpError({
+            status: 500,
+            message: "Unknown authentication type for user (" + user+ ")."
+        });
     }
     // 登録対象ユーザー情報を生成.
     const regUserInfo = {};
@@ -264,7 +285,10 @@ const removeUser = async function(user) {
         if(await isUser(user)) {
             return await userTable.remove("user", user);
         }
-    } catch(e) {}
+    } catch(e) {
+        // 削除エラー
+        console.error("User (" + user + ") deletion failed", e);
+    }
     // 存在しない場合.
     return false;
 }
@@ -283,7 +307,7 @@ const settingOption = async function(putFlag, user, userInfo) {
     if(userInfo != undefined && userInfo != null) {
         let kk;
         for(let k in userInfo) {
-            // 先頭に@があるのは、処理できない.
+            // 先頭に@があるのはオプション設定できない.
             if((kk = k.trim()).startsWith("@")) {
                 continue;
             // 設定.
@@ -309,8 +333,12 @@ const userList = async function(page, max) {
     if(max == undefined || max == null) {
         max = LOGIN_USER_LIST_LIMIT;
     }
+    page = page|0;
+    if(page >= 0) {
+        page = 1;
+    }
     // １ページの情報を取得.
-    const list = await userTable.list(max, page);
+    const list = await userTable.list(page, max);
     // 情報が存在しない場合.
     if(list == null) {
         return [];
@@ -323,9 +351,14 @@ const userList = async function(page, max) {
     const userOptions = createUserOptions(
         USER_OPTIONS_NONE_PASSWORD, true);
     for(let i = 0; i < len; i ++) {
+        // 対象がユーザ情報じゃない場合.
+        if(list[i].key != "user") {
+            // 無視.
+            continue;
+        }
         // パスワードを除いたユーザー情報.
         const userInfo = await getUser(
-            user, userOptions);
+            list[i].value, userOptions);
         ret[i] = userInfo;
     }
     return ret;
@@ -354,7 +387,7 @@ const createSession = async function(request, user, userOptions) {
     }
     // パスコードを設定.
     userInfo.passCode = sig.getPassCode(
-        user, request.host + TOKEN_DELIMIRATER + userInfo[USER_INFO_LOGIN_TYPE]
+        user, request.host + TOKEN_DELIMIRATER + userInfo[USER_INFO_LOGIN_TYPE.name]
             + TOKEN_DELIMIRATER + pass);
     // セッションIDを設定.
     userInfo.sessionId = sig.createSessionId();
@@ -398,7 +431,7 @@ const removeSession = async function(
         // 一致しない場合は削除失敗.
         return false;
     }
-    // セッション更新
+    // セッション削除.
     return await sessionTable.remove("user", user);
 }
 
@@ -482,8 +515,38 @@ const logout = async function(resHeader, request) {
     } catch(e) {
         // ログイン確認エラー
         console.error("I failed to logout", e);
-        // ログアウト失敗.
-        return false;
+    }
+    // ログアウト失敗.
+    return false;
+}
+
+// 現在ログイン中のユーザを取得.
+// request 対象のrequestを設定.
+// 戻り値: ログイン中のユーザを返却.
+//        ログインしていない場合はundefined.
+const getLoginUserName = function(request) {
+    try {
+        // cookieからログイントークンを取得.
+        const token = request.header.getCookie(COOKIE_SESSION_KEY);
+        if(token == undefined) {
+            // ログインされていないので空返却.
+            return undefined;
+        }
+        // トークンの解析.
+        const keyCode = getLoginTokenKeyCode(request);
+        const dtoken = sig.decodeToken(keyCode, token);
+
+        // expire値を超えている場合(セッション切れ)
+        if(Date.now() >= dtoken.expire) {
+            // ログインされていないので空返却.
+            return undefined;
+        }
+        // ユーザー名を取得.
+        return dtoken.user;
+    } catch(e) {
+        // 例外なので空返却.
+        console.log("[error]", e);
+        return undefined;
     }
 }
 
@@ -568,50 +631,54 @@ const isLogin = async function(level, resHeader, request) {
 //        @user: ログイン中のユーザー名が返却されます.
 //        それ以外は設定されているタグ名(たとえば admin など)が
 //        設定されたりします.
+//        ログインユーザが存在しない場合はundefined.
 const getLoginInfo = async function(request, userOptions) {
-    let user = null;
+    let user = getLoginUserName(request);
+    if(user == undefined) {
+        return undefined;
+    }
+    let oauthUser = false;
+    // 対象ユーザのセッション情報を取得.
+    const session = await getSession(user);
+    // 現在のセッションに対するログインタイプがoauthかチェック.
+    if(session[USER_INFO_LOGIN_TYPE.name] == USER_INFO_LOGIN_TYPE.oauth) {
+        // oauthの場合はユーザが存在しない可能性もあるので、その場合は最低限の情報を「ユーザ情報」として返却する.
+        oauthUser = true;
+    }
     try {
-        // cookieからログイントークンを取得.
-        const token = request.header.getCookie(COOKIE_SESSION_KEY);
-        if(token == undefined) {
-            // ログインされていないので空返却.
-            return {};
+        // ユーザ情報を取得.
+        const userInfo = await getUser(
+            user, userOptions);
+        if(userInfo == null) {
+            // ユーザー情報が存在しない場合エラー返却.
+            throw new HttpError({
+                status: 500,
+                message: "The logged-in user information \"" + user +
+                "\" has already been deleted and does not exist."
+            });
         }
-        // トークンの解析.
-        const keyCode = getLoginTokenKeyCode(request);
-        const dtoken = sig.decodeToken(keyCode, token);
-
-        // expire値を超えている場合.
-        if(Date.now() >= dtoken.expire) {
-            // ログインされていないので空返却.
-            return {};
+        // password以外のUserInfoを返却.
+        const ret = {};
+        for(let k in userInfo) {
+            // パスワードは格納しない.
+            if(k == USER_INFO_PASSWORD) {
+                continue;
+            }
+            ret[k] = userInfo[k];
         }
-        // ユーザー名を取得.
-        user = dtoken.user;
+        ret[USER_INFO_USER] = user;
+        return ret;
     } catch(e) {
-        // 例外なので空返却.
-        return {};
-    }
-    // ユーザ情報を取得.
-    const userInfo = await getUser(
-        user, userOptions);
-    if(userInfo == null) {
-        // ユーザー情報が存在しない場合エラー返却.
-        throw new Error(
-            "The logged-in user information \"" + user +
-            "\" has already been deleted and does not exist.");
-    }
-    // password以外のUserInfoを返却.
-    const ret = {};
-    for(let k in userInfo) {
-        // パスワードは格納しない.
-        if(k == USER_INFO_PASSWORD) {
-            continue;
+        // oauthユーザじゃない場合.
+        if(!oauthUser) {
+            throw e;
         }
-        ret[k] = userInfo[k];
+        // oauthユーザの場合.
+        const ret = {};
+        ret[USER_INFO_LOGIN_TYPE.name] = USER_INFO_LOGIN_TYPE.oauth;
+        ret[USER_INFO_USER] = user;
+        return ret;
     }
-    ret[USER_INFO_USER] = user;
-    return ret;
 }
 
 // ログイン済みユーザーオプションの条件確認.
@@ -755,6 +822,7 @@ exports.removeSession = removeSession;
 exports.updateSession = updateSession;
 exports.logout = logout;
 exports.isLogin = isLogin;
+exports.getLoginUserName = getLoginUserName;
 exports.getLoginInfo = getLoginInfo;
 exports.isLoginOption = isLoginOption;
 exports.filter = filter;

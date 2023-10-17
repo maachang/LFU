@@ -27,13 +27,14 @@ const authUtil = frequire("./lib/auth/util.js");
 // password パスワードを設定します.
 // 戻り値: trueの場合、ログイン成功です.
 const confirm = async function(user, password) {
+    // パスワードが存在しない.
     if(!authUtil.useString(password)) {
         return false;
     }
     // パスワード認証のユーザ情報が存在しない場合.
     const userInfo = await loginMan.getUser(
-        user, loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE,
-            loginMan.USER_OPTIONS_AUTH_TYPE.PASSWORD));
+        user, loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE.name,
+            loginMan.USER_OPTIONS_AUTH_TYPE.password));
     // パスワードをsha256変換.
     password = authUtil.sha256(password);
     // パスワードが不一致.
@@ -58,7 +59,7 @@ const login = async function(
         // ログイン成功.
         if(result == true) {
             // 新しいセッションを作成.
-            const sessions = await loginMan.createSession(user);
+            const sessions = await loginMan.createSession(request, user);
             if(sessions == null) {
                 // 新しいセッション取得に失敗.
                 throw new Error("Failed to get a login session.");
@@ -107,8 +108,8 @@ const createUser = async function(
         }
     }
     // password認証として登録.
-    regUserInfo[loginMan.USER_INFO_LOGIN_TYPE] =
-        loginMan.USER_INFO_LOGIN_TYPE.PASSWORD;
+    regUserInfo[loginMan.USER_INFO_LOGIN_TYPE.name] =
+        loginMan.USER_INFO_LOGIN_TYPE.password;
     // パスワードをsha256変換.
     regUserInfo[loginMan.USER_INFO_PASSWORD] = authUtil.sha256(password);
     // 登録.
@@ -129,8 +130,8 @@ const changePassword = async function(
     }
     // パスワード認証のユーザ情報を取得.
     const userInfo = await loginMan.getUser(
-        user, loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE,
-            loginMan.USER_OPTIONS_AUTH_TYPE.PASSWORD));
+        user, loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE.name,
+            loginMan.USER_OPTIONS_AUTH_TYPE.password));
     // 元のパスワードをsha256変換.
     srcPassword = authUtil.sha256(srcPassword);
     // パスワードが不一致.

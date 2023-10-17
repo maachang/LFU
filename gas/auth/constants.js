@@ -13,7 +13,4 @@ const ALLOW_MAIL_DOMAINS = [
 
 ];
 
-// (user-setting)[favicon.ico]googleDrive上のfavicon.ico(png形式のみ).
-// ここではファイルIDを設定します.
-const GDRV_FAVICON_ICO_ID = "";
 
