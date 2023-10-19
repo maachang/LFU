@@ -219,7 +219,7 @@ const loadS3 = async function(params, response) {
         response, getRegion(), params.Bucket, params.Key)
     if(response.status >= 400) {
         // ステータス入りエラー返却.
-        throw httpStatus.httpError(response.status,
+        throw new HttpError(response.status,
             "error load s3: " + response.status +
             " " + JSON.stringify(params));
     }
