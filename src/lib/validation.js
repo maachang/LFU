@@ -40,7 +40,8 @@ const MODEL = {
 // status 対象のHTTPステータスを設定します.
 // message 対象のHTTPステータスメッセージを設定します.
 const resultError = function(status, message) {
-    throw new HttpError(status, message);
+    throw new HttpError({
+        status: status, message: message});
 }
 
 // [validate]デフォルト定義.
