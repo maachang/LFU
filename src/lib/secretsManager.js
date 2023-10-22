@@ -99,7 +99,7 @@ const get = async function(key) {
         return getValue(key, JSON.parse(json));
     } catch(e) {
         // エラー出力.
-        console.error("[ERROR]secret key: " + key, e);
+        console.warn("[WARN]secret key: " + key, e);
         // 存在しない場合は空返却.
         return undefined;
     }
