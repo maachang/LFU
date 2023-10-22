@@ -212,13 +212,18 @@ const resultXmlToJson = function(xml, keyOnly) {
 // nextMarkerが必要判断情報を返却.
 // response 対象のresponseを設定します.
 // xml 対象のxmlテキストを設定します.
+// 戻り値: 存在しない場合は "false" が返却されます.
 const setNextMarker = function(response, xml) {
-    // nextMarkerを取得
+    // nextMarkerを取得(存在しない場合は"false");
     const nextMarker = getXmlElement(
         "IsTruncated", xml, [0]);
-    response.header[NEXT_MARKER_NAME] =
-        nextMarker != null ?
-            nextMarker.toLowerCase() : "false";
+    // nextMarkerが存在する場合はセット.
+    if(nextMarker != null) {
+        response.header[NEXT_MARKER_NAME] =
+            nextMarker.toLowerCase();
+    } else {
+        response.header[NEXT_MARKER_NAME] = "falsae";
+    }
 }
 
 // bucket内容をencodeURIComponentする.

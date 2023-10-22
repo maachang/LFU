@@ -15,15 +15,15 @@ const nums = require("./util/nums.js");
 //   みたい.
 // pms 対象のパラメータを設定します.
 // 戻り値: 変換内容が返却されます.
-const cut0x0d0x0d = function(pms) {
-    let bpms = Buffer.from(pms);
-    if(bpms.length >= 2 &&
-        bpms[bpms.length -1] == 0x0d && bpms[bpms.length - 2] == 0x0d) {
-        pms = pms.substring(0, pms.length - 2);
-    }
-    bpms = null;
-    return pms;
-}
+//const cut0x0d0x0d = function(pms) {
+//    let bpms = Buffer.from(pms);
+//    if(bpms.length >= 2 &&
+//        bpms[bpms.length -1] == 0x0d && bpms[bpms.length - 2] == 0x0d) {
+//        pms = pms.substring(0, pms.length - 2);
+//    }
+//    bpms = null;
+//    return pms;
+//}
 
 // 初期処理.
 const init = function() {
@@ -31,7 +31,8 @@ const init = function() {
     const pms = [];
     const len = list.length;
     for(var i = 1; i < len; i++) {
-        pms[i] = cut0x0d0x0d(list[i]);
+        //pms[i] = cut0x0d0x0d(list[i]);
+        pms[i] = list[i].trim();
     }
     return pms;
 }

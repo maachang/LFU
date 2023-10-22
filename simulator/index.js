@@ -156,7 +156,7 @@ const loadConfEnv = function() {
     const mainExternal = getMainExternal();
 
     // lfuパスを取得.
-    lfuPath = getLfuPath();
+    getLfuPath();
 
     // s3の場合.
     if(mainExternal == "s3") {
