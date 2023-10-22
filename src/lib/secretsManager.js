@@ -106,4 +106,24 @@ const get = async function(key) {
 }
 exports.get = get;
 
+// 埋め込みコード用のdescription.
+const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
+
+// 埋め込みコードのSecretを取得.
+// ※埋め込みコードはS3ではなく、環境変数に埋め込まれたコードに対して
+//   Secretと同様の処理でvalueを取得するものです.
+// key 対象のkeyを設定します.
+// embedCode 対象の埋め込みコードを設定します.
+const getEmbed = function(key, embedCode) {
+    // 埋め込みコード用のdescriptionを生成.
+    const description = DESCRIPTION_EMBED_CODE + key;
+    // １回目の復号化.
+    let result = cip.dec(embedCode,
+        cip.key(cip.fhash(key, true), description)
+    );
+    // ２回目の復元.
+    return getValue(key, JSON.parse(result));
+}
+exports.getEmbed = getEmbed;
+
 })();

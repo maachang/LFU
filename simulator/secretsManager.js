@@ -42,6 +42,9 @@ const NONE_DESCRIPTION = "*???*";
 // descriptionHEAD.
 const DESCRIPTION_HEAD = "q$0I_";
 
+// 埋め込みコード用のdescription.
+const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
+
 // S3Prefix.
 const OUTPUT_PREFIX = function() {
     const env = process.env[ENV_S3_SCM_PREFIX];
@@ -82,6 +85,23 @@ const createJSON = function(key, value, description) {
     return "{\"description\":\"" + description + "\",\"value\":\"" +
         Buffer.from(ret).toString() + "\"}";
 };
+
+// [LFU用]secrets manager用の埋め込みコードを生成.
+// ※埋め込みコードなので、S3に保存されずに、Lambdaの環境変数埋め込み対応
+//   で利用される事が想定されます.
+// key secretsManagerに登録するKey名を文字列で設定します.
+// value secretsManagerに登録するValue情報を文字列で設定します.
+// 戻り値: 埋め込み用のコードが返却されます.
+const createEmbedCode = function(key, value) {
+    // 埋め込みコード用のdescriptionを生成.
+    const description = DESCRIPTION_EMBED_CODE + key;
+    // 埋め込み用のコード生成.
+    const result = createJSON(key, value, description);
+    // 戻り値を返却.
+    return Buffer.from(
+        cip.enc(result, cip.key(cip.fhash(key, true), description))
+    ).toString();
+}
 
 // [LFU用]s3のprefixKeyからkeyを取得.
 // prefixKey s3のprefixKeyを設定します.
@@ -278,6 +298,12 @@ const help = function() {
     p("       -b or --bucket:      [Optional]Set the S3Bucket name to be registered.")
     p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
     p("")
+    p("   embed: Create the embed code.");
+    p("       -k or --key:         [Required]Set the key to register.")
+    p("       -v or --value:       [Required]Set the value to register.")
+    p("       -b or --bucket:      [Optional]Set the S3Bucket name to be registered.")
+    p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
+    p("")
     p("   list: Display a list of registered secrets.")
     p("       -b or --bucket:      [Optional]Set the S3Bucket name to register.")
     p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
@@ -358,6 +384,25 @@ const command = async function() {
             // S3に登録.
             await outputS3(s3Bucket, key, json);
             p("[SUCCESS]Generation and registration completed successfully.")
+            return;
+        }
+
+        // 埋め込みコードを生成.
+        if(type == "embed") {
+            // 引数を取得.
+            const key = args.get("-k", "--key");
+            const value = args.get("-v", "--value");
+            if(key == null || key == "") {
+                error("Key setting is required.");
+                return;
+            }
+            if(value == null || value == "") {
+                error("Value setting is required.");
+                return;
+            }
+            // 埋め込みコードを生成.
+            const result = createEmbedCode(key, value);
+            p(result);
             return;
         }
 
