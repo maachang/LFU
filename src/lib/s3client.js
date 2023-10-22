@@ -197,13 +197,13 @@ const create = function(region, credential) {
         // オブジェクト取得.
         const response = {};
         params.response = response;
-        await s3.getObject(
+        const result = await s3.deleteObject(
             response, region, bucket, params.Key, credential);
         // レスポンスステータスが400以上の場合エラー.
         if(response.status >= 400) {
             throw new Error("[ERROR: " + response.status +
                 "]deleteObject bucket: " + bucket + " key: " +
-                params.Key);
+                params.Key + " message: " + Buffer.from(result).toString());
         }
         return response.status <= 299;
     }

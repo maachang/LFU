@@ -31,7 +31,7 @@ const init = function() {
     const pms = [];
     const len = list.length;
     for(var i = 1; i < len; i++) {
-        pms[i] = cut0x0d0x0d(list[i]);
+        pms[i] = cut0x0d0x0d(list[i]).trim();
     }
     return pms;
 }
