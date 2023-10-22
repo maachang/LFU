@@ -52,7 +52,7 @@ const OUTPUT_PREFIX = function() {
 }
 
 // lfu用SecretsManagerコマンド名.
-const COMMAND_NAME = "lfuScm";
+const COMMAND_NAME = "lfuscm";
 
 // [LFU用]secrets manager用のJSONを生成.
 // key secretsManagerに登録するKey名を文字列で設定します.

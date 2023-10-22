@@ -1,2 +1,0 @@
-ARGS=${*}
-node ${LFU_HOME}/simulator/secretsManager ${ARGS}
