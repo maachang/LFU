@@ -10,16 +10,19 @@
 // - 0.0000032USD.
 //
 // で、アクセス数に依存しない事から、明らかにコストダウンできる.
+// > 0.15 / 0.0000032 = 46875
+//   AWSのSecrets Manager月10kアクセス換算で、46875の
+//   LFU Secretsが作成できることになる(理論値).
 //
 // LFUの観点としては、コストが安くAWSでWebアプリが作れる観点から
 // この辺コストがかからないで、同じような機能提供できる形として
 // 独自規格だが、S3でそれができる仕組みを提供する.
 
-// 暗号用.
-const cip = require("./modules/fcipher.js");
-
 // コマンド引数用.
 const args = require("./modules/args.js");
+
+// 暗号用.
+const cip = require("./modules/fcipher.js");
 
 // s3Client.
 const s3cl = require("../src/lib/s3client.js");
@@ -55,7 +58,7 @@ const COMMAND_NAME = "lfuScm";
 // key secretsManagerに登録するKey名を文字列で設定します.
 // value secretsManagerに登録するValue情報を文字列で設定します.
 // description 説明を設定します.
-// 戻り値: {description: "", value: ""} が返却されます.
+// 戻り値: {description: "", value: ""} の文字列が返却されます.
 const createJSON = function(key, value, description) {
     // keyはstring必須で情報存在が必須.
     if(!(typeof(key) == "string" && key.length > 0)) {
@@ -73,9 +76,11 @@ const createJSON = function(key, value, description) {
     description = Buffer.from(description).toString("base64");
     // 暗号化.
     const ret = cip.enc(value,
-        cip.key(cip.fhash(key, true), cip.fhash(DESCRIPTION_HEAD + description, true)));
-    // jsonで戻す.
-    return "{\"description\":\"" + description + "\",\"value\":\"" + Buffer.from(ret).toString() + "\"}";
+        cip.key(cip.fhash(key, true),
+            cip.fhash(DESCRIPTION_HEAD + description, true)));
+    // json文字列で戻す.
+    return "{\"description\":\"" + description + "\",\"value\":\"" +
+        Buffer.from(ret).toString() + "\"}";
 };
 
 // [LFU用]s3のprefixKeyからkeyを取得.
