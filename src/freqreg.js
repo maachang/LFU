@@ -16,9 +16,9 @@ if(global.HttpError != undefined) {
 }
 
 // modelの読み込み.
-if(global["_$use%-%model"] != true) {
-    require("./model.js");
-}
+//if(global["_$use%-%model"] != true) {
+//    require("./model.js");
+//}
 
 // すでに定義済みの場合.
 if(global.frequire != undefined) {
