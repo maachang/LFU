@@ -539,6 +539,7 @@ const responseModel = function(extension) {
     } else {
         ret = "jhtml";
     }
+    // 呼び出しモデル(js or jhtml)をセット.
     global['_$js_$model'] = ret;
     return ret;
 }

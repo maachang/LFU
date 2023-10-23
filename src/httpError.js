@@ -99,6 +99,7 @@ const getErrorHttpTemplatePath = function() {
 //   "js" の場合は、JSON返却でHTTPエラー返却を行います.
 //   "jhtml" の場合、HTML返却でHTTPエラー返却を行います.
 const getResponseModel = function() {
+    // 呼び出しモデル(js or jhtml)を取得.
     const ret = global['_$js_$model'];
     if(isNull(ret)) {
         return "js";
