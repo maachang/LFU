@@ -144,11 +144,15 @@ const _ENV_S3_CONNECT = "S3_CONNECT";
 // [環境変数]grequire, grequest時の接続設定.
 // "MAIN_EXTERNAL"="git" の場合は、この条件は[必須]です.
 // 設定方法は
-//   "GIT_CONNECT"="organization, repo, branch, requirePath, token"
+//   "GIT_CONNECT"="organization, repo, branch, requirePath"
 // とカンマ[,]単位で区切って設定します.
-// 最後の "token" は対象github repogitoryがprivateの場合
-// 必要です.
 const _ENV_GIT_CONNECT = "GIT_CONNECT";
+
+
+// [環境変数]grequire, grequest時のprivateGithubRepogitoryのToken設定.
+// これを設定する場合は対象のGithubRepogitoryがPrivateの場合設定必須です.
+// この内容はLfuのsecretsManagerで暗号化されている必要があります.
+const _ENV_GIT_CONNECT_TOKEN = "GIT_CONNECT_TOKEN";
 
 // [環境変数]grequire, grequestのキャッシュタイムアウト値.
 // キャッシュタイムアウト値をミリ秒単位で設定します.
@@ -208,8 +212,10 @@ const analysisEnv = function() {
     let requestPath = process.env[_ENV_REQUEST_PATH];
     // 外部接続先's3'の接続基本設定.
     let s3Connect = process.env[_ENV_S3_CONNECT];
-    // 外部接続先'github'の接続基本設定.
+    // 外部接続先'githubRepogitory'の接続基本設定.
     let gitConnect = process.env[_ENV_GIT_CONNECT];
+    // 対象のgithubRepogitoryがPrivate設定の場合のToken設定.
+    let gitConnectToken = process.env[_ENV_GIT_CONNECT_TOKEN];
     // キャッシュタイムアウト.
     let cacheTimeout = process.env[_ENV_CACHE_TIMEOUT];
     // 基本キャッシュなし条件.
@@ -267,7 +273,7 @@ const analysisEnv = function() {
     } else {
         // gitConnectをカンマ区切りでパースする.
         gitConnect = arrayToMap(
-            ["organization", "repo", "branch", "requirePath", "token"],
+            ["organization", "repo", "branch", "requirePath"],
             parseComma(gitConnect));
         if(gitConnect.organization == undefined) {
             error(_ENV_GIT_CONNECT + ".organization is a required setting.");
@@ -318,6 +324,7 @@ const analysisEnv = function() {
         requestPath: requestPath,
         s3Connect: s3Connect,
         gitConnect: gitConnect,
+        gitConnectToken: gitConnectToken,
         cacheTimeout: cacheTimeout,
         noneCache: noneCache,
         noneGzip: noneGzip,
@@ -1174,12 +1181,25 @@ const start = function(event, filterFunc, originMime) {
             timeout: env.cacheTimeout,
             nonCache: env.noneCache
         });
-        // 対象gitHubのprivateアクセス用トークンが存在する場合.
-        if(env.gitConnect.token != undefined) {
+        
+        // 対象gitHubのprivateアクセス用トークン(埋め込み暗号化)が存在する場合.
+        if(env.gitConnectToken != undefined) {
+            // secretManagerを取得.
+            const scm = require("./lib/secretsManager.js");
+            // /{organization}/{repo}/{branch}/{requirePath}
+            // この条件を設定して埋め込みコードを解析する.
+            const token = scm.getEmbed(
+                "/" + env.gitConnect.organization +
+                "/" + env.gitConnect.repo +
+                "/" + env.gitConnect.branch +
+                "/" + env.gitConnect.requirePath,
+                env.gitConnectToken
+            );
+            // tokenの登録.
             greqreg.setOrganizationToken(
                 env.gitConnect.organization,
-                env.gitConnect.token
-            )
+                token
+            );
         }
     }
 

@@ -109,7 +109,7 @@ exports.get = get;
 // 埋め込みコード用のdescription.
 const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
 
-// 埋め込みコードのSecretを取得.
+// 埋め込みコードのSecret内容を取得.
 // ※埋め込みコードはS3ではなく、環境変数に埋め込まれたコードに対して
 //   Secretと同様の処理でvalueを取得するものです.
 // key 対象のkeyを設定します.
