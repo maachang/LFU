@@ -22,12 +22,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maachang/lambda-func-url.git"
+    "url": "git+https://github.com/maachang/LFU.git"
   },
   "bugs": {
-    "url": "https://github.com/maachang/lambda-func-url/issues"
+    "url": "https://github.com/maachang/LFU/issues"
   },
-  "homepage": "hhttps://github.com/maachang/lambda-func-url/blob/main/simulator/README.md",
+  "homepage": "hhttps://github.com/maachang/LFU/blob/main/simulator/README.md",
   "dependencies": {},
   "devDependencies": {}
 }
