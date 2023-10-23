@@ -138,8 +138,19 @@ const cmdCopy = function(path, fileName, moveDir) {
 const executeMinify = function(path, srcList) {
     // minify出力先のディレクトリを作成.
     try {
+        // 一旦.minSrcディレクトリを削除(rmコマンドで削除).
+        console.log("# rmdir: " + (path + "/" + MINIFY_DIR));
+        execSync("rm -Rf " + path + "/" + MINIFY_DIR);
+    } catch(e) {
+        console.warn(e)
+    }
+    try {
+        // .minSrcディレクトリを作成.
+        console.log("# mkdir: " + (path + "/" + MINIFY_DIR));
         fs.mkdirSync(path + "/" + MINIFY_DIR);
-    } catch(e) {}
+    } catch(e) {
+        console.warn(e)
+    }
 
     // [base]minify.
     const baseList = srcList.base;
