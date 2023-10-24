@@ -7,10 +7,41 @@
  *  - GASを使ったoAuth機能を提供します.
  *  - 組織のカレンダー情報から営業日換算を行います.
  */
+
+// --------------
+// getMethod処理.
+// --------------
+function doGet(e) {
+    return executeGAS(e);
+}
+
 // [START]=============================.
 const executeGAS = function(e) {
 const _PARAMS = e.parameter;
 // ====================================.
+
+// [ENV][Token生成用]Auth用KeyCode定義.
+// 許可されたリクエストのみ利用が可能にするためのToken作成を行う
+// KeyCodeをGASのスクリプトプロパティに設定します.
+const ENV_ALLOW_AUTH_KEY_CODE = PropertiesService
+    .getScriptProperties().getProperty("ALLOW_AUTH_KEY_CODE")
+    .trim();
+
+// [ENV][allow mail Domain]許可するメールアドレスのドメイン名群.
+// GASのスクリプトプロパティに "xxx, yyy, zzz" のように設定します.
+const ENV_ALLOW_MAIL_DOMAINS = (function() {
+    // データは"xxx, yyy, zzz"のように格納されるので、splitで
+    // リスト化して、内容をそれぞれtrimする形とする.
+    const list = PropertiesService
+        .getScriptProperties().getProperty("ALLOW_MAIL_DOMAINS")
+        .split(",");
+    const ret = [];
+    const len = list.length;
+    for(let i = 0; i < len; i ++) {
+        ret[i] = list[i].trim();
+    }
+    return ret;
+})();
 
 // [default]デフォルトの営業日.
 const DEF_BUSINESS_DAY = 5;
@@ -134,13 +165,12 @@ const TOKEN_DELIMIRATER = "$_$/\n";
 // 接続元からのアクセスが正しいかチェック.
 // 戻り値: falseの場合、アクセスは正しくないです.
 const isAuthRequestAccessToken = function() {
-    // ALLOW_AUTH_KEY_CODEが未設定の場合.
-    const allowAuthKeyCode = convString(ALLOW_AUTH_KEY_CODE);
-    if(allowAuthKeyCode.length == 0 ||
-        allowAuthKeyCode.indexOf("Do not upload to git") != -1) {
+    // ENV_ALLOW_AUTH_KEY_CODEが未設定の場合.
+    const allowAuthKeyCode = convString(ENV_ALLOW_AUTH_KEY_CODE);
+    if(allowAuthKeyCode.length == 0) {
         // エラー返却.
         throw new Error(
-            "Cannot process because the \"\"ALLOW_AUTH_KEY_CODE\"\" " +
+            "Cannot process because the \"\"ENV_ALLOW_AUTH_KEY_CODE\"\" " +
             "environment variable is not set.");
     }
 
@@ -231,14 +261,14 @@ const isAllowMail = function(mail) {
     if(mail.indexOf("@") == -1) {
         return false;
     }
-    const len = ALLOW_MAIL_DOMAINS.length;
+    const len = ENV_ALLOW_MAIL_DOMAINS.length;
     // ドメインチェックが指定されていない場合.
     if(len == 0) {
         return true;
     }
     // メールアドレス許可されたかドメインのものかチェック
     for(let i = 0; i < len; i ++) {
-        if(mail.endsWith("@" + ALLOW_MAIL_DOMAINS[i])) {
+        if(mail.endsWith("@" + ENV_ALLOW_MAIL_DOMAINS[i])) {
             // 一致した場合.
             return true;
         }
@@ -301,7 +331,7 @@ const createRedirectToken = function(type) {
         requestTokenKey.substring(0, len >> 1);
     // tokenを生成.
     const token = convertToHMmacSHA256(
-        ALLOW_AUTH_KEY_CODE, signature);
+        ENV_ALLOW_AUTH_KEY_CODE, signature);
     // 対象Tokenに対して、ごまかし的難読化する.
     len = token.length;
     let ret = "";
@@ -557,13 +587,6 @@ return (function() {
 // [EOF]===============================.
 };
 // ====================================.
-
-// --------------
-// getMethod処理.
-// --------------
-function doGet(e) {
-    return executeGAS(e);
-}
 
 
 
