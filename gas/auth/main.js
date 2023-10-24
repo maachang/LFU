@@ -23,25 +23,37 @@ const _PARAMS = e.parameter;
 // [ENV][Token生成用]Auth用KeyCode定義.
 // 許可されたリクエストのみ利用が可能にするためのToken作成を行う
 // KeyCodeをGASのスクリプトプロパティに設定します.
-const ENV_ALLOW_AUTH_KEY_CODE = PropertiesService
-    .getScriptProperties().getProperty("ALLOW_AUTH_KEY_CODE")
-    .trim();
+const ENV_ALLOW_AUTH_KEY_CODE = (function() {
+    try {
+        return PropertiesService
+            .getScriptProperties().getProperty("ALLOW_AUTH_KEY_CODE")
+            .trim();
+    } catch(e) {
+        return undefined;
+    }
+})();
 
-// [ENV][allow mail Domain]許可するメールアドレスのドメイン名群.
+// [ENV関数][allow mail Domain]許可するメールアドレスのドメイン名群.
 // GASのスクリプトプロパティに "xxx, yyy, zzz" のように設定します.
-const ENV_ALLOW_MAIL_DOMAINS = (function() {
+const ENV_ALLOW_MAIL_DOMAINS = function() {
+    // ドメイン一覧を取得.
+    const domains = convString(PropertiesService
+        .getScriptProperties().getProperty("ALLOW_MAIL_DOMAINS"))
+            .trim();
+    // 何も設定されていない場合.
+    if(domains.length == 0) {
+        return [];
+    }
     // データは"xxx, yyy, zzz"のように格納されるので、splitで
     // リスト化して、内容をそれぞれtrimする形とする.
-    const list = PropertiesService
-        .getScriptProperties().getProperty("ALLOW_MAIL_DOMAINS")
-        .split(",");
+    const list = domains.split(",");
     const ret = [];
     const len = list.length;
     for(let i = 0; i < len; i ++) {
         ret[i] = list[i].trim();
     }
     return ret;
-})();
+};
 
 // [default]デフォルトの営業日.
 const DEF_BUSINESS_DAY = 5;
@@ -61,17 +73,17 @@ const PARAMS_REQUEST_SUCCESS_TOKEN = "request-token";
 // [返却パラメータ]jsonpCallメソッドKey.
 const PARAMS_JSONP_CALL = "jsonpCall";
 
-// Print stack trace.
-const printStackTrace = function(e) {
-    console.error('# trace: ' + e.message + '\n' + e.stack);
-}
-
 // 文字列変換.
 const convString = function(v) {
     if(v == undefined || v == null) {
         return "";
     }
     return ("" + v).trim();
+}
+
+// Print stack trace.
+const printStackTrace = function(e) {
+    console.error('# trace: ' + e.message + '\n' + e.stack);
 }
 
 // JSON返却.
@@ -261,14 +273,15 @@ const isAllowMail = function(mail) {
     if(mail.indexOf("@") == -1) {
         return false;
     }
-    const len = ENV_ALLOW_MAIL_DOMAINS.length;
+    const allowMailDomains = ENV_ALLOW_MAIL_DOMAINS();
+    const len = allowMailDomains.length;
     // ドメインチェックが指定されていない場合.
     if(len == 0) {
         return true;
     }
     // メールアドレス許可されたかドメインのものかチェック
     for(let i = 0; i < len; i ++) {
-        if(mail.endsWith("@" + ENV_ALLOW_MAIL_DOMAINS[i])) {
+        if(mail.endsWith("@" + allowMailDomains[i])) {
             // 一致した場合.
             return true;
         }
