@@ -4,7 +4,7 @@ LFUはAWS Lambda で提供されている機能 `関数URL` を使った「小�
 
 <img src="./doc/img/overview/lfu_figure.jpg" alt="image" title="image" width="80%">
 
-このようにLFUは「超低コスト」を目指すserverlessなnode.jsベースのWebアプリフレームワークです。
+以下より「超低コスト」且つ「高速コールドスタート」な理由を説明していきたいと思います。
 
 ## AWSでWebアプリを実現する場合の最低構成とコスト.
 
