@@ -12,6 +12,7 @@
         ,"src/lib/httpHeader.js"
         ,"src/lib/jhtml.js"
         ,"src/lib/s3client.js"
+        ,"src/lib/sendSlack.js"
         ,"src/lib/httpsClient.js"
         ,"src/lib/mimeType.js"
         ,"src/lib/s3restApi.js"

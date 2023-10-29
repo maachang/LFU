@@ -2,7 +2,7 @@
 // S3のKeyValueStorage構造を利用したKeyValue情報管理を行います.
 // AWSのS3は、基本的にKeyValue形式です.
 // 
-// AWSのS3は、容量単価として 1TByteで 約25$(東京リージョン)と非常に安い.
+// AWSのS3の容量単価は、1TByteで月25$(東京リージョン)と非常に安い.
 // ただS3の1blockが128kbyte単位なので、1byteであっても最低128kbyteとなる.
 // しかし1TByteで月25$なので、128kbyteの1オブジェクトは 月$0.0000025 と
 // 非常に安価だ(たとえば10万データ=$0.25=1USD:140円で月額約35円)
@@ -13,7 +13,7 @@
 // 非常に高くついてしまう.
 //
 // ある程度使いやすいS3を使ったKeyValue形式のものを作成する事で、非常に
-// 安価なデータ管理が行える仕組みが作れる可能性があると言えます.
+// 安価なデータ管理が行える仕組みが作れる可能性がある.
 ///////////////////////////////////////////////////////////////////////
 (function() {
 'use strict'
@@ -53,15 +53,15 @@ const S3KVS_EXTENSION = ".s3kvs";
 // S3KVS拡張子長.
 const S3KVS_EXTENSION_LENGTH = S3KVS_EXTENSION.length;
 
-// convb => jsonbエンコード.
-const convbEncode = function(value) {
+// jsonbエンコード.
+const jsonbEncode = function(value) {
     const bin = [];
     convb.encodeValue(bin, value);
     return Buffer.from(bin);
 }
 
-// convb => jsonbデコード.
-const convbDecode = function(bin) {
+// jsonbデコード.
+const jsonbDecode = function(bin) {
     const pos = [0];
     return convb.decodeValue(pos, bin);
 }
@@ -442,7 +442,7 @@ const create = function(options) {
         let ap = tableAccessParams(1, arguments);
         const pm = getS3Params(
             bucketName, prefixName, ap.tableName, ap.index);
-        const value = convbEncode(ap.value[0]);
+        const value = jsonbEncode(ap.value[0]);
         ap = null;
         const response = {};
         await s3.putObject(
@@ -469,7 +469,7 @@ const create = function(options) {
             pm.Key + S3KVS_EXTENSION,
             credential);
         return response.status >= 400 ?
-            null: convbDecode(bin);
+            null: jsonbDecode(bin);
     }
 
     // remove.

@@ -109,7 +109,7 @@ for(let i = 0; i < len; i++) {
             script = "\n" + s;
         }
     } catch(e) {
-        console.error(e);
+        console.error("[error]loadJs: " + src, e);
     }
 }
 

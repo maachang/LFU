@@ -32,6 +32,7 @@ const _PARAMS = e.parameter;
 // KeyCodeをGASのスクリプトプロパティに設定します.
 const ENV_ALLOW_AUTH_KEY_CODE = (function() {
     try {
+        // スクリプトプロパティから設定情報を取得.
         return PropertiesService
             .getScriptProperties().getProperty("ALLOW_AUTH_KEY_CODE")
             .trim();
@@ -43,7 +44,7 @@ const ENV_ALLOW_AUTH_KEY_CODE = (function() {
 // [ENV関数][allow mail Domain]許可するメールアドレスのドメイン名群.
 // GASのスクリプトプロパティに "xxx, yyy, zzz" のように設定します.
 const ENV_ALLOW_MAIL_DOMAINS = function() {
-    // ドメイン一覧を取得.
+    // ドメイン一覧をスクリプトプロパティから取得.
     const domains = convString(PropertiesService
         .getScriptProperties().getProperty("ALLOW_MAIL_DOMAINS"))
             .trim();
