@@ -71,7 +71,7 @@ LFUのテスト用サイト[GithubRepogitory](https://github.com/maachang/testLF
 
 <img src="./doc/img/overview/lfu_warm_start.jpg" alt="image" title="image" width="80%">
 
-このように LFG では、非常に高速なコールドスタートを実現しています。
+このように LFU では、非常に高速なコールドスタートを実現しています。
 
 ## 興味のある方は以下チュートリアル資料を見て、LFUの超安価なWebアプリの実装を体験してください
 
