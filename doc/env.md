@@ -20,8 +20,8 @@ LFUをAWS Lambdaで実行するための設定.
 
 |変数名|設定内容|説明|
 |:---|:---|:---|
-|MAIN_EXTERNAL|git or s3|[**`必須`**]メインで利用するrequireやrequest先|
-|REQUEST_PATH|カレントパス|[**`必須`**]request時のカレントパス設定|
+|MAIN_EXTERNAL|git or s3|[`必須`]メインで利用するrequireやrequest先|
+|REQUEST_PATH|カレントパス|[`必須`]request時のカレントパス設定|
 |S3_CONNECT|requirePath, region|[`準必須`]s3require, s3request時の接続設定<br>S3_CONNECT or GIT_CONNECTの設定が必須|
 |GIT_CONNECT|organization, repo, branch, requirePath|[`準必須`]grequire, grequest時の接続設定<br>具体的なパスの元URLは<br>　・raw.githubusercontent.com/{organization}/{repo}/{branch}/{requirePath}/...<br>となる<br>S3_CONNECT or GIT_CONNECTの設定が必須|
 |GIT_CONNECT_TOKEN|token|[任意]対象githubRepogitoryがprivateな場合の<br>TOKEN(lfuSecretManagerで変換)|
@@ -40,7 +40,7 @@ LFUをAWS Lambdaで実行するための設定.
 
 |変数名|設定内容|説明|
 |:---|:---|:---|
-|LFU_PATH|{LFUディレクトリ}/src|[**`必須`**]ローカルcloneしたLFUディレクトリ＋srcパスを設定|
+|LFU_PATH|{LFUディレクトリ}/src|[`必須`]ローカルcloneしたLFUディレクトリ＋srcパスを設定|
 |LFU_FAKE_S3_PATH|path|[`準必須`]偽 $S3_CONNECT ローカルパス設定<br>LFU_FAKE_S3_PATH or LFU_FAKE_GITHUB_PATHの設定が必須|
 |LFU_FAKE_GITHUB_PATH|path|[`準必須`]偽 $GIT_CONNECT ローカルパス設定<br>LFU_FAKE_S3_PATH or LFU_FAKE_GITHUB_PATHの設定が必須|
 |LFU_ENV_CONF|lfu.env.json|[任意]指定jsonファイル指定で、環境変数設定が不要となる<br>lfusim実行パスに `./lfu.env.json` を設定している場合は<br>自動的に読み込む|
@@ -63,7 +63,7 @@ LFUをAWS Lambdaで実行するための設定.
 |:---|:---|:---|
 |LOGIN_TOKEN_KEYCODE|string|[任意]ログイントークンを作成する時のヒントとなるKeyを設定<br>設定しない場合はリクエストのhost名|
 |LOGIN_USER_LIST_LIMIT|number|[任意]ユーザ一覧を取得する場合のリミット値を設定<br>設定しない場合は100で、S3の規定で１度に最大1000まで|
-|LOGIN_TOKEN_EXPIRE|number|ログインTokenのExpire値を日で指定<br>設定しない場合は1が設定|
+|LOGIN_TOKEN_EXPIRE|number|[任意]ログインTokenのExpire値を日で指定<br>設定しない場合は1が設定|
 
 ### 6. gas oauth用の環境変数.
 
@@ -71,7 +71,7 @@ LFUでは、GAS(googleAppScript)にスクリプトを設定して、ここから
 
 |変数名|設定内容|説明|
 |:---|:---|:---|
-|GAS_AUTH_URL|url|[**`必須`**]gasのURLを設定|
+|GAS_AUTH_URL|url|[`必須`]gasのURLを設定|
 |ALLOW_GAS_AUTH_KEY_CODE|base64|[`必須`]lfusimコマンド `lfusim -keygen` で作成したKeyCodeを設定|
 |GAS_OAUTH_TOKEN_KEY_LENGTH|number|[任意]tokenKey長|
 |GAS_OAUTH_TOKEN_KEY_EXPIRE|number|[任意]tokenKeyのexpire値(分)|
