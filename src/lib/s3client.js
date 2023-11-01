@@ -207,6 +207,19 @@ const create = function(region, credential) {
         }
         return response.status <= 299;
     }
+    
+    // 署名付きダウンロードURLを取得.
+    // params {Bucket: string, Key: string, Expire}
+    //         - Bucket ダウンロード対象のS3bucket名を設定します.
+    //         - Key ダウンロード対象のS3のkey名を設定します.
+    //         - Expire 署名URLの寿命を秒単位で設定します.
+    // 戻り値：署名付きダウンロードURLが返却されます.
+    ret.downloadPreSignedUrl = function(params) {
+        // 署名付きダウンロードURLを返却.
+        return s3.preSignedUrl(
+            region, "GET", getBucketName(params.Bucket), params.Key,
+            params.Expire, credential);
+    }
 
     return ret;
 }

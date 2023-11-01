@@ -1,4 +1,4 @@
-# LFU呼び出しによるlambda最適設定
+# LFUの最適なlambda設定
 
 具体的に LFUを利用した上でのLambdaはどんな感じでコールドスタート起動で時間がかかるのかを調査する.
 
@@ -180,7 +180,7 @@ LFU環境での最適なメモリーサイズ条件としては
 
 グラフを見るとよく分かる.
 
-<img src="./img/run_js_or_template.jpg" alt="image" title="image" width="30%">
+<img src="./img/overview/run_js_or_template.jpg" alt="image" title="image" width="50%">
 
 1. 128MByte
 2. 256MByte

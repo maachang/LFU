@@ -30,6 +30,9 @@ const SERVICE = 's3';
 // nextMarker有無情報を格納するHTTPヘッダ名.
 const NEXT_MARKER_NAME = "x-next-marker";
 
+// 署名URLExpireデフォルト値(3分).
+const PRE_SIGNED_URL_EXPIRE = 180;
+
 // リージョンを取得.
 // region 対象のregionを設定します.
 // 戻り値: リージョンが返却されます.
@@ -544,6 +547,57 @@ const listObject = async function(
     return resultXmlToJson(xml, options.keyOnly);
 }
 
+// 署名URLを取得.
+// region リージョンを設定します.
+// method HTTPメソッドを設定します.
+// bucket 署名URL発行先のs3Bucket名を設定します.
+// key 署名URL発行先のs3Predix+Key名を設定します.
+// expire 署名URLのexpire値を秒で指定します.
+// credential AWSクレデンシャルを設定します.
+// 戻り値: 署名URLが返却されます.
+const preSignedUrl = function(region, method, bucket, key, expire, credential) {
+    // クレデンシャルが指定されてない場合は
+    // 環境変数からクレデンシャルを取得.
+    if(credential == undefined || credential == null) {
+        credential = awsSigV4.getCredential();
+    }
+    // リージョンが存在しない場合のデフォルト設定.
+    region = getRegion(region);
+    // bucket名のスラッシュを除外.
+    if(bucket.endsWith("/")) {
+        bucket = bucket.substring(0, bucket.length - 1);
+    }
+    // key名のスラッシュを除外.
+    if(key.startsWith("/")) {
+        key = key.substring(1);
+    }
+    // endpointのURLを設定.
+    let endpointUrl;
+    if (region == "us-east-1") {
+        endpointUrl = "https://s3.amazonaws.com/" + bucket + "/" + key;
+    } else {
+        endpointUrl = "https://s3-" + region + ".amazonaws.com/" + bucket + "/" + key;
+    }
+    // expire値のチェック.
+    expire = expire|0;
+    // 無効なexpire値.
+    if(expire <= 0) {
+        // デフォルトのexpire値は3分.
+        expire = PRE_SIGNED_URL_EXPIRE;
+    }
+    // クエリーパラメータを設定.
+    const queryParams = {
+        "X-Amz-Expires": "" + expire
+    }
+    // 署名URLを発行.
+    const ret = endpointUrl + "?" + awsSigV4.signatureV4QueryParameter(
+        credential, endpointUrl, method.toUpperCase(), SERVICE, region,
+        {}, queryParams, "UNSIGNED-PAYLOAD"
+    );
+
+    return ret;
+}
+
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////
@@ -553,5 +607,6 @@ exports.deleteObject = deleteObject;
 exports.getObject = getObject;
 exports.headObject = headObject;
 exports.listObject = listObject;
+exports.preSignedUrl = preSignedUrl;
 
 })();
