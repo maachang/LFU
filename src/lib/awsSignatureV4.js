@@ -26,6 +26,9 @@ const ALGORITHM = "AWS4-HMAC-SHA256";
 // CredentialScope のエンドスコープ.
 const END_SCOPE = "aws4_request";
 
+// スキーム.
+const SCHEME = "AWS4";
+
 // 空のPayloadSha256.
 const EMPTY_PAYLOAD_SHA256 =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -126,20 +129,6 @@ const hmacSHA256 = function(key, message, returnMode) {
         .update(message).digest(returnMode);
 }
 
-// シグニチャーを作成.
-// key シークレットアクセスキー(string).
-// date yyyMMdd(string).
-// region リージョン(string).
-// service AWSサービス名(string).
-// 戻り値: シグニチャーを返却.
-const getSignatureKey = function(key, date, region, service) {
-    let n = "AWS4" + key;
-    n = hmacSHA256(n, date);
-    n = hmacSHA256(n, region);
-    n = hmacSHA256(n, service);
-    return hmacSHA256(n, END_SCOPE);
-}
-
 // リクエストヘッダのキー小文字変換版を作成.
 // header リクエストヘッダを設定します.
 //        この中身が直接変更されます.
@@ -166,9 +155,13 @@ const getRequestHeaderKeys = function(header) {
     for(let k in header) {
         ret[ret.length] = k;
     }
-    ret.sort();
+    ret.sort(function(a, b) { return a.localeCompare(b);});
     return ret;
 }
+
+////////////////////////////////
+// 通常のAWSのREST Apiアクセス用.
+////////////////////////////////
 
 // step1.署名バージョン4の正規リクエストを作成する.
 // https://docs.aws.amazon.com/ja_jp/general/latest/gr/sigv4-create-canonical-request.html
@@ -328,12 +321,12 @@ const signatureV4Final = function(
         throw new Error("AWS credentials not set.");
     } 
     // シグニチャーキー生成.
-    let signature = getSignatureKey(
-        credential["secretAccessKey"],
-        step2Result["dateText"],
-        region,
-        service
-    );
+    let n = SCHEME + credential["secretAccessKey"];
+    n = hmacSHA256(n, step2Result["dateText"]);
+    n = hmacSHA256(n, region);
+    n = hmacSHA256(n, service);
+    let signature = hmacSHA256(n, END_SCOPE);
+
     // 署名を計算する.
     signature = hmacSHA256(
         signature,
@@ -352,6 +345,210 @@ const signatureV4Final = function(
     return sigV4;
 }
 
+/////////////////////
+// queryParam系処理.
+/////////////////////
+
+// AWS的なURLエンコード.
+const urlEncode = function(value, flg) {
+    if(flg != true) {
+        // true以外の場合は普通にURLエンコード.
+        return encodeURIComponent(value);
+    }
+    // trueの場合は/以外はURLエンコード.
+    return encodeURIComponent(value)
+        .split('%2F').join("/");
+}
+
+// ヘッダキー名一覧を正規化.
+const getCanonicalizeHeaderNames = function(headers) {
+    if(headers == undefined || headers == null) {
+        return "";
+    }
+    const lst = [];
+    for(let k in headers) {
+        lst[lst.length] = k.trim();
+    }
+    let i;
+    let ret = "";
+    lst.sort(function(a, b) { return a.localeCompare(b);});
+    const len = lst.length;
+    for(let i = 0; i < len; i ++) {
+        if(i != 0) {
+            ret += ";";
+        }
+        ret += lst[i];
+    }
+    return ret;
+}
+
+// ヘッダーKey/Value一覧を正規化.
+const getCanonicalizedHeaderString = function(headers) {
+    if(headers == undefined || headers == null) {
+        return "";
+    }
+    const lst = [];
+    for(let k in headers) {
+        lst[lst.length] = k.trim();
+    }
+    let i, k;
+    let ret = "";
+    lst.sort(function(a, b) { return a.localeCompare(b);});
+    const len = lst.length;
+    for(let i = 0; i < len; i ++) {
+        k = lst[i];
+        ret += k.toLowerCase().replaceAll(/\s+/g, " ") + ":" +
+            headers[k].replaceAll(/\s+/g, " ") + "\n";
+    }
+    return ret;
+}
+
+// URLのホスト名を取得.
+const getURLToHost = function(url) {
+    let p = 0;
+    if(url.startsWith("https://")) {
+        p = 8;
+    } else if(url.startsWith("http://")) {
+        p = 7;
+    }
+    const pp = url.indexOf("/", p);
+    if(pp == -1) {
+        return url.substring(p);
+    }
+    return url.substring(p, pp);
+}
+
+// URLのパスを正規化.
+const getCanonicalizedResourcePath = function(url) {
+    let p = 0;
+    if(url.startsWith("https://")) {
+        p = 8;
+    } else if(url.startsWith("http://")) {
+        p = 7;
+    }
+    p = url.indexOf("/", p);
+    let path = p != -1 ? url.substring(p + 1) : ""
+    if (path == null || path == "") {
+        return "/";
+    }
+    path = urlEncode(path, true);
+    if (path.startsWith("/")) {
+        return path;
+    }
+    return "/" + path;
+}
+
+// request条件を正規化.
+const getCanonicalRequest = function(endpoint, httpMethod, queryParameters, 
+    canonicalizedHeaderNames, canonicalizedHeaders, bodyHash) {
+    return httpMethod + "\n" +
+        getCanonicalizedResourcePath(endpoint) + "\n" +
+        queryParameters + "\n" +
+        canonicalizedHeaders + "\n" +
+        canonicalizedHeaderNames + "\n" +
+        bodyHash;
+}
+
+// queryStringを正規化.
+const getCanonicalizedQueryString = function(parameters) {
+    const keys = [];
+    for(let k in parameters) {
+        keys[keys.length] = [urlEncode(k, false), k];
+    }
+    keys.sort(function(a, b) {
+        a = a[0]; b = b[0];
+        if(a < b) {
+            return -1;
+        } else if(a > b) {
+            return 1
+        }
+        return 0;
+    });
+    const len = keys.length;
+    let ret = "";
+    for(let i = 0; i < len; i ++) {
+        if(i != 0) {
+            ret += "&";
+        }
+        ret += keys[i][0] + "=" +
+            urlEncode(parameters[keys[i][1]], false);
+    }
+    return ret;
+}
+
+// 署名文字列を取得.
+const getStringToSign = function(
+    algorithm, dateTime, scope, canonicalRequest) {
+    return algorithm + "\n" +
+        dateTime + "\n" +
+        scope + "\n" +
+        sha256(canonicalRequest, "hex");
+}
+
+// 署名付きQueryParamを生成.
+// credential 対象のAWSクレデンシャルを設定します.
+// endpointUrl 対象のendpointなURLを設定します.
+// httpMethod 対象のHTTPメソッドを設定します.
+// serviceName サービス名を設定します.
+// regionName リージョン名を設定します.
+// headers　空のHttpHeader({})+必要なパラメータをセットします.
+// queryParameters クエリーパラメータを設定します.
+// bodyHash bodyハッシュを設定します.
+// 戻り値: クエリー文字列が返却されます.
+const signatureV4QueryParameter = function(
+    credential, endpointUrl, httpMethod, serviceName, regionName,
+    headers, queryParameters, bodyHash) {
+    // クレデンシャル内容が不正な場合.
+    if(credential["secretAccessKey"] == undefined ||
+        credential["accessKey"] == undefined) {
+        throw new Error("AWS credentials not set.");
+    }
+    // 現在時刻のDate情報を生成.
+    const dateTimeStamp = createDateTimeText(new Date());
+    
+    // headewrのhost名にendPointUrlのホスト名をセット.
+    headers["host"] = getURLToHost(endpointUrl);
+    // ヘッダ情報のKeyを文字列変換.
+    const canonicalizedHeaderNames = getCanonicalizeHeaderNames(headers);
+    // ヘッダ情報のKeyValue
+    const canonicalizedHeaders = getCanonicalizedHeaderString(headers);
+    // yyyyMMddを取得.
+    const dateStamp = dateTimeStamp.substring(0, dateTimeStamp.indexOf("T"));
+    // scope作成
+    const scope =  dateStamp + "/" + regionName + "/" + serviceName + "/" + END_SCOPE;
+    // パラメータセット.
+    queryParameters["X-Amz-Algorithm"] = ALGORITHM;
+    queryParameters["X-Amz-Credential"] = credential["accessKey"] + "/" + scope;
+    queryParameters["X-Amz-Date"] = dateTimeStamp;
+    queryParameters["X-Amz-SignedHeaders"] = canonicalizedHeaderNames;
+    // queryパラメータの正規化.
+    const canonicalizedQueryParameters = getCanonicalizedQueryString(queryParameters);
+
+    //  request条件を正規化.
+    const canonicalRequest = getCanonicalRequest(endpointUrl, httpMethod,
+        canonicalizedQueryParameters, canonicalizedHeaderNames,
+        canonicalizedHeaders, bodyHash);
+    
+    // 署名文字列を取得.
+    const stringToSign = getStringToSign(
+        ALGORITHM, dateTimeStamp, scope, canonicalRequest);
+
+    // シグニチャーキーを作成.
+    let signature = SCHEME + credential["secretAccessKey"];
+    signature = hmacSHA256(signature, dateStamp);
+    signature = hmacSHA256(signature, getRegion(regionName));
+    signature = hmacSHA256(signature, serviceName);
+    signature = hmacSHA256(signature, END_SCOPE);
+    signature = hmacSHA256(signature, stringToSign, "hex");
+    // 戻り値.
+    return "X-Amz-Algorithm=" + queryParameters["X-Amz-Algorithm"] +
+        "&X-Amz-Credential=" + queryParameters["X-Amz-Credential"] +
+        "&X-Amz-Date=" + queryParameters["X-Amz-Date"] +
+        "&X-Amz-Expires=" + queryParameters["X-Amz-Expires"] +
+        "&X-Amz-SignedHeaders=" + queryParameters["X-Amz-SignedHeaders"] +
+        "&X-Amz-Signature=" + signature
+}
+
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////
@@ -359,5 +556,6 @@ exports.getCredential = getCredential;
 exports.signatureV4Step1 = signatureV4Step1;
 exports.signatureV4Step2 = signatureV4Step2;
 exports.signatureV4Final = signatureV4Final;
+exports.signatureV4QueryParameter = signatureV4QueryParameter;
 
 })();
