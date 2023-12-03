@@ -6,22 +6,24 @@
 
 // lambda main.
 exports.handler = async (event, context) => {
-    // lambda上にfilter.jsが存在する場合、対象とする.
-    let filter = undefined;
-    try {
-        filter = require("./filter.js");
-    } catch(e) {
-        filter = undefined;
-    }
-    // lambda上にmime.jsが存在する場合、対象とする.
-    let mime = undefined;
-    try {
-        mime = require("./mime.js");
-    } catch(e) {
-        mime = undefined;
-    }
+    ////////////////////////////////////
+    // 初期処理系はここにセット.
+    ////////////////////////////////////
+
+    // HttpErrorを利用可能に設定.
+    require("./httpError.js");
+    // frequire利用可能に設定.
+    require("./freqreg.js");
+    // grequire利用可能に設定.
+    require("./greqreg.js");
+    // s3require利用可能に設定.
+    require("./s3reqreg.js");
+
+    ////////////////////////////////////
+    // LFUSetup実行.
+    ////////////////////////////////////
     return await
-        (require("./LFUSetup.js").start(event, filter, mime))
+        (require("./LFUSetup.js").start(event))
         (event, context);
 };
 

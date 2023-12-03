@@ -37,7 +37,7 @@ const vm = require('vm');
 const httpsClient = frequire("./lib/httpsClient.js");
 
 // HttpStatus.
-const httpStatus = frequire("./lib/httpStatus.js");
+//const httpStatus = frequire("./lib/httpStatus.js");
 
 // 文字列が存在するかチェック.
 // s 文字列を設定します.

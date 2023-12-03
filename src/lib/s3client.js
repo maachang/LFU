@@ -55,15 +55,15 @@ const create = function(region, credential) {
 
     // 条件を指定してS3Bucket+Prefixのリスト情報を取得.
     // params {Bucket: string, Prefix: string}
-    //         - Bucket 対象のbucket名を設定します.
-    //         - Prefix 対象のprefix名を設定します.
-    //         - MaxKeys 最大取得数を設定します(1 - 1000).
-    //         - Delimiter 取得階層の範囲を設定します.
-    //                     "/" を設定した場合は指定prefixが"/"の階層の範囲を
-    //                     リスト取得します.
-    //         - Marker 前のlistObject処理で response.header["x-next-marker"]
+    //         - [必須]Bucket 対象のbucket名を設定します.
+    //         - [必須]Prefix 対象のprefix名を設定します.
+    //         - [任意]MaxKeys 最大取得数を設定します(1 - 1000).
+    //         - [任意]Delimiter 取得階層の範囲を設定します.
+    //                          "/" を設定した場合は指定prefixが"/"の階層の範囲を
+    //                         リスト取得します.
+    //         - [任意]Marker 前のlistObject処理で response.header["x-next-marker"]
     //                  情報が"true"の場合、一番最後の取得したKey名を設定します.
-    //         - KeyOnly trueの場合Key名だけ取得します.
+    //         - [任意]KeyOnly trueの場合Key名だけ取得します.
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: リスト情報が返却されます.
@@ -98,8 +98,8 @@ const create = function(region, credential) {
 
     // 条件を指定してS3Bucket+Keyのメタ情報を取得.
     // params {Bucket: string, Key: string}
-    //         - Bucket 対象のbucket名を設定します.
-    //         - Key 対象のkey名を設定します.
+    //         - [必須]Bucket 対象のbucket名を設定します.
+    //         - [必須]Key 対象のkey名を設定します.
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: {lastModified: string, size: number}
@@ -124,8 +124,8 @@ const create = function(region, credential) {
 
     // 条件を指定してS3Bucket+Key情報を取得.
     // params {Bucket: string, Key: string}
-    //         - Bucket 対象のbucket名を設定します.
-    //         - Key 対象のkey名を設定します.
+    //         - [必須]Bucket 対象のbucket名を設定します.
+    //         - [必須]Key 対象のkey名を設定します.
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: 処理結果のBufferが返却されます.
@@ -148,8 +148,8 @@ const create = function(region, credential) {
 
     // 条件を指定してS3Bucket+Key情報を文字列で取得.
     // params {Bucket: string, Key: string}
-    //         - Bucket 対象のbucket名を設定します.
-    //         - Key 対象のkey名を設定します.
+    //         - [必須]Bucket 対象のbucket名を設定します.
+    //         - [必須]Key 対象のkey名を設定します.
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: 処理結果が文字列で返却されます.
@@ -160,9 +160,9 @@ const create = function(region, credential) {
 
     // 条件を指定してS3Bucket+Key情報にBodyをセット.
     // params {Bucket: string, Key: string, Body: string or Buffer}
-    //         - Bucket 対象のbucket名を設定します.
-    //         - Key 対象のkey名を設定します.
-    //         - Body 対象のbody情報を設定します.
+    //         - [必須]Bucket 対象のbucket名を設定します.
+    //         - [必須]Key 対象のkey名を設定します.
+    //         - [必須]Body 対象のbody情報を設定します.
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: trueの場合、正常に設定されました.
@@ -210,15 +210,16 @@ const create = function(region, credential) {
     
     // 署名付きダウンロードURLを取得.
     // params {Bucket: string, Key: string, Expire}
-    //         - Bucket ダウンロード対象のS3bucket名を設定します.
-    //         - Key ダウンロード対象のS3のkey名を設定します.
-    //         - Expire 署名URLの寿命を秒単位で設定します.
+    //         - [必須]Bucket ダウンロード対象のS3bucket名を設定します.
+    //         - [必須]Key ダウンロード対象のS3のkey名を設定します.
+    //         - [任意]Expire 署名URLの寿命を秒単位で設定します.
+    //                 設定しない場合は任意の値(60秒)が設定されます.
     // 戻り値：署名付きダウンロードURLが返却されます.
-    ret.downloadPreSignedUrl = function(params) {
+    ret.getPreSignedUrl = function(params) {
         // 署名付きダウンロードURLを返却.
         return s3.preSignedUrl(
             region, "GET", getBucketName(params.Bucket), params.Key,
-            params.Expire, credential);
+            params.Expire, null, credential);
     }
 
     return ret;

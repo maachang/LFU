@@ -113,31 +113,51 @@ const setTzEnv = function(v) {
 }
 
 // 元のDate#getTimezoneOffset()が0の場合のデフォルト値.
+// JTS.
 let DEFAULT_TZ_OFFSET = -540;
 
-// UTC-DateのデフォルトTZOffsetをセット.
-const setDefaultTzOffset = function(second) {
-    DEFAULT_TZ_OFFSET = second | 0;
-    return getDefaultTzName();
-}
-
-// 対象名を指定してTimeZoneをセット.
-const setDefaultTimeZone = function(name) {
-    const tz = TZ_DICT["" + name];
-    if(tz == undefined) {
-        return;
+// new Date()処理.
+const newDate = function() {
+    const ag = arguments;
+    const len = ag.length;
+    let old = ""
+    try {
+        // tzをUTCセット.
+        old = toUTCEnv();
+        // 最大10引数に対応.
+        switch(len) {
+            case 0:
+                return new Date();
+            case 1:
+                return new Date(ag[0]);
+            case 2:
+                return new Date(ag[0], ag[1]);
+            case 3:
+                return new Date(ag[0], ag[1], ag[2]);
+            case 4:
+                return new Date(ag[0], ag[1], ag[2], ag[3]);
+            case 5:
+                return new Date(ag[0], ag[1], ag[2], ag[3],
+                    ag[4]);
+            case 6:
+                return new Date(ag[0], ag[1], ag[2], ag[3],
+                    ag[4], ag[5]);
+            case 7:
+                return new Date(ag[0], ag[1], ag[2], ag[3],
+                    ag[4], ag[5], ag[6]);
+            case 8:
+                return new Date(ag[0], ag[1], ag[2], ag[3],
+                    ag[4], ag[5], ag[6], ag[7]);
+            case 9:
+                return new Date(ag[0], ag[1], ag[2], ag[3],
+                    ag[4], ag[5], ag[6], ag[7], ag[8]);
+        }
+        return new Date(ag[0], ag[1], ag[2], ag[3], ag[4],
+            ag[5], ag[6], ag[7], ag[8], ag[9]);
+    } finally {
+        // tzを元に戻す.
+        setTzEnv(old);
     }
-    DEFAULT_TZ_OFFSET = tz
-}
-
-// UTC-DateのデフォルトTZOffsetを取得.
-const getDefaultTzOffset = function() {
-    return DEFAULT_TZ_OFFSET;
-}
-
-// UTC-Dateのデフォルトタイムゾーン値を取得.
-const getDefaultTzName = function() {
-    return process.env.TZ;
 }
 
 // 現在Dateを取得.
@@ -153,149 +173,141 @@ const nowDate = function() {
         // 計算するようにする.
         tzOffet = DEFAULT_TZ_OFFSET;
     }
-    return new Date(now.getTime() - (tzOffet * 60000));
+    return newDate(now.getTime() - (tzOffet * 60000));
 }
 
 // dateオブジェクトを作成.
 const createDate = function(y, m, d) {
-    let old = ""
-    try {
-        old = toUTCEnv();
-        let date;
-        // 設定なし.
-        if(y == undefined || y == null) {
-            date = nowDate();
-        // y, m, d で設定.
-        } else if(typeof(y) == "number") {
-            if(typeof(m) == "number") {
-                if(typeof(d) == "number") {
-                    date = new Date(y, m, d);
-                } else {
-                    date = new Date(y, m);
-                }
+    let date;
+    // 設定なし.
+    if(y == undefined || y == null) {
+        date = nowDate();
+    // y, m, d で設定.
+    } else if(typeof(y) == "number") {
+        if(typeof(m) == "number") {
+            if(typeof(d) == "number") {
+                date = newDate(y, m, d);
             } else {
-                date = new Date(y);
+                date = newDate(y, m);
             }
-        // 文字列で設定.
-        } else if(typeof(y) == "string") {
-            date = new Date(y);
-        // Dateオブジェクトで設定.
-        } else if(y instanceof Date) {
-            date = new Date(y);
-        // UtcDateオブジェクトが設定された場合.
-        } else if(y.UTC_DATE_SIMBOL == "utcDate") {
-            date = y.rawDate();
+        } else {
+            date = newDate(y);
         }
-        // 正しく生成されているかチェック.
-        if(date == undefined || isNaN(date.getFullYear())) {
-            // エラーの場合.
-            let args = "";
-            if(y != undefined) {
-                args += " [0]: " + y;
-            }
-            if(m != undefined) {
-                args += " [1]: " + m;
-            }
-            if(d != undefined) {
-                args += " [2]: " + d;
-            }
-            throw new Error(
-                "utc-dateの作成に失敗しました:" + args);
-        }
-        return date;
-    } finally {
-        setTzEnv(old);
+    // 文字列で設定.
+    } else if(typeof(y) == "string") {
+        date = newDate(y);
+    // Dateオブジェクトで設定.
+    } else if(y instanceof Date) {
+        date = newDate(y);
+    // UtcDateオブジェクトが設定された場合.
+    } else if(y.UTC_DATE_SIMBOL == "utcDate") {
+        date = y.rawDate();
     }
+    // 正しく生成されているかチェック.
+    if(date == undefined || isNaN(date.getFullYear())) {
+        // エラーの場合.
+        let args = "";
+        if(y != undefined) {
+            args += " [0]: " + y;
+        }
+        if(m != undefined) {
+            args += " [1]: " + m;
+        }
+        if(d != undefined) {
+            args += " [2]: " + d;
+        }
+        throw new Error(
+            "utc-dateの作成に失敗しました:" + args);
+    }
+    return date;
 }
 
 // dateを文字列変換.
+// ここで渡されるオブジェクトは utcDate.create()の
+// 内容なので、内部はUTCは使わない。
 const dateToString = function(object, mode) {
-    let old = ""
-    try {
-        old = toUTCEnv();
-        let ret = ""
-        let y = "" + object.getFullYear();
-        y = "0000".substring(y.length) + y;
-        ret += y;
-        // 年出力.
-        if(mode == "year") {
-            return ret;
-        }
-        let M = "" + (object.getMonth() + 1);
-        M = "00".substring(M.length) + M;
-        ret += "-" + M;
-        // 月出力.
-        if(mode == false || mode == "month") {
-            return ret;
-        }
-        // 日出力.
-        let d = "" + object.getDate();
-        ret += "-" + "00".substring(d.length) + d
-        if(mode == true || mode == "date") {
-            return ret;
-        }
-        // full.
-        let h = "" + object.getHours();
-        h = "00".substring(h.length) + h;
-        let m = "" + object.getMinutes();
-        m = "00".substring(m.length) + m;
-        let s = "" + object.getSeconds();
-        s = "00".substring(s.length) + s;
-        let sss = "" + object.getMilliseconds();
-        sss = "000".substring(sss.length) + sss;
-        return ret + " " + h + ":" + m + ":" + s + "." + sss;
-    } finally {
-        setTzEnv(old);
+    let ret = ""
+    let y = "" + object.getFullYear();
+    y = "0000".substring(y.length) + y;
+    ret += y;
+    // 年出力.
+    if(mode == "year") {
+        return ret;
     }
+    let M = "" + (object.getMonth() + 1);
+    M = "00".substring(M.length) + M;
+    ret += "-" + M;
+    // 月出力.
+    if(mode == false || mode == "month") {
+        return ret;
+    }
+    // 日出力.
+    let d = "" + object.getDate();
+    ret += "-" + "00".substring(d.length) + d
+    if(mode == true || mode == "date") {
+        return ret;
+    }
+    // full.
+    let h = "" + object.getHours();
+    h = "00".substring(h.length) + h;
+    let m = "" + object.getMinutes();
+    m = "00".substring(m.length) + m;
+    let s = "" + object.getSeconds();
+    s = "00".substring(s.length) + s;
+    let sss = "" + object.getMilliseconds();
+    sss = "000".substring(sss.length) + sss;
+    return ret + " " + h + ":" + m + ":" + s + "." + sss;
 }
 
 // 開始/終了日を取得.
+// date = Dateオブジェクトである必要がある.
 const between = function(date, mode) {
-    let old = ""
-    try {
-        old = toUTCEnv();
-        // dateが設定されていない場合.
-        if(date == undefined || date == null) {
-            date = nowDate();
-        }
-        // modeを整形.
-        if(mode == undefined || mode == null) {
-            mode = "date";
-        } else {
-            mode = (""+mode).trim();
-        }
+    // dateが設定されていない場合.
+    if(date == undefined || date == null) {
+        date = nowDate();
+    // 文字列で設定.
+    } else if(typeof(date) == "string") {
+        date = newDate(date);
+    // UtcDateオブジェクトが設定された場合.
+    } else if(date.UTC_DATE_SIMBOL == "utcDate") {
+        date = date.rawDate();
+    }
 
-        let start, end;
+    // modeを整形.
+    if(mode == undefined || mode == null) {
+        mode = "date";
+    } else {
+        mode = (""+mode).trim();
+    }
 
-        // 年の開始終了を返却.
-        if(mode == "year") {
-            start = create(date.getFullYear(), 0, 1);
-            end = create(date.getFullYear() + 1, 0, 1);
-            end = create(end.getTime() - 1);
-            return {start: start, end: end};
-        }
-        // 月の開始終了を返却.
-        if(mode == false || mode == "month") {
-            start = create(date.getFullYear(), date.getMonth(), 1);
-            end = create(date.getFullYear(), date.getMonth() + 1, 1);
-            end = create(end.getTime() - 1);
-            return {start: start, end: end};
-        }
-        // 週の開始終了を返却.
-        if(mode == "week") {
-            const d = date.getDay();
-            start = create(date).change("date", (d * -1));
-            end = create(date).change("date", (6 - d));
-            return {start: start, end: end};
-        }
-        // 日の開始終了を返却.
-        start = create(date.getFullYear(), date.getMonth(), date.getDate());
-        end = create(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+    let start, end;
+
+    // 年の開始終了を返却.
+    if(mode == "year") {
+        start = create(date.getUTCFullYear(), 0, 1);
+        end = create(date.getUTCFullYear() + 1, 0, 1);
         end = create(end.getTime() - 1);
         return {start: start, end: end};
-    } finally {
-        setTzEnv(old);
     }
+    // 月の開始終了を返却.
+    if(mode == false || mode == "month") {
+        start = create(date.getUTCFullYear(), date.getUTCMonth(), 1);
+        end = create(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
+        end = create(end.getTime() - 1);
+        return {start: start, end: end};
+    }
+    // 週の開始終了を返却.
+    if(mode == "week") {
+        const d = date.getUTCDay();
+        start = create(date).change("date", (d * -1));
+        end = create(date).change("date", (6 - d));
+        return {start: start, end: end};
+    }
+    // 日の開始終了を返却.
+    start = create(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+    end = create(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+    end = create(end.getTime() - 1);
+    return {start: start, end: end};
 }
 
 // UTCDateオブジェクト作成.
@@ -308,252 +320,137 @@ const create = function(y, m, d) {
     o.UTC_DATE_SIMBOL = "utcDate";
     
     o.getFullYear = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getFullYear();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCFullYear();
     }
     o.getMonth = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getMonth();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCMonth();
     }
     o.getDate = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getDate();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCDate();
     }
     o.getDay = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getDay();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCDay();
     }
     o.getHours = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getHours();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCHours();
     }
     o.getMinutes = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getMinutes();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCMinutes();
     }
     o.getSeconds = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getSeconds();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCSeconds();
     }
     o.getMilliseconds = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getMilliseconds();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getUTCMilliseconds();
     }
     o.getTime = function() {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            return date.getTime();
-        } finally {
-            setTzEnv(old);
-        }
+        return date.getTime();
     }
     o.getTimezoneOffset = function() {
         return 0;
     }
     o.set = function(y, m, d) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date = createDate(y, m, d);
-        } finally {
-            setTzEnv(old);
-        }
+        date = createDate(y, m, d);
         return o;
     }
     o.setFullYear = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setFullYear(v)
-        } finally {
-            setTzEnv(old);
-        }
+        date.setUTCFullYear(v)
         return o;
     }
     o.setMonth = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setMonth(v)
-        } finally {
-            setTzEnv(old);
-        }
-        return o;
+        date.setUTCMonth(v)
     }
     o.setDate = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setDate(v);
-        } finally {
-            setTzEnv(old);
-        }
+        date.setUTCDate(v);
         return o;
     }
     o.setHours = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setHours(v);
-        } finally {
-            setTzEnv(old);
-        }
+        date.setUTCHours(v);
         return o;
     }
     o.setMinutes = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setMinutes(v);
-        } finally {
-            setTzEnv(old);
-        }
+        date.setUTCMinutes(v);
         return o;
     }
     o.setSeconds = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setSeconds(v);
-        } finally {
-            setTzEnv(old);
-        }
+        date.setUTCSeconds(v);
         return o;
     }
     o.setMilliseconds = function(v) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            date.setMilliseconds(v);
-        } finally {
-            setTzEnv(old);
-        }
+        date.setUTCMilliseconds(v);
         return o;
     }
     o.change = function(mode, value) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            // 現状を変更する.
-            mode = mode.toLowerCase();
-            if(mode == "year") {
-                date.setYear(date.getYear() + value);
-            } else if(mode == "month") {
-                date.setMonth(date.getMonth() + value);
-            } else if(mode == "week") {
-                date.setDate(date.getDate() + (value * 7));
-            } else if(mode == "date") {
-                date.setDate(date.getDate() + value);
-            } else if(mode == "hours") {
-                date.setHours(date.getHours() + value);
-            } else if(mode == "minutes") {
-                date.setMinutes(date.getMinutes() + value);
-            } else if(mode == "seconds") {
-                date.setSeconds(date.getSeconds() + value);
-            } else if(mode == "milliseconds") {
-                date.setMilliseconds(date.getMilliseconds() + value);
-            }
-            return o;
-        } finally {
-            setTzEnv(old);
+        // 現状を変更する.
+        mode = mode.toLowerCase();
+        if(mode == "year") {
+            date.setUTCYear(date.getUTCYear() + value);
+        } else if(mode == "month") {
+            date.setUTCMonth(date.getUTCMonth() + value);
+        } else if(mode == "week") {
+            date.setUTCDate(date.getUTCDate() + (value * 7));
+        } else if(mode == "date") {
+            date.setUTCDate(date.getUTCDate() + value);
+        } else if(mode == "hours") {
+            date.setUTCHours(date.getUTCHours() + value);
+        } else if(mode == "minutes") {
+            date.setUTCMinutes(date.getUTCMinutes() + value);
+        } else if(mode == "seconds") {
+            date.setUTCSeconds(date.getUTCSeconds() + value);
+        } else if(mode == "milliseconds") {
+            date.setUTCMilliseconds(date.getUTCMilliseconds() + value);
         }
+        return o;
     }
-    o.copyToChange = function(mode, value) {
+    o.cchange = function(mode, value) {
         // 現状を変更せずに新しく作られたものを変更する.
-        const ret = o.create(date);
+        const ret = create(date);
         return ret.change(mode, value);
     }
     o.clear = function(mode) {
-        let old = ""
-        try {
-            old = toUTCEnv();
-            if(mode == "month") {
-                // 月からリセット.
-                date.setMonth(0);
-                date.setDate(1);
-                date.setHours(0);
-                date.setMinutes(0);
-                date.setSeconds(0);
-                date.setMilliseconds(0);
-            } else if(mode == "week") {
-                // 最寄りの日曜日に戻す.
-                date.setDate(
-                    date.getDate() - date.getWeek());
-                date.setHours(0);
-                date.setMinutes(0);
-                date.setSeconds(0);
-                date.setMilliseconds(0);
-            } else if(mode == "date") {
-                // 日からリセット.
-                date.setDate(1);
-                date.setHours(0);
-                date.setMinutes(0);
-                date.setSeconds(0);
-                date.setMilliseconds(0);
-            } else if(mode == "hours") {
-                // 時間からリセット.
-                date.setHours(0);
-                date.setMinutes(0);
-                date.setSeconds(0);
-                date.setMilliseconds(0);
-            } else if(mode == "minutes") {
-                // 分からリセット.
-                date.setMinutes(0);
-                date.setSeconds(0);
-                date.setMilliseconds(0);
-            } else if(mode == "seconds") {
-                // 秒からリセット.
-                date.setSeconds(0);
-                date.setMilliseconds(0);
-            } else if(mode == "milliseconds") {
-                // ミリ秒からリセット.
-                date.setMilliseconds(0);
-            }
-            return o;
-        } finally {
-            setTzEnv(old);
+        if(mode == "month") {
+            // 月からリセット.
+            date.setUTCMonth(0);
+            date.setUTCDate(1);
+            date.setUTCHours(0);
+            date.setUTCMinutes(0);
+            date.setUTCSeconds(0);
+            date.setUTCMilliseconds(0);
+        } else if(mode == "week") {
+            // 最寄りの日曜日に戻す.
+            date.setUTCDate(
+                date.getUTCDate() - date.getUTCWeek());
+            date.setUTCHours(0);
+            date.setUTCMinutes(0);
+            date.setUTCSeconds(0);
+            date.setUTCMilliseconds(0);
+        } else if(mode == "date") {
+            // 日からリセット.
+            date.setUTCDate(1);
+            date.setUTCHours(0);
+            date.setUTCMinutes(0);
+            date.setUTCSeconds(0);
+            date.setUTCMilliseconds(0);
+        } else if(mode == "hours") {
+            // 時間からリセット.
+            date.setUTCHours(0);
+            date.setUTCMinutes(0);
+            date.setUTCSeconds(0);
+            date.setUTCMilliseconds(0);
+        } else if(mode == "minutes") {
+            // 分からリセット.
+            date.setUTCMinutes(0);
+            date.setUTCSeconds(0);
+            date.setUTCMilliseconds(0);
+        } else if(mode == "seconds") {
+            // 秒からリセット.
+            date.setUTCSeconds(0);
+            date.setUTCMilliseconds(0);
+        } else if(mode == "milliseconds") {
+            // ミリ秒からリセット.
+            date.setUTCMilliseconds(0);
         }
+        return o;
     }
     o.between = function(mode) {
         return between(date, mode);
@@ -572,17 +469,5 @@ exports.create = create;
 
 // 開始、終了日を取得.
 exports.between = between;
-
-// タイムゾーン名を指定してTZOffsetをセット.
-exports.setDefaultTimeZone = setDefaultTimeZone;
-
-// UTC-DateのデフォルトTZOffsetをセット.
-exports.setDefaultTzOffset = setDefaultTzOffset;
-
-// UTC-DateのデフォルトTZOffsetを取得.
-exports.getDefaultTzOffset = getDefaultTzOffset;
-
-// UTC-Dateのデフォルトタイムゾーン値を取得.
-exports.getDefaultTzName = getDefaultTzName;
 
 })();

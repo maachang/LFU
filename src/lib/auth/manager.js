@@ -61,6 +61,177 @@ const userTable = defS3Kvs.currentTable("loginUser");
 // セッションログイン管理テーブル.
 const sessionTable = defS3Kvs.currentTable("loginSession");
 
+// 定義マスクALL.
+const MASK_ALL = 0x0ff;
+
+// Userに紐づく基本情報定義.
+const USER_INFO = {
+    // ユーザー名.
+    userName: "@user",
+    // ユーザ名を取得.
+    getUserName: function(userInfo) {
+        return userInfo[USER_INFO.userName];
+    },
+    // パスワード(基本的にvalueは閲覧自体不可).
+    password: "@password",
+    // パスワードを取得.
+    getPassword: function(userInfo) {
+        return userInfo[USER_INFO.password];
+    },
+    // グループ名.
+    // 存在する場合は配列で格納される.
+    group: "@group",
+    // グループ名群を取得.
+    getGroup: function(userInfo) {
+        let ret = userInfo[USER_INFO.group];
+        if(!(ret instanceof Array)) {
+            // 空の場合は空のグループ枠を追加する.
+            ret = []; 
+            userInfo[USER_INFO.group] = ret;
+        }
+        return ret;
+    },
+    // ログインタイプ.
+    loginType: "@loginType",
+    // ログインタイプName群定義.
+    loginTypes: {
+        // password: パスワード専用のユーザ.
+        password: "password",
+        // oauth: oauth(gas認証)専用のユーザ.
+        oauth:    "oauth",
+    },
+    // ログインタイプValue群定義.
+    loginTypeValues: {
+        // password: パスワード専用のユーザ.
+        password: 0x001,
+        // oauth: oauth(gas認証)専用のユーザ.
+        oauth:    0x002,
+    },
+    // ログインタイプ名を取得.
+    getLoginType: function(userInfo) {
+        const loginType = userInfo[USER_INFO.loginType];
+        if(loginType == undefined) {
+            return undefined;
+        }
+        // 存在しない場合はundefined.
+        return USER_INFO.loginTypes[
+            loginType.trim().toLowerCase()];
+    },
+    // 指定ログインタイプかチェック.
+    isLoginType: function(userInfo, name) {
+        const vname = USER_INFO.getLoginType(userInfo);
+        const cname = USER_INFO.loginTypes[
+            name.trim().toLowerCase()];
+        // 名前が条件に当てはまらない場合.
+        if(vname == undefined || cname == undefined) {
+            return false
+        }
+        // 一致チェック.
+        return vname == cname;
+    },
+    // 認証タイプ.
+    authType: "@authType",
+    // 認証タイプName群定義.
+    authTypes: {
+        // all: 全ての認証が利用可能なユーザ.
+        all:      "all",
+        // password: パスワード専用のユーザ.
+        password: "password",
+        // oauth: oauth(gas認証)専用のユーザ.
+        oauth:    "oauth"
+    },
+    // 認証タイプValue群定義.
+    authTypeValues: {
+        // all: 全ての認証が利用可能なユーザ.
+        all:      MASK_ALL,
+        // password: パスワード専用のユーザ.
+        password: 0x001,
+        // oauth: oauth(gas認証)専用のユーザ.
+        oauth:    0x002
+    },
+    // 認証タイプ名を取得.
+    getAuthType: function(userInfo) {
+        const authType = userInfo[USER_INFO.authType];
+        if(authType == undefined) {
+            return undefined;
+        }
+        // 存在しない場合はundefined.
+        return USER_INFO.authTypes[
+            authType.trim().toLowerCase()];
+    },
+    // 指定認証タイプの範囲内かチェック.
+    isAuthType: function(userInfo, name) {
+        const vname = USER_INFO.getAuthType(userInfo);
+        const cname = USER_INFO.authTypes[
+            name.trim().toLowerCase()];
+        // 名前が条件に当てはまらない場合.
+        if(vname == undefined || cname == undefined) {
+            return false
+        // 同じ名前が設定されている.
+        } else if(vname == cname) {
+            return true;
+        }
+        // それぞれのvalueを取得.
+        const vval = USER_INFO.authTypeValues[vname];
+        const val = USER_INFO.authTypeValues[cname];
+        // 評価条件が MASK_ALLの場合はBITのANDは評価しない.
+        return val != MASK_ALL && (vval & val) != 0;
+    },
+    // 権限.
+    // admin: 管理者権限.
+    // writer: 編集者.
+    // reader: 一般ユーザ
+    permission: "@permission",
+    // 権限name群定義.
+    permissions: {
+        // 管理者権限.
+        admin: "admin",
+        // 編集者.
+        writer: "writer",
+        // 一般ユーザ.
+        reader:  "reader"
+    },
+    // 権限Value群定義.
+    permissionValues: {
+        // 管理者権限.
+        admin: MASK_ALL,
+        // 編集者.
+        writer: 0x002,
+        // 一般ユーザ.
+        reader:  0x001
+    },
+    // 権限名を取得.
+    getPermission: function(userInfo) {
+        const permission = userInfo[USER_INFO.permission];
+        if(permission == undefined) {
+            return undefined;
+        }
+        const ret = USER_INFO.permissions[
+            permission.trim().toLowerCase()];
+        // 存在しない場合は一般ユーザ.
+        return ret != undefined ? ret :
+            USER_INFO.permissions.reader;
+    },
+    // 指定権限の範囲内かチェック.
+    isPermission: function(userInfo, name) {
+        const vname = USER_INFO.getPermission(userInfo);
+        const cname = USER_INFO.permissions[
+            name.trim().toLowerCase()];
+        // 名前が条件に当てはまらない場合.
+        if(vname == undefined || cname == undefined) {
+            return false
+        // 同じ名前が設定されている.
+        } else if(vname == cname) {
+            return true;
+        }
+        // それぞれのvalueを取得.
+        const vval = USER_INFO.permissionValues[vname];
+        const val = USER_INFO.permissionValues[cname];
+        // 評価条件が MASK_ALLの場合はBITのANDは評価しない.
+        return val != MASK_ALL && (vval & val) != 0;
+    },
+}
+
 // [UserInfo]ユーザー名.
 const USER_INFO_USER = "@user";
 
@@ -795,6 +966,7 @@ const isTimedSession = function(request, timedSession) {
 // 定義内容.
 exports.COOKIE_SESSION_KEY = COOKIE_SESSION_KEY;
 exports.LOGIN_TOKEN_EXPIRE = LOGIN_TOKEN_EXPIRE;
+exports.USER_INFO = USER_INFO;
 exports.USER_INFO_USER = USER_INFO_USER;
 exports.USER_INFO_PASSWORD = USER_INFO_PASSWORD;
 exports.USER_INFO_LOGIN_TYPE = USER_INFO_LOGIN_TYPE;

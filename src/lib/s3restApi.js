@@ -30,8 +30,8 @@ const SERVICE = 's3';
 // nextMarker有無情報を格納するHTTPヘッダ名.
 const NEXT_MARKER_NAME = "x-next-marker";
 
-// 署名URLExpireデフォルト値(3分).
-const PRE_SIGNED_URL_EXPIRE = 180;
+// 署名URLExpireデフォルト値(1分).
+const PRE_SIGNED_URL_EXPIRE = 60;
 
 // リージョンを取得.
 // region 対象のregionを設定します.
@@ -553,13 +553,19 @@ const listObject = async function(
 // bucket 署名URL発行先のs3Bucket名を設定します.
 // key 署名URL発行先のs3Predix+Key名を設定します.
 // expire 署名URLのexpire値を秒で指定します.
+// header 設定したいHTTPヘッダを設定します.
 // credential AWSクレデンシャルを設定します.
 // 戻り値: 署名URLが返却されます.
-const preSignedUrl = function(region, method, bucket, key, expire, credential) {
+const preSignedUrl = function(
+    region, method, bucket, key, expire, header, credential) {
     // クレデンシャルが指定されてない場合は
     // 環境変数からクレデンシャルを取得.
     if(credential == undefined || credential == null) {
         credential = awsSigV4.getCredential();
+    }
+    // ヘッダが存在しない場合.
+    if(header == undefined || header == null) {
+        header = {};
     }
     // リージョンが存在しない場合のデフォルト設定.
     region = getRegion(region);
@@ -582,7 +588,7 @@ const preSignedUrl = function(region, method, bucket, key, expire, credential) {
     expire = expire|0;
     // 無効なexpire値.
     if(expire <= 0) {
-        // デフォルトのexpire値は3分.
+        // デフォルトのexpire値は1分.
         expire = PRE_SIGNED_URL_EXPIRE;
     }
     // クエリーパラメータを設定.
@@ -592,7 +598,7 @@ const preSignedUrl = function(region, method, bucket, key, expire, credential) {
     // 署名URLを発行.
     const ret = endpointUrl + "?" + awsSigV4.signatureV4QueryParameter(
         credential, endpointUrl, method.toUpperCase(), SERVICE, region,
-        {}, queryParams, "UNSIGNED-PAYLOAD"
+        header, queryParams, "UNSIGNED-PAYLOAD"
     );
 
     return ret;

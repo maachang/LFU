@@ -4,12 +4,6 @@
 (function() {
 'use strict'
 
-// HttpErrorを利用可能に設定.
-require("./httpError.js");
-
-// frequire利用可能に設定.
-require("./freqreg.js");
-
 // Lambdaに適した最低限のMimeType.
 const mime = frequire("./lib/mimeType.js");
 
@@ -1116,13 +1110,8 @@ const main_handler = async function(event, context) {
 
 // lambda-func-url初期処理.
 // event index.jsで渡されるeventを設定します.
-// filterFunc コンテンツ実行の前処理を行う場合は設定します.
-// originMime 拡張MimeTypeを設定します.
-//            function(extends)が必要で、拡張子の結果に対して
-//            戻り値が {type: mimeType, gz: boolean}を返却する
-//            必要があります(非対応の場合は undefined).
-const start = function(event, filterFunc, originMime) {
-    // 応答確認.
+const start = function(event) {
+        // 応答確認.
     if(event.rawPath == "/~ping" ||
         event.rawPath == "/~clearRequireCache") {
         // キャッシュクリア.
@@ -1238,18 +1227,6 @@ const start = function(event, filterFunc, originMime) {
                 );
             }
         }
-    }
-
-    // filterFuncをセット.
-    _filterFunction = undefined;
-    if(filterFunc != undefined && filterFunc != null) {
-        setFilterFunction(filterFunc);
-    }
-
-    // 拡張mimeFuncをセット.
-    _originMimeFunction = undefined;
-    if(originMime != undefined && originMime != null) {
-        setOriginMimeFunction(originMime);
     }
 
     // ENVをglobalに設定.

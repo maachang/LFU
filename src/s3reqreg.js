@@ -67,7 +67,7 @@ const vm = require('vm');
 const s3 = frequire("./lib/s3restApi.js");
 
 // HttpStatus.
-const httpStatus = frequire("./lib/httpStatus.js");
+//const httpStatus = frequire("./lib/httpStatus.js");
 
 // s3requireでloadした内容をCacheする.
 const _GBL_S3_VALUE_CACHE = {};

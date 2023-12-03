@@ -91,6 +91,8 @@ const frequire = function(name) {
             name);
     }
     // ファイルが存在する場合.
+    // ここでnode.jsのパッケージ読み込みと、LFUの基本ライブラリの
+    // 読み込みを区分けする.
     if(isFile(jsName)) {
         // currentPath入りで、読み込む.
         return srcRequire(_CURRENT_PATH + jsName);

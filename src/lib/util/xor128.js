@@ -87,7 +87,9 @@ exports.create = function(seet) {
         outByteList(out, out.length, len);
     }
     // 初期乱数のコードをセット.
-    setSeet(seet);
+    if(seet != undefined) {
+        setSeet(seet);
+    }
     return {
         setSeet: setSeet,
         next: next,

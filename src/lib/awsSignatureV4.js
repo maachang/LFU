@@ -365,13 +365,15 @@ const getCanonicalizeHeaderNames = function(headers) {
     if(headers == undefined || headers == null) {
         return "";
     }
+    // Keyリスト抽出.
     const lst = [];
     for(let k in headers) {
-        lst[lst.length] = k.trim();
+        lst[lst.length] = k.toLowerCase();
     }
+    // ソートして;区切りで文字列化.
     let i;
     let ret = "";
-    lst.sort(function(a, b) { return a.localeCompare(b);});
+    lst.sort();
     const len = lst.length;
     for(let i = 0; i < len; i ++) {
         if(i != 0) {
@@ -387,6 +389,7 @@ const getCanonicalizedHeaderString = function(headers) {
     if(headers == undefined || headers == null) {
         return "";
     }
+    // 大文字、小文字区別なしでKeyソート.
     const lst = [];
     for(let k in headers) {
         lst[lst.length] = k.trim();
@@ -395,6 +398,7 @@ const getCanonicalizedHeaderString = function(headers) {
     let ret = "";
     lst.sort(function(a, b) { return a.localeCompare(b);});
     const len = lst.length;
+    // keyを小文字変換で、Key=Value;で文字連結.
     for(let i = 0; i < len; i ++) {
         k = lst[i];
         ret += k.toLowerCase().replaceAll(/\s+/g, " ") + ":" +
@@ -546,7 +550,7 @@ const signatureV4QueryParameter = function(
         "&X-Amz-Date=" + queryParameters["X-Amz-Date"] +
         "&X-Amz-Expires=" + queryParameters["X-Amz-Expires"] +
         "&X-Amz-SignedHeaders=" + queryParameters["X-Amz-SignedHeaders"] +
-        "&X-Amz-Signature=" + signature
+        "&X-Amz-Signature=" + signature;
 }
 
 /////////////////////////////////////////////////////
