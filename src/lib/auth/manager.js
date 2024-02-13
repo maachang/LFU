@@ -64,7 +64,9 @@ const sessionTable = defS3Kvs.currentTable("loginSession");
 // 定義マスクALL.
 const MASK_ALL = 0x0ff;
 
-// Userに紐づく基本情報定義.
+
+
+// [旧]Userに紐づく基本情報定義.
 const USER_INFO = {
     // ユーザー名.
     userName: "@user",
@@ -1001,3 +1003,4 @@ exports.createTimedSession = createTimedSession;
 exports.isTimedSession = isTimedSession;
 
 })();
+
