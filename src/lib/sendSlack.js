@@ -75,7 +75,7 @@ const sendHttpJson = function(url, json) {
 // message 送信メッセージを設定します.
 // options その他装飾等を行う場合は、ここに設定します.
 // 戻り値: "ok" で正しく送信されました.
-const sendText = function(url, message, options) {
+const sendText = async function(url, message, options) {
     // Array形式の場合は、改行をセットして文字列化.
     if(Array.isArray(message)) {
         let n = "";
@@ -101,18 +101,17 @@ const sendText = function(url, message, options) {
     }
 
     // 送信処理.
-    return sendHttpJson(url, JSON.stringify(body));
+    return await sendHttpJson(url, JSON.stringify(body));
 }
 
 // [JSON]メッセージ送信.
 // url slackのWebHookで提示されたURLを設定します.
 // json 送信JSONを設定します.
 // 戻り値: "ok" で正しく送信されました.
-const sendJSON = function(url, json) {
+const sendJSON = async function(url, json) {
     // [JSON]送信処理.
-    return sendHttpJson(url, JSON.stringify(json));
+    return await sendHttpJson(url, JSON.stringify(json));
 }
-
 
 /////////////////////////////////////////////////////
 // 外部定義.

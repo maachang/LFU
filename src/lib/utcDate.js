@@ -6,14 +6,6 @@
 (function() {
 'use strict'
 
-// frequireが設定されていない場合.
-let frequire = global.frequire;
-if(frequire == undefined) {
-    // frequire利用可能に設定.
-    require("../freqreg.js");
-    frequire = global.frequire;
-}
-
 // TZ名に対するタイムゾーン(分単位)値.
 const TZ_DICT = {
     "Africa/Johannesburg": -120,
@@ -384,11 +376,13 @@ const create = function(y, m, d) {
         // 現状を変更する.
         mode = mode.toLowerCase();
         if(mode == "year") {
-            date.setUTCYear(date.getUTCYear() + value);
+            date.setUTCFullYear(date.getUTCFullYear() + value);
         } else if(mode == "month") {
             date.setUTCMonth(date.getUTCMonth() + value);
         } else if(mode == "week") {
             date.setUTCDate(date.getUTCDate() + (value * 7));
+        } else if(mode == "day") {
+            date.setDate(date.getUTCDate() - date.getUTCDay() + value);
         } else if(mode == "date") {
             date.setUTCDate(date.getUTCDate() + value);
         } else if(mode == "hours") {
@@ -419,7 +413,7 @@ const create = function(y, m, d) {
         } else if(mode == "week") {
             // 最寄りの日曜日に戻す.
             date.setUTCDate(
-                date.getUTCDate() - date.getUTCWeek());
+                date.getUTCDate() - date.getUTCDay());
             date.setUTCHours(0);
             date.setUTCMinutes(0);
             date.setUTCSeconds(0);

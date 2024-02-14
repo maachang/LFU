@@ -1,5 +1,5 @@
 //////////////////////////////////////////
-// 承認・認証用User情報.
+// 承認・認証用User情報管理.
 //////////////////////////////////////////
 (function() {
 'use strict'
@@ -273,24 +273,25 @@ const UserInfo = function(info) {
 	o.getUserName = getUserName;
 	
 	// ユーザタイプを取得.
-	const _getUserType = function() {
+	const getUserType = function() {
 		const type = info[USER_TYPE];
 		if(type == undefined) {
 			return USER_TYPE_ALL;
 		}
 		return type;
 	}
+	o.getUserType = getUserType;
 	
 	// パスワード利用可能ユーザかチェック.
 	const isPasswordUser = function() {
-		const ret = _getUserType();
+		const ret = getUserType();
 		return ret == USER_TYPE_PASSWORD || ret == USER_TYPE_ALL;
 	}
 	o.isPasswordUser = isPasswordUser;
 	
 	// oaht利用可能なユーザかチェック.
 	const isOAuthUser = function() {
-		const ret = _getUserType();
+		const ret = getUserType();
 		return ret == USER_TYPE_OAUTH || ret == USER_TYPE_ALL;		
 	}
 	o.isOAuthUser = isOAuthUser;
@@ -410,19 +411,27 @@ const UserInfo = function(info) {
 		return false;
 	}
 	o.isGroup = isGroup;
+
+	// グループ数を取得.
+	const groupSize = function() {
+		return info[GROUP] == undefined ?
+			0 : info[GROUP].length;
+	}
+	o.groupSize = groupSize;
 		
 	// 権限を取得.
-	const _getPermission = function() {
+	const getPermission = function() {
 		const permission = info[PERMISSION];
 		if(permission == undefined) {
 			return PERMISSION_USER;
 		}
 		return permission;
 	}
+	o.getPermission = getPermission;
 	
 	// admin権限か取得.
 	const isAdminPermission = function() {
-		const permission = _getPermission();
+		const permission = getPermission();
 		return permission == PERMISSION_ADMIN;
 	}
 	o.isAdminPermission = isAdminPermission;
@@ -448,11 +457,11 @@ const UserInfo = function(info) {
 		}
 		const options = info[OPTIONS];
 		if(options == undefined) {
-			return "";
+			return {};
 		}
 		const ret = options[key];
 		if(ret == undefined) {
-			return "";
+			return {};
 		}
 		return ret;
 	}
@@ -467,7 +476,7 @@ const UserInfo = function(info) {
 			value = "";
 		}
 		const t = typeof(value);
-		if(!(value == "string" || value == "number")) {
+		if(!(t == "string" || t == "number")) {
 			// valueは文字列か数字以外は禁止.
 			throw new Error("Value must be set by string or numbers.");
 		}
@@ -494,6 +503,13 @@ const UserInfo = function(info) {
 		return ret;
 	}
 	o.getOptionKeys = getOptionKeys;
+
+	// オプション数を取得.
+	const getOptionSize = function() {
+		return info[OPTIONS] == undefined ?
+			0 : info[OPTIONS].length;
+	}
+	o.getOptionSize = getOptionSize;
 	
 	// 現在の内容を保存する.
 	const save = async function() {
@@ -530,6 +546,7 @@ exports.create = create;
 exports.remove = remove;
 exports.get = get;
 exports.list = list;
+exports.UserInfo = UserInfo;
 
 })();
 

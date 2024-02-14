@@ -317,15 +317,16 @@ const tableAccessParams = function(valueCount, args) {
 // topParams TOPで指定するパラメータをArrayで設定します.
 // params 連結するパラメータをArrayで設定します.
 // 戻り値: ２つが連結したArrayが返却されます.
-const appendParams = function(topParams, params) {
+const _appendParams = function(topParams, params) {
     const topLen = topParams.length;
-    const paramsLen = params.length;
     const ret = [];
-    for(let i = 0; i < topLen; i ++) {
-        ret[ret.length] = topParams[i];
+    let i, cnt = 0;
+    for(i = 0; i < topLen; i ++) {
+        ret[cnt ++] = topParams[i];
     }
-    for(let i = 0; i < paramsLen; i ++) {
-        ret[ret.length] = params[i];
+    const paramsLen = params.length;
+    for(i = 0; i < paramsLen; i ++) {
+        ret[cnt ++] = params[i];
     }
     return ret;
 }
@@ -568,7 +569,7 @@ const create = function(options) {
             // 戻り値: trueの場合設定に成功しました.            
             put: function() {
                 return put.apply(null,
-                    appendParams([tableName], arguments));
+                    _appendParams([tableName], arguments));
             }
 
             // get.
@@ -577,7 +578,7 @@ const create = function(options) {
             //         情報取得に失敗した場合は null が返却されます.
             ,get: function() {
                 return get.apply(null,
-                    appendParams([tableName], arguments));
+                    _appendParams([tableName], arguments));
             }
 
             // remove.
@@ -585,7 +586,7 @@ const create = function(options) {
             // 戻り値: trueの場合削除に成功しました.
             ,remove: function() {
                 return remove.apply(null,
-                    appendParams([tableName], arguments));
+                    _appendParams([tableName], arguments));
             }
 
             // 指定位置のリスト一覧を取得.
