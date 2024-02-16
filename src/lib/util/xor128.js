@@ -20,23 +20,31 @@ exports.getTime = function() {
 // ナノ時間を取得.
 exports.getNanoTime = function() {
   const ret = process.hrtime()
-  return ((ret[0] * 1000000000) + ret[1]);
+  return (((ret[0] * 1000000000) + ret[1]) / 1000);
 }
 
 // xor128演算乱数装置.
-exports.create = function(seet) {
+// seed 乱数初期値(number)を設定します.
+exports.create = function(seed) {
     let _a = 123456789;
     let _b = 362436069;
     let _c = 521288629;
     let _d = 88675123;
-    // シートセット.
-    const setSeet = function(s) {
+    // シードセット.
+    const setSeed = function(s) {
         if (typeof(s) == "number") {
-            s = s|0;
-            _a=s=1812433253*(s^(s>>30))+1;
-            _b=s=1812433253*(s^(s>>30))+2;
-            _c=s=1812433253*(s^(s>>30))+3;
-            _d=s=1812433253*(s^(s>>30))+4;
+			let hs = ((s / 1812433253)|0) + 1;
+			let ls = ((s % 1812433253)|0) - 1;
+			if((ls & 0x01) == 0) {
+				hs = (~hs)|0;
+			}
+            _a=hs=((_a*(~ls))+hs+1)|0;
+			hs += 1;
+            _b=ls=((_b*hs)-ls+2)|0;
+			ls += 1;
+            _c=hs=((_c*ls)+hs+3)|0;
+			hs += 1;
+            _d=((_d*(~hs))-ls+4)|0;
         }
     }
     // 乱数取得.
@@ -87,11 +95,11 @@ exports.create = function(seet) {
         outByteList(out, out.length, len);
     }
     // 初期乱数のコードをセット.
-    if(seet != undefined) {
-        setSeet(seet);
+    if(seed != undefined) {
+        setSeed(seed);
     }
     return {
-        setSeet: setSeet,
+        setSeed: setSeed,
         next: next,
         getBytes: getBytes,
         getArray: getArray

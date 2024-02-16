@@ -528,7 +528,7 @@ const signatureV4QueryParameter = function(
     // queryパラメータの正規化.
     const canonicalizedQueryParameters = getCanonicalizedQueryString(queryParameters);
 
-    //  request条件を正規化.
+    // request条件を正規化.
     const canonicalRequest = getCanonicalRequest(endpointUrl, httpMethod,
         canonicalizedQueryParameters, canonicalizedHeaderNames,
         canonicalizedHeaders, bodyHash);

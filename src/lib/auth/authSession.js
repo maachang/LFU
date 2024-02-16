@@ -18,40 +18,25 @@ const authUtil = frequire("./lib/auth/util.js");
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
 
-// login用signature.
-const sig = frequire("./lib/auth/signature.js");
-
 // authUser.
 const authUser = frequire("./lib/auth/authUser.js");
 
-// Cookieに格納するセッションID名.
-const COOKIE_SESSION_KEY = "lfu-session-id";
-
-// [ENV]ログイントークン作成キーコード.
-const ENV_LOGIN_TOKEN_KEYCODE = "LOGIN_TOKEN_KEYCODE";
-
 // [ENV]ログイントークン寿命定義.
 const ENV_LOGIN_TOKEN_EXPIRE = "LOGIN_TOKEN_EXPIRE";
-
-// [ENV]ログイントークン作成キーコードを取得.
-const LOGIN_TOKEN_KEYCODE = process.env[ENV_LOGIN_TOKEN_KEYCODE];
 
 // [ENV]ログイントークン寿命を取得.
 // 指定してない場合は１日.
 const LOGIN_TOKEN_EXPIRE = (process.env[ENV_LOGIN_TOKEN_EXPIRE]|0) <= 0 ?
 	1 : process.env[ENV_LOGIN_TOKEN_EXPIRE]|0;
 
+// １日 = ミリ秒.
+const ONE_DAY_MS = 86400000;
+
 // デフォルトのS3Kvs.
 const defS3Kvs = s3kvs.create();
 
 // セッションログイン管理テーブル.
 const sessionTable = defS3Kvs.currentTable("authSessions");
-
-// token区切り文字.
-const TOKEN_DELIMIRATER = "$_\n";
-
-// １日 = ミリ秒.
-const ONE_DAY_MS = 86400000;
 
 // (raw)ユーザーセッション情報を読み込む.
 const _loadSession = async function(user, passCode, sessionId) {
@@ -72,6 +57,9 @@ const _loadSession = async function(user, passCode, sessionId) {
     throw new Error("Failed to get session: " + user);
 }
 
+// passCode区切り文字.
+const TOKEN_DELIMIRATER = "$_\n%";
+
 // パスコードを生成.
 const _getPassCode = function(userInfo) {
     return sig.getPassCode(
@@ -80,7 +68,6 @@ const _getPassCode = function(userInfo) {
             + TOKEN_DELIMIRATER + userInfo.getUserType()
             + TOKEN_DELIMIRATER + userInfo.getPermission()
             + TOKEN_DELIMIRATER + userInfo.groupSize()
-            + TOKEN_DELIMIRATER + userInfo.getOptionSize()
             + TOKEN_DELIMIRATER + userInfo.getUserName()
     );
 }
@@ -113,7 +100,7 @@ const create = async function(request, user) {
     if(await sessionTable.put("user", user, ret)) {
         // 登録時はUserInfoは連想配列で保存なので
         // authUser.UserInfoに再変換(passwordなし)で返却する.
-        ret.userInfo = authUser.userInfo(ret.userInfo);
+        ret.userInfo = authUser.UserInfo(ret.userInfo, true);
         return ret;
     }
     // 登録失敗の場合.
@@ -131,11 +118,11 @@ const create = async function(request, user) {
 //        userInfo: ログインユーザ情報(authUser.UserInfo)が設定されます.
 const get = async function(user, passCode, sessionId) {
     try {
-        const ret = _loadSession(user, passCode, sessionId);
+        const ret = await _loadSession(user, passCode, sessionId);
         if(ret != undefined) {
             // 登録時はUserInfoは連想配列で保存なので
             // authUser.UserInfoに再変換(passwordなし)で返却する.
-            ret.userInfo = authUser.userInfo(ret.userInfo);
+            ret.userInfo = authUser.UserInfo(ret.userInfo, true);
             return ret;
         }
     } catch(e) {
@@ -175,7 +162,7 @@ const remove = async function(user, passCode, sessionId) {
 const update = async function(user, passCode, sessionId) {
     try {
         // セッションを取得.
-        const session = _loadSession(user, passCode, sessionId);
+        const session = await _loadSession(user, passCode, sessionId);
         // 更新日付を更新.
         session.lastModified = Date.now();
         // セッション更新
@@ -184,30 +171,13 @@ const update = async function(user, passCode, sessionId) {
     return false;
 }
 
-// [lambda側定義]ログイントークンキーコードを取得.
-// request Httpリクエスト情報.
-// 戻り値: ログイントークンキーコードが返却されます.
-const _tokenKeyCode = function(request) {
-    // ログイントークン作成用のキーコードを取得.
-    let ret = LOGIN_TOKEN_KEYCODE;
-    // ログイントークンキーコードを取得.
-    if(ret == undefined) {
-        // 取得できない場合はhost情報をhash化.
-        ret = request.header.get("host");
-    }
-    return ret;
-}
-
-
-
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////
+exports.LOGIN_TOKEN_EXPIRE = LOGIN_TOKEN_EXPIRE;
 exports.create = create;
 exports.get = get;
 exports.remove = remove;
 exports.update = update;
-
-
 
 })();

@@ -241,9 +241,14 @@ const list = async function(page, max) {
 }
 
 // 認証用User情報用オブジェクト.
-const UserInfo = function(info) {
+// info  S3に管理されてるログインユーザ情報を設定します.
+// readOnly 読み込み専用の場合は true を設定します.
+const UserInfo = function(info, readOnly) {
 	// userInfo が存在しない場合はエラー.
 	_requiredUserInfo(info);
+	
+	// 読み込み専用の場合.
+	readOnly = readOnly == true || readOnly == "true";
 	
 	// userInfoオブジェクト.
 	const o = {};
@@ -312,6 +317,9 @@ const UserInfo = function(info) {
 	
 	// パスワード設定.
 	const setPassword = function(password) {
+		if(readOnly) {
+			return o;
+		}
 		// パスワード利用可能ユーザでない場合.
 		if(!isPasswordUser()) {
 			throw new Error("Not a password available user.");
@@ -327,6 +335,9 @@ const UserInfo = function(info) {
 	
 	// パスワード一致確認.
 	const equalsPassword = function(password) {
+		if(readOnly) {
+			return false;
+		}
 		if(!authUtil.useString(password)) {
 			return false;
 		}
@@ -352,6 +363,9 @@ const UserInfo = function(info) {
 	
 	// グループ追加.
 	const addGroup = function(name) {
+		if(readOnly) {
+			return o;
+		}
 		if(!authUtil.useString(name)) {
 			throw new Error("The group name is not a string.");
 		}
@@ -371,6 +385,9 @@ const UserInfo = function(info) {
 	
 	// グループ削除.
 	const removeGroup = function(name) {
+		if(readOnly) {
+			return o;
+		}
 		if(!authUtil.useString(name)) {
 			return false;
 		}
@@ -438,6 +455,9 @@ const UserInfo = function(info) {
 	
 	// admin権限をセット.
 	const setAdminPermission = function() {
+		if(readOnly) {
+			return o;
+		}
 		info[PERMISSION] = PERMISSION_ADMIN;
 		return o;
 	}
@@ -445,6 +465,9 @@ const UserInfo = function(info) {
 	
 	// 一般ユーザ権限をセット.
 	const setUserPermission = function() {
+		if(readOnly) {
+			return o;
+		}
 		info[PERMISSION] = PERMISSION_USER;
 		return o;
 	}
@@ -469,6 +492,9 @@ const UserInfo = function(info) {
 	
 	// オプション定義を設定.
 	const setOption = function(key, value) {
+		if(readOnly) {
+			return o;
+		}
 		if(!authUtil.useString(key)) {
 			throw new Error("Key must be set in a string.");
 		}
@@ -503,22 +529,22 @@ const UserInfo = function(info) {
 		return ret;
 	}
 	o.getOptionKeys = getOptionKeys;
-
-	// オプション数を取得.
-	const getOptionSize = function() {
-		return info[OPTIONS] == undefined ?
-			0 : info[OPTIONS].length;
-	}
-	o.getOptionSize = getOptionSize;
 	
 	// 現在の内容を保存する.
 	const save = async function() {
+		if(readOnly) {
+			return o;
+		}
 		await userTable.put("user", info[USER_NAME], info)
+		return o;
 	}
 	o.save = save;
 	
 	// 再読み込み.
 	const reload = async function() {
+		if(readOnly) {
+			return o;
+		}
 		info = await _getUser(info[USER_NAME]);
 		if(info == undefined) {
 			// oauthログイン利用での非ユーザ登録利用許可がONの場合.
@@ -526,6 +552,7 @@ const UserInfo = function(info) {
 			info = _getOauthToNoUserRegister(user);
 		}
 		_requiredUserInfo(info);
+		return o;
 	}
 	o.reload = reload;
 	
