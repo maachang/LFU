@@ -42,6 +42,10 @@ const ENV_OAUTH_NO_USER_REGISTER = "OAUTH_NO_USER_REGISTER";
 // ログインユーザ名.
 const USER_NAME = "user";
 
+// [変更不可]ユーザ作成日.
+// -1の場合はUserInfoは読み込み専用モード.
+const CREATE_DATE = "createDate";
+
 // [変更不可]ユーザタイプ(string).
 // ログインに関するタイプ定義.
 const USER_TYPE = "userType";
@@ -49,6 +53,10 @@ const USER_TYPE = "userType";
 // [変更可能]パスワード(string).
 // パスワード専用で利用可能.
 const PASSWORD = "password";
+
+// [自動更新]パスワード更新日.
+// -1の場合、仮パスワード状態.
+const UPDATE_PASSWORD_DATE = "updatePasswordDate";
 
 // [変更可能]グループ(array).
 // 対象ユーザが所属するグループ一覧.
@@ -61,6 +69,14 @@ const PERMISSION = "permission";
 // ここに独自の定義が設定される.
 const OPTIONS = "options";
 
+// [CREATE_DATE] 読み込み専用.
+const CREATE_DATE_BY_READONLY = -1;
+
+// [UPDATE_PASSWORD_DATE]パスワードなし.
+const UPDATE_PASSWORD_DATE_BY_NO_PASSWORD = 0;
+
+// [UPDATE_PASSWORD_DATE]仮パスワード.
+const UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD = -1;
 
 // [USER_TYPE]全てのユーザタイプ.
 const USER_TYPE_ALL = "all";
@@ -75,6 +91,7 @@ const PERMISSION_ADMIN = "admin";
 const PERMISSION_USER = "user";
 
 // userInfo情報の必須項目チェック.
+// info UserInfoを設定します.
 const _requiredUserInfo = function(info) {
 	let err = false;
 	try {
@@ -93,6 +110,8 @@ const _requiredUserInfo = function(info) {
 }
 
 // ユーザ情報を取得.
+// ユーザ名を設定します.
+// 戻り値: UserInfoが返却されます.
 const _getUser = async function(user) {
     if(!authUtil.useString(user)) {
         throw new Error("User has not been set.");
@@ -114,6 +133,8 @@ const _getUser = async function(user) {
 }
 
 // 指定名のユーザが既に存在するかチェック.
+// user ユーザ名を設定します.
+// trueの場合、指定ユーザは存在します.
 const _isUser = async function(user) {
 	try {
 		return await _getUser(user) != undefined;
@@ -121,12 +142,24 @@ const _isUser = async function(user) {
 	return false;
 }
 
+// 生のパスワードをsha256変換.
+// password パスワードを設定します.
+// 戻り値: sha256変換された文字列が返却されます.
+const _passwordSha256 = function(password) {
+	return authUtil.sha256(password);
+}
+
 // 非ログイン登録でのoauthユーザ利用ユーザを取得.
+// user 対象のユーザー名を設定します.
+// 戻り値 UserInfoが返却されます.
+//       oauthログインが認められてない場合、エラーとなります.
 const _getOauthToNoUserRegister = function(user) {
 	// oauthログイン利用での非ユーザ登録利用許可がONの場合.
 	if(isOauthToNoUserRegister()) {
 		const ret = {};
 		ret[USER_NAME] = user;
+		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
+		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD; // パスワードなし.
 		ret[USER_TYPE] = USER_TYPE_OAUTH;
 		ret[PERMISSION] = PERMISSION_USER;
 		return ret;
@@ -135,6 +168,7 @@ const _getOauthToNoUserRegister = function(user) {
 }
 
 // oauthログインに対してユーザ登録なしの場合、一般ユーザログイン利用可能かを取得.
+// 戻り値: trueの場合、ユーザ登録なしでoauthログインが利用できます.
 const isOauthToNoUserRegister = function() {
 	let ret = process.env[ENV_OAUTH_NO_USER_REGISTER];
 	if(!authUtil.useString(ret) ||
@@ -146,6 +180,14 @@ const isOauthToNoUserRegister = function() {
 }
 
 // 新しいユーザー情報を作成.
+// このユーザは一旦一般ユーザとして登録されます.
+// user 対象のユーザ名を設定します.
+// type ログインユーザタイプを設定します.
+//      "all": 全てのログインタイプを許可します.
+//      "passsword": パスワードログインのみ許可します.
+//      "aouth": oauthログインのみ許可します.
+// password 仮パスワードを設定します.
+// 戻り値: UserInfoが返却されます.
 const create = async function(user, type, password) {
 	//  必須条件が設定されていない場合エラー.
 	if(!authUtil.useString(user) && !authUtil.useString(type)) {
@@ -160,26 +202,27 @@ const create = async function(user, type, password) {
 		type != USER_TYPE_OAUTH) {
 		throw new Error("user type out of range: " + type);
 	}
+	// ユーザ情報作成.
+	let ret = {};
+	ret[USER_NAME] = user;
+	ret[CREATE_DATE] = Date.now();
+	ret[USER_TYPE] = type;
+	// 一般ユーザで登録.
 	// ユーザタイプが all および password の場合.
 	if(type == USER_TYPE_ALL || type == USER_TYPE_PASSWORD) {
 		// パスワードが設定されてない場合エラー.
 		if(!authUtil.useString(password)) {
 			throw new Error("password not set.");
 		}
+		// 仮パスワードセット.
+		ret[PASSWORD] = _passwordSha256(password);
+		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
 	} else {
-		password = undefined;
-	}
-	// ユーザ情報作成.
-	let ret = {};
-	ret[USER_NAME] = user;
-	ret[USER_TYPE] = type;
-	// 一般ユーザで登録.
-	ret[PERMISSION] = PERMISSION_USER;
-	try {
-		setPassword(password);
-	} catch(e) {
+		// パスワードなし.
 		ret[PASSWORD] = undefined;
+		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD;
 	}
+	ret[PERMISSION] = PERMISSION_USER;
 	// 返却用のUserInfo生成.
 	ret = UserInfo(ret);
 	// 既存ユーザが存在する場合はエラー返却.
@@ -193,6 +236,8 @@ const create = async function(user, type, password) {
 }
 
 // 指定ユーザ情報を削除.
+// user 対象のユーザ名を設定します.
+// 戻り値: trueの場合、削除に成功しました.
 const remove = async function(user) {
     if(!authUtil.useString(user)) {
         throw new Error("User has not been set.");
@@ -201,6 +246,9 @@ const remove = async function(user) {
 }
 
 // 指定ユーザー情報を取得.
+// user 対象のユーザ名を設定します.
+// 戻り値: UserInfoが返却されます.
+//        ※ この情報にはパスワードが入ってるので、扱いを注意.
 const get = async function(user) {
 	let info = await _getUser(user);
 	if(info == undefined) {
@@ -212,6 +260,12 @@ const get = async function(user) {
 }
 
 // 登録ユーザ情報のユーザ名一覧を取得.
+// page ページ数を設定します.
+//      呼び出しに毎回先頭から取得するので、ページ数が多いと「速度低下」に
+//      繋がるので注意が必要です.
+// max １ページの最大表示数を設定.
+//     100件を超える設定はできません.
+// 戻り値: [user1, user2, ... ] が返却されます.
 const list = async function(page, max) {
     if(max == undefined || max == null) {
         max = LOGIN_USER_LIST_LIMIT;
@@ -242,18 +296,34 @@ const list = async function(page, max) {
 
 // 認証用User情報用オブジェクト.
 // info  S3に管理されてるログインユーザ情報を設定します.
-// readOnly 読み込み専用の場合は true を設定します.
-const UserInfo = function(info, readOnly) {
+const UserInfo = function(info) {
 	// userInfo が存在しない場合はエラー.
 	_requiredUserInfo(info);
 	
-	// 読み込み専用の場合.
-	readOnly = readOnly == true || readOnly == "true";
+	// 読み込み専用UserInfoの場合.
+	const readOnly = info[CREATE_DATE] == CREATE_DATE_BY_READONLY;
 	
 	// userInfoオブジェクト.
 	const o = {};
+
+	// 読み込み専用のUserInfoか取得.
+	// 戻り値: trueの場合、読み込み専用です. 
+	const isReadOnly = function() {
+		return readOnly;
+	}
+	o.isReadOnly = isReadOnly;
+
+	// readOnlyの場合エラー.
+	const _checkReadOnly = function() {
+		if(readOnly) {
+			throw new Error("It is read-only and cannot be used.");
+		}
+	}
 	
 	// 内容を取得.
+	// ※ ここで取得された内容には passwordが除外されます.
+	//   また、この情報をUserInfoにすると、読み込み専用となります。
+	// 戻り値: {} 形式の内容が返却されます.
 	const get = function() {
 		// コピーする.
 		const ret = JSON.parse(JSON.stringify(info));
@@ -261,23 +331,42 @@ const UserInfo = function(info, readOnly) {
 		if(ret[PASSWORD] != undefined) {
 	 		ret[PASSWORD] = "";
 		}
+		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		return ret;
 	}
 	o.get = get();
 	
 	// JSON内容で取得.
+	// ※ ここで取得された内容には passwordが除外されます.
+	// 戻り値: JSON形式の内容が返却されます.
 	const getJSON = function() {
 		return JSON.stringify(get());
 	}
 	o.getJSON = getJSON();
+
+	// ユーザ作成日を取得.
+	// 戻り値: ユーザ作成日(Date)が返却されます.
+	//        読み込み専用の場合は null返却されます.
+	const getCreateDate = function() {
+		if(info[CREATE_DATE] != CREATE_DATE_BY_READONLY) {
+			return new Date(info[CREATE_DATE])
+		}
+		return null;
+	}
+	o.getCreateDate = getCreateDate;
 		
 	// ユーザー名を取得.
+	// 戻り値: ユーザ名が返却されます.
 	const getUserName = function() {
 		return info[USER_NAME];
 	}
 	o.getUserName = getUserName;
 	
 	// ユーザタイプを取得.
+	// 戻り値: ユーザタイプが返却されます.
+	//        "all": 全てを許可するユーザータイプ.
+	//        "password": パスワード専用ユーザタイプ.
+	//        "oauth": oauth専用ユーザタイプ.
 	const getUserType = function() {
 		const type = info[USER_TYPE];
 		if(type == undefined) {
@@ -288,65 +377,90 @@ const UserInfo = function(info, readOnly) {
 	o.getUserType = getUserType;
 	
 	// パスワード利用可能ユーザかチェック.
+	// 戻り値: trueの場合はパスワード利用可能ユーザです.
 	const isPasswordUser = function() {
 		const ret = getUserType();
 		return ret == USER_TYPE_PASSWORD || ret == USER_TYPE_ALL;
 	}
 	o.isPasswordUser = isPasswordUser;
 	
-	// oaht利用可能なユーザかチェック.
+	// oauth利用可能なユーザかチェック.
+	// 戻り値: trueの場合はoauth利用可能ユーザです.
 	const isOAuthUser = function() {
 		const ret = getUserType();
 		return ret == USER_TYPE_OAUTH || ret == USER_TYPE_ALL;		
 	}
 	o.isOAuthUser = isOAuthUser;
-	
-	// パスワードが設定されているか取得.
-	const isSetPassword = function() {
+
+	// パスワード最終更新日を取得.
+	// 戻り値: パスワード最終更新日(Date)が返却されます.
+	//        非パスワードユーザの場合は null返却されます.
+	const getUpdatePasswordDate = function() {
+		// パスワード利用可能ユーザでない場合.
+		if(!isPasswordUser()) {
+			return null;
+		}
+		// 有効なパスワード更新日が設定されている.
+		if(info[UPDATE_PASSWORD_DATE] > UPDATE_PASSWORD_DATE_BY_NO_PASSWORD) {
+			return new Date(info[UPDATE_PASSWORD_DATE]); 
+		}
+		return null;
+	}
+	o.getUpdatePasswordDate = getUpdatePasswordDate;
+
+	// 仮パスワード状態かチェック.
+	// 戻り値: trueの場合、仮パスワードです.
+	const isTentativePassword = function() {
 		// パスワード利用可能ユーザでない場合.
 		if(!isPasswordUser()) {
 			return false;
 		}
-		// パスワードが存在しない.
-		else if(!authUtil.useString(info[PASSWORD])) {
-			return false;
-		}
-		return true;
+		return info[UPDATE_PASSWORD_DATE] == UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
 	}
-	o.isSetPassword = isSetPassword;
+	o.isTentativePassword = isTentativePassword;
 	
 	// パスワード設定.
-	const setPassword = function(password) {
-		if(readOnly) {
-			return o;
-		}
+	// ※ isReadOnky() == true の場合、実行されません.
+	// oldPassword 前のパスワードを設定します.
+	// password パスワードを設定します.
+	const setPassword = function(oldPassword, password) {
+		_checkReadOnly();
 		// パスワード利用可能ユーザでない場合.
 		if(!isPasswordUser()) {
 			throw new Error("Not a password available user.");
 		}
-		if(!authUtil.useString(password)) {
+		// パスワード引数が設定なし.
+		if(!authUtil.useString(oldPassword) || !authUtil.useString(password)) {
 			throw new Error("The password is not a string.");
 		}
+		// 変更前のパスワードが一致しない場合はエラー.
+		if(_passwordSha256(oldPassword) != info[PASSWORD]) {
+			throw new Error("Does not match current password.");
+		}
 		// パスワードは直接持たずsha256化.
-		info[PASSWORD] = authUtil.sha256(password);
+		info[PASSWORD] = _passwordSha256(password);
+		// パスワード更新日を最新にする.
+		info[UPDATE_PASSWORD_DATE] = Date.now();
 		return o;
 	}
 	o.setPassword = setPassword;
 	
 	// パスワード一致確認.
+	// ※ 読み込み専用の場合エラーとなります.
+	// password 対象のパスワードを設定します.
+	// 戻り値: trueの場合、パスワードが一致しています.
 	const equalsPassword = function(password) {
-		if(readOnly) {
-			return false;
-		}
-		if(!authUtil.useString(password)) {
+		_checkReadOnly();
+		if(!isPasswordUser() || !authUtil.useString(password)) {
 			return false;
 		}
 		// パスワードはsha256でチェックのみで、取得はしない.
-		return info[PASSWORD] == authUtil.sha256(password);
+		return info[PASSWORD] == _passwordSha256(password);
 	}
 	o.equalsPassword = equalsPassword;
 	
 	// グループ一覧取得.
+	// 戻り値: [group1, group2, ...] が返却されます.
 	const getGroups = function() {
 		const group = info[GROUP];
 		if(group == undefined) {
@@ -362,10 +476,10 @@ const UserInfo = function(info, readOnly) {
 	o.getGroups = getGroups;
 	
 	// グループ追加.
+	// ※ 読み込み専用の場合エラーとなります.
+	// name 追加対象グループ名を設定します.
 	const addGroup = function(name) {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		if(!authUtil.useString(name)) {
 			throw new Error("The group name is not a string.");
 		}
@@ -384,10 +498,11 @@ const UserInfo = function(info, readOnly) {
 	o.addGroup = addGroup;
 	
 	// グループ削除.
+	// ※ 読み込み専用の場合エラーとなります.
+	// name 削除対象のグループを設定します.
+	// 戻り値: trueの場合、削除されました.
 	const removeGroup = function(name) {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		if(!authUtil.useString(name)) {
 			return false;
 		}
@@ -409,6 +524,8 @@ const UserInfo = function(info, readOnly) {
 	o.removeGroup = removeGroup;
 	
 	// 指定グループが存在するかチェック.
+	// name チェック対象のグループ名を設定します.
+	// 戻り値: trueの場合、存在します.
 	const isGroup = function(name) {
 		if(!authUtil.useString(name)) {
 			return false;
@@ -430,6 +547,7 @@ const UserInfo = function(info, readOnly) {
 	o.isGroup = isGroup;
 
 	// グループ数を取得.
+	// 戻り値: 登録グループ数を設定します.
 	const groupSize = function() {
 		return info[GROUP] == undefined ?
 			0 : info[GROUP].length;
@@ -437,6 +555,9 @@ const UserInfo = function(info, readOnly) {
 	o.groupSize = groupSize;
 		
 	// 権限を取得.
+	// 戻り値: 設定されている権限が返却されます.
+	//        "user": 一般ユーザ権限.
+	//        "admin": 管理者ユーザ.
 	const getPermission = function() {
 		const permission = info[PERMISSION];
 		if(permission == undefined) {
@@ -447,6 +568,7 @@ const UserInfo = function(info, readOnly) {
 	o.getPermission = getPermission;
 	
 	// admin権限か取得.
+	// 戻り値: trueの場合、管理者権限を有します.
 	const isAdminPermission = function() {
 		const permission = getPermission();
 		return permission == PERMISSION_ADMIN;
@@ -454,26 +576,26 @@ const UserInfo = function(info, readOnly) {
 	o.isAdminPermission = isAdminPermission;
 	
 	// admin権限をセット.
+	// ※ isReadOnky() == true の場合、実行されません.
 	const setAdminPermission = function() {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		info[PERMISSION] = PERMISSION_ADMIN;
 		return o;
 	}
 	o.setAdminPermission = setAdminPermission;
 	
 	// 一般ユーザ権限をセット.
+	// ※ isReadOnky() == true の場合、実行されません.
 	const setUserPermission = function() {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		info[PERMISSION] = PERMISSION_USER;
 		return o;
 	}
 	o.setUserPermission = setUserPermission;
 	
 	// オプション定義を取得.
+	// key 取得オプションKey名を設定します.
+	// 戻り値: オプショnvalueが返却されます.
 	const getOption = function(key) {
 		if(!authUtil.useString(key)) {
 			throw new Error("Key must be set in a string.");
@@ -491,10 +613,12 @@ const UserInfo = function(info, readOnly) {
 	o.getOption = getOption;
 	
 	// オプション定義を設定.
+	// ※ 読み込み専用の場合エラーとなります.
+	// key オプションKey名を設定します.
+	// value オプションValueを設定します.
+	//       この値は文字列, 数字, Boolean型である必要があります.
 	const setOption = function(key, value) {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		if(!authUtil.useString(key)) {
 			throw new Error("Key must be set in a string.");
 		}
@@ -502,7 +626,7 @@ const UserInfo = function(info, readOnly) {
 			value = "";
 		}
 		const t = typeof(value);
-		if(!(t == "string" || t == "number")) {
+		if(!(t == "string" || t == "number" || t == "boolean")) {
 			// valueは文字列か数字以外は禁止.
 			throw new Error("Value must be set by string or numbers.");
 		}
@@ -517,6 +641,7 @@ const UserInfo = function(info, readOnly) {
 	o.setOption = setOption;
 	
 	// オプションキー名一覧を取得.
+	// 戻り値: [key1, key2, ...] が返却されます.
 	const getOptionKeys = function() {
 		const options = info[OPTIONS];
 		if(options == undefined) {
@@ -531,20 +656,18 @@ const UserInfo = function(info, readOnly) {
 	o.getOptionKeys = getOptionKeys;
 	
 	// 現在の内容を保存する.
+	// ※ 読み込み専用の場合エラーとなります.
 	const save = async function() {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		await userTable.put("user", info[USER_NAME], info)
 		return o;
 	}
 	o.save = save;
 	
 	// 再読み込み.
+	// ※ 読み込み専用の場合エラーとなります.
 	const reload = async function() {
-		if(readOnly) {
-			return o;
-		}
+		_checkReadOnly();
 		info = await _getUser(info[USER_NAME]);
 		if(info == undefined) {
 			// oauthログイン利用での非ユーザ登録利用許可がONの場合.
@@ -557,6 +680,8 @@ const UserInfo = function(info, readOnly) {
 	o.reload = reload;
 	
 	// 文字列出力.
+	// ※ password等が含まれている場合、それらも表示されるので注意してください.
+	// 戻り値: JSON情報が返却されます.
 	const toString = function() {
 		return JSON.stringify(get(), null, "  ");
 	}
@@ -568,6 +693,9 @@ const UserInfo = function(info, readOnly) {
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////
+exports.USER_TYPE_ALL = USER_TYPE_ALL;
+exports.USER_TYPE_PASSWORD = USER_TYPE_PASSWORD;
+exports.USER_TYPE_OAUTH = USER_TYPE_OAUTH;
 exports.isOauthToNoUserRegister = isOauthToNoUserRegister;
 exports.create = create;
 exports.remove = remove;
@@ -576,7 +704,3 @@ exports.list = list;
 exports.UserInfo = UserInfo;
 
 })();
-
-
-
-

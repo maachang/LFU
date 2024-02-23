@@ -12,9 +12,6 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// auth/util.
-const authUtil = frequire("./lib/auth/util.js");
-
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
 
@@ -61,14 +58,14 @@ const _loadSession = async function(user, passCode, sessionId) {
 const TOKEN_DELIMIRATER = "$_\n%";
 
 // パスコードを生成.
-const _getPassCode = function(userInfo) {
+const _getPassCode = function(request, userInfo) {
     return sig.getPassCode(
         userInfo.getUserName(),
         TOKEN_DELIMIRATER + request.host
             + TOKEN_DELIMIRATER + userInfo.getUserType()
             + TOKEN_DELIMIRATER + userInfo.getPermission()
-            + TOKEN_DELIMIRATER + userInfo.groupSize()
             + TOKEN_DELIMIRATER + userInfo.getUserName()
+            + TOKEN_DELIMIRATER + userInfo.groupSize()
     );
 }
 
@@ -84,7 +81,7 @@ const create = async function(request, user) {
     // ユーザ名からユーザ情報を取得.
 	const userInfo = await authUser.get(user);
     // パスコードを設定.
-    const passCode = _getPassCode(userInfo);
+    const passCode = _getPassCode(request, userInfo);
     // セッションIDを設定.
     const sessionId = sig.createSessionId();
     // 更新時間.
@@ -100,7 +97,7 @@ const create = async function(request, user) {
     if(await sessionTable.put("user", user, ret)) {
         // 登録時はUserInfoは連想配列で保存なので
         // authUser.UserInfoに再変換(passwordなし)で返却する.
-        ret.userInfo = authUser.UserInfo(ret.userInfo, true);
+        ret.userInfo = authUser.UserInfo(ret.userInfo);
         return ret;
     }
     // 登録失敗の場合.
@@ -122,7 +119,7 @@ const get = async function(user, passCode, sessionId) {
         if(ret != undefined) {
             // 登録時はUserInfoは連想配列で保存なので
             // authUser.UserInfoに再変換(passwordなし)で返却する.
-            ret.userInfo = authUser.UserInfo(ret.userInfo, true);
+            ret.userInfo = authUser.UserInfo(ret.userInfo);
             return ret;
         }
     } catch(e) {

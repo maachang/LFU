@@ -33,10 +33,10 @@ const ENV_LOGIN_TOKEN_KEYCODE = "LOGIN_TOKEN_KEYCODE";
 // [ENV]ログイントークン作成キーコードを取得.
 const LOGIN_TOKEN_KEYCODE = process.env[ENV_LOGIN_TOKEN_KEYCODE];
 
-// [lambda側定義]ログイントークンキーコードを取得.
+// ログイントークンキーコードを取得.
 // request Httpリクエスト情報.
 // 戻り値: ログイントークンキーコードが返却されます.
-const _tokenKeyCode = function(request) {
+const getTokenKeyCode = function(request) {
     // ログイントークン作成用のキーコードを取得.
     let ret = LOGIN_TOKEN_KEYCODE;
     // ログイントークンキーコードを取得.
@@ -53,37 +53,37 @@ const _tokenKeyCode = function(request) {
 // params ログインパラメータを設定します.
 // call ログイン固有の実行処理を設定します.
 //      ログインユーザ名 = await call(params)の形で処理します.
-// 戻り値: trueの場合、ログインに成功しました.
+// 戻り値: 成功した場合はログインユーザ名が返却されます.
 const login = async function(resHeader, request, params, call) {
     try {
         // ログイン処理.
         const user = await call(params);
+        
         // ログイン成功.
         if(authUtil.useString(user)) {
             // 新しいセッションを作成.
-            const sessions = await authSession.create(request, user);
-            if(sessions == null) {
+            const session = await authSession.create(request, user);
+            if(session == null) {
                 // 新しいセッション取得に失敗.
                 throw new Error("Failed to get a login session.");
             }
-
             // ログイントークン作成用のキーコードを取得.
-            const keyCode = _tokenKeyCode(request);
+            const keyCode = getTokenKeyCode(request);
 
             // ログイントークンを作成.
             const token = sig.encodeToken(
-                keyCode, user, sessions.passCode,
-                sessions.sessionId, authSession.LOGIN_TOKEN_EXPIRE);
+                keyCode, user, session.passCode,
+                session.sessionId, authSession.LOGIN_TOKEN_EXPIRE);
 
             // レスポンスCookieにセッションキーを設定.
             resHeader.putCookie(COOKIE_SESSION_KEY, {value: token});
-            return true;
+            return user;
         }
     } catch(e) {
         console.error("I failed to login", e);
     }
     // ログイン失敗.
-    return false;
+    throw new Error("Login processing failed.");
 }
 
 // ログアウト処理.
@@ -99,7 +99,7 @@ const logout = async function(resHeader, request) {
             return false;
         }
         // トークンの解析・内容を取得.
-        const keyCode = _tokenKeyCode(request);
+        const keyCode = getTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
         // ユーザーセッションを削除.
         const res = await removeSession(
@@ -172,7 +172,7 @@ const isLogin = async function(level, resHeader, request) {
             // 更新するログイントークンを作成.
             const nextToken = sig.encodeToken(
                 keyCode, dtoken.user, dtoken.passCode,
-                dtoken.sessionId, LOGIN_TOKEN_EXPIRE);
+                dtoken.sessionId, authSession.LOGIN_TOKEN_EXPIRE);
 
             // レスポンスにセッションキーを再設定.
             resHeader.putCookie(COOKIE_SESSION_KEY, {value: nextToken});
@@ -276,11 +276,13 @@ const filter = async function(
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
+exports.COOKIE_SESSION_KEY = COOKIE_SESSION_KEY;
 exports.login = login;
 exports.logout = logout;
 exports.isLogin = isLogin;
 exports.getUserName = getUserName;
 exports.getUserInfo = getUserInfo;
+exports.getTokenKeyCode = getTokenKeyCode;
 exports.filter = filter;
 
 })();

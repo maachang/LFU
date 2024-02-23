@@ -30,20 +30,17 @@ if(frequire == undefined) {
 // HttpErrorを利用可能に設定.
 frequire("./httpError.js");
 
-// 乱数.
-const xor128 = frequire("./lib/util/xor128.js");
+// authログイン.
+const authLogin = frequire("./lib/auth/authLogin.js");
 
-// ログインマネージャー.
-const loginMan = frequire("./lib/auth/manager.js");
+// authユーザ.
+const authUser = frequire("./lib/auth/authUser.js");
 
 // login用signature.
 const sig = frequire("./lib/auth/signature.js");
 
 // authUtil.
 const authUtil = frequire("./lib/auth/util.js");
-
-// httpClient.
-const httpClient = frequire("./lib/httpsClient.js");
 
 // [ENV]問い合わせ先のGAS認証URL.
 const ENV_GAS_AUTH_URL = "GAS_AUTH_URL";
@@ -86,27 +83,12 @@ const isEmptyEnv = function(name) {
 }
 
 // oAuth認証用のユーザ登録.
+// ※ ここでは対象ユーザの登録だけが行われるので、戻り値のUserInfoに対して、新たな条件設定をした場合は
+//   UserInfo.save()で保存してください.
 // user 対象のユーザ名を設定します.
-// userInfo ユーザ情報オプションを設定します.
-// 戻り値: trueの場合登録できました.
-const createUser = async function(user, userInfo) {
-    // 登録ユーザ情報.
-    const regUserInfo = {};
-    if(userInfo != undefined && userInfo != null) {
-        let kk;
-        for(let k in userInfo) {
-            // 先頭に@があるのは、追加できない.
-            if((kk = k.trim()).startsWith("@")) {
-                continue;
-            }
-            regUserInfo[kk] = userInfo[k];
-        }
-    }
-    // oauth認証として登録.
-    regUserInfo[USER_INFO_LOGIN_TYPE.name] =
-        USER_INFO_LOGIN_TYPE.oauth;
-    // 登録.
-    return await loginMan.createUser(user, regUserInfo);
+// 戻り値: UserInfoが返却されます.
+const createUser = async function(user) {
+    return await authUser.create(user, authUser.USER_TYPE_OAUTH);
 }
 
 // tokenKeyを生成.
@@ -146,7 +128,7 @@ const createTokenKey = function() {
     // - expire(UnixTimeミリ秒).16進数
     // で生成する.
     // 日付を入れる理由は、このトークンが時限である事を示す.
-    return sig.cutEndBase64Eq(xor128.create(xor128.getNanoTime())
+    return sig.cutEndBase64Eq(sig.random
         .getBytes(len).toString("base64")) + "_" +
             (expire.toString(16));
 }
@@ -203,7 +185,7 @@ const createSendToken = function(target, paramsArray) {
 //         {url, params}
 const getGasAccessURLEncodeGetParams = function(
     target, paramsArray) {
-    if(typeof(target) != "string") {
+    if(!authUtil.useString(target)) {
         throw new Error("Specified target not set: " + target);
     }
     // [ENV]問い合わせ先のGAS-URL.
@@ -297,7 +279,7 @@ const createOAuthURL = function(request) {
     // ログイン後の元のURLを取得.
     // 現在アクセス中のURL＋パラメータをセット.
     const srcUrl = request.queryParams[PARAMS_SRC_URL];
-    if(typeof(srcUrl) == "string") {
+    if(authUtil.useString(srcUrl)) {
         const protocol = getHttpProtocol(host);
         sourceAccessUrl = protocol + host +
             (srcUrl.startsWith("/") ?
@@ -428,14 +410,14 @@ const isRedirectToken = function(redirectToken, type, requestTokenKey) {
     return redirectToken == chkToken;
 }
 
-// executeOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
-// resState: レスポンスステータス(httpStatus.js).
-// resHeader レスポンスヘッダ(httpHeader.js).
-// request 対象のrequest情報を設定します.
-const redirectOAuth = async function(resState, resHeader, request) {
+// authLogin.loginの call処理.
+// params 基本はrequest.queryParamsを設定します.
+//        別にdict型なら何でもOK.
+// 戻り値: ログイン対象のユーザ情報が返却されます.
+const _callLogin = async function(params) {
     // [oauth]gas認証のメールアドレスを取得.
-    const mail = request.queryParams["mail"];
-    if(typeof(mail) != "string") {
+    const ret = params["mail"];
+    if(!authUtil.useString(ret)) {
         // gasOauthメールアドレスが取得できない場合.
         throw new HttpError({
             status: 401,
@@ -444,40 +426,32 @@ const redirectOAuth = async function(resState, resHeader, request) {
     }
     // redirectTokenのチェック.
     if(!isRedirectToken(
-        request.queryParams["redirectToken"],
-        request.queryParams["type"],
-        request.queryParams["tokenKey"])) {
+        params["redirectToken"],
+        params["type"],
+        params["tokenKey"])) {
         // redirectTokenチェック失敗.
         throw new HttpError({
             status: 403,
             message: "Failed to get response information: not equals response token."
         });
     }
-    // [oauth]ログインセッションを生成.
-    const sessions = await loginMan.createSession(request, mail,
-        loginMan.createUserOptions(loginMan.USER_OPTIONS_AUTH_TYPE.name,
-            loginMan.USER_OPTIONS_AUTH_TYPE.oauth));
-    if(sessions == null) {
-        // 新しいセッション作成に失敗.
-        throw new Error("Failed to create a oauth session.");
-    }
+    return ret;
+}
 
-    // ログイントークン作成用のキーコードを取得.
-    const keyCode = loginMan.getLoginTokenKeyCode(request);
-
-    // ログイントークンを作成.
-    const token = sig.encodeToken(
-        keyCode, mail, sessions.passCode,
-        sessions.sessionId, loginMan.LOGIN_TOKEN_EXPIRE);
-
-    // レスポンスCookieにセッションキーを設定.
-    resHeader.putCookie(loginMan.COOKIE_SESSION_KEY, {value: token});
+// executeOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
+// resState: レスポンスステータス(httpStatus.js).
+// resHeader レスポンスヘッダ(httpHeader.js).
+// request 対象のrequest情報を設定します.
+// 戻り値: trueの場合は成功しました.
+const redirectOAuth = async function(resState, resHeader, request) {
+    // ログイン処理.
+    authLogin.login(resHeader, request, request.queryParams, _callLogin);
 
     // リダイレクト先URLを取得します.
     let redirectURL = request.queryParams["srcURL"];
 
     // リレイレクト先のURLが存在しない場合はリダイレクト.
-    if(redirectURL != undefined && redirectURL != "") {
+    if(authUtil.useString(redirectURL)) {
         resState.setStatus(301);
         resHeader.put("location", redirectURL);
         return true;
@@ -488,7 +462,6 @@ const redirectOAuth = async function(resState, resHeader, request) {
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
-exports.manager = loginMan;
 exports.createUser = createUser;
 exports.allowAccountDataURL = allowAccountDataURL;
 exports.executeOAuthURL = executeOAuthURL;

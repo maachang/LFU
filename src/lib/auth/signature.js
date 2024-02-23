@@ -18,9 +18,10 @@ const convb = frequire("./lib/storage/convb.js");
 // xor128.
 const xor128 = frequire("./lib/util/xor128.js");
 
-// 初期乱数.
+// 乱数初期化.
 const _RAND = xor128.create(
     Date.now() + process.hrtime()[0] + process.hrtime()[1]);
+exports.random = _RAND;
 
 // 乱数キー数.
 const _RAND_LENGTH = 16;
@@ -174,6 +175,18 @@ const cutEndBase64Eq = function(code) {
     return "";
 }
 exports.cutEndBase64Eq = cutEndBase64Eq;
+
+// ランダム文字列返却.
+// len ランダム文字列の長さを設定します.
+// 戻り値: ランダムな文字列が返却されます.
+const randString = function(len) {
+    len = len|0;
+    if(len == 0) {
+        throw new Error("");
+    }
+    return Buffer.from(_RAND.getBytes(len))
+        .toString("base64").substring(len);
+}
 
 // outのバイナリ情報にvalue内容を追加.
 // out 格納先のバイナリを設定します.

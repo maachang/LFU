@@ -33,18 +33,15 @@ exports.create = function(seed) {
     // シードセット.
     const setSeed = function(s) {
         if (typeof(s) == "number") {
-			let hs = ((s / 1812433253)|0) + 1;
-			let ls = ((s % 1812433253)|0) - 1;
-			if((ls & 0x01) == 0) {
-				hs = (~hs)|0;
-			}
-            _a=hs=((_a*(~ls))+hs+1)|0;
-			hs += 1;
-            _b=ls=((_b*hs)-ls+2)|0;
-			ls += 1;
-            _c=hs=((_c*ls)+hs+3)|0;
-			hs += 1;
-            _d=((_d*(~hs))-ls+4)|0;
+            let hs = ((s / 1812433253)|0) + 1;
+            let ls = ((s % 1812433253)|0) - 1;
+            if((ls & 0x01) == 0) {
+                hs = (~hs)|0;
+            }
+            _a=hs=(((_a*(~ls))*hs)+1)|0;
+            if((_a & 0x01) == 1) {
+                _c=(((_c*(~ls))*hs)-1)|0;
+            }
         }
     }
     // 乱数取得.
