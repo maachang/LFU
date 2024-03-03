@@ -13,19 +13,21 @@ if(frequire == undefined) {
 }
 
 // unix時間を取得.
-exports.getTime = function() {
+const getTime = function() {
   return Date.now();
 }
+exports.getTime = getTime;
 
 // ナノ時間を取得.
-exports.getNanoTime = function() {
+const getNanoTime = function() {
   const ret = process.hrtime()
   return (((ret[0] * 1000000000) + ret[1]) / 1000);
 }
+exports.getNanoTime + getNanoTime;
 
 // xor128演算乱数装置.
 // seed 乱数初期値(number)を設定します.
-exports.create = function(seed) {
+const create = function(seed) {
     let _a = 123456789;
     let _b = 362436069;
     let _c = 521288629;
@@ -102,5 +104,10 @@ exports.create = function(seed) {
         getArray: getArray
     }
 };
+exports.create = create;
+
+// [default]ランダム.
+exports.random = create(
+    getTime() + getNanoTime());
 
 })();

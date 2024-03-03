@@ -115,7 +115,6 @@ const cmdMimify = function(path, jsName, moveDir) {
     execSync("uglifyjs " + path + "/" + jsName +
         " --compress drop_console=true --mangle -o " +
         path + "/" + moveDir + "/" + jsName);
-
 }
 
 // コマンドでファイルのコピー実行.

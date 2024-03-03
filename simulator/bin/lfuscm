@@ -1,2 +1,2 @@
 ARGS=${*}
-node ${LFU_HOME}/simulator/secretsManager ${ARGS}
+node ${LFU_HOME}/simulator/command/scmManager ${ARGS}

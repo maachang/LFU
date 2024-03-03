@@ -15,14 +15,24 @@ if(frequire == undefined) {
 // auth/util.
 const authUtil = frequire("./lib/auth/util.js");
 
+// xor128.
+const xor128 = frequire("./lib/util/xor128.js");
+
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
 
-// デフォルトのS3Kvs.
-const defS3Kvs = s3kvs.create();
+// [ENV]authUser情報を出力するS3Prefix.
+const ENV_S3_AUM_PREFIX = "S3_AUM_PREFIX";
+
+// デフォルトのauthUser出力先S3Prefix.
+const DEFAULT_S3_AUM_PREFIX = "authUsers";
 
 // ログインユーザテーブル.
-const userTable = defS3Kvs.currentTable("authUsers");
+const userTable = s3kvs.create().currentTable(
+	authUtil.useString(process.env(ENV_S3_AUM_PREFIX)) ?
+		process.env(ENV_S3_AUM_PREFIX) :
+		DEFAULT_S3_AUM_PREFIX
+);
 
 // [ENV]最大ユーザー表示件数設定.
 const ENV_LOGIN_USER_LIST_LIMIT = "LOGIN_USER_LIST_LIMIT";
@@ -37,16 +47,22 @@ if(LOGIN_USER_LIST_LIMIT >= 100) {
 
 // [ENV]oauthログインに対してユーザ登録なしの場合、一般ユーザログイン利用可能設定.
 const ENV_OAUTH_NO_USER_REGISTER = "OAUTH_NO_USER_REGISTER";
+
+// [ENV]仮パスワードの長さ.
+const ENV_TENTATIVE_PASSWORD_LENGTH = "TENTATIVE_PASSWORD_LENGTH";
+
+// デフォルト仮パスワードの長さ.
+const DEF_TENTATIVE_PASSWORD_LENGTH = 24;
 	
-// [変更不可]ユーザ名(string).
+// *[変更不可]ユーザ名(string).
 // ログインユーザ名.
 const USER_NAME = "user";
 
-// [変更不可]ユーザ作成日.
+// *[変更不可]ユーザ作成日.
 // -1の場合はUserInfoは読み込み専用モード.
 const CREATE_DATE = "createDate";
 
-// [変更不可]ユーザタイプ(string).
+// *[変更不可]ユーザタイプ(string).
 // ログインに関するタイプ定義.
 const USER_TYPE = "userType";
 
@@ -54,7 +70,7 @@ const USER_TYPE = "userType";
 // パスワード専用で利用可能.
 const PASSWORD = "password";
 
-// [自動更新]パスワード更新日.
+// *[自動更新]パスワード更新日.
 // -1の場合、仮パスワード状態.
 const UPDATE_PASSWORD_DATE = "updatePasswordDate";
 
@@ -62,7 +78,7 @@ const UPDATE_PASSWORD_DATE = "updatePasswordDate";
 // 対象ユーザが所属するグループ一覧.
 const GROUP = "group";
 
-// [変更可能]ユーザ権限(string).
+// *[変更可能]ユーザ権限(string).
 const PERMISSION = "permission";
 
 // [変更可能]options設定(dict).
@@ -95,9 +111,13 @@ const PERMISSION_USER = "user";
 const _requiredUserInfo = function(info) {
 	let err = false;
 	try {
+		// ユーザー必須項目の存在チェック.
 		if(info == undefined ||
 			!authUtil.useString(info[USER_NAME]) ||
-			!authUtil.useString(info[USER_TYPE])) {
+			!authUtil.useString(info[USER_TYPE]) ||
+			!authUtil.useString(info[PERMISSION]) ||
+			!authUtil.isNumeric(info[CREATE_DATE]) ||
+			!authUtil.isNumeric(info[UPDATE_PASSWORD_DATE])) {
 			err = true;
 			throw new Error("User info does not exist.");
 		}
@@ -158,13 +178,26 @@ const _getOauthToNoUserRegister = function(user) {
 	if(isOauthToNoUserRegister()) {
 		const ret = {};
 		ret[USER_NAME] = user;
+		ret[USER_TYPE] = USER_TYPE_OAUTH; // oauthユーザ.
+		ret[PERMISSION] = PERMISSION_USER; // ユーザ権限.
 		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD; // パスワードなし.
-		ret[USER_TYPE] = USER_TYPE_OAUTH;
-		ret[PERMISSION] = PERMISSION_USER;
 		return ret;
 	}
 	return undefined;
+}
+
+// 仮パスワードを生成処理.
+// 戻り値: 仮パスワードが返却されます.
+const _generateTentativePassword = function() {
+    // 環境変数から仮パスワード長を取得.
+    let len = process.env[ENV_TENTATIVE_PASSWORD_LENGTH]|0;
+    if(len == 0) {
+        // 存在しない場合はデフォルトパスワード長.
+        len = DEF_TENTATIVE_PASSWORD_LENGTH;
+    }
+    // 仮パスワード返却.
+    return xor128.random.getBytes(len).toString("base64").substring(0, len);
 }
 
 // oauthログインに対してユーザ登録なしの場合、一般ユーザログイン利用可能かを取得.
@@ -185,54 +218,53 @@ const isOauthToNoUserRegister = function() {
 // type ログインユーザタイプを設定します.
 //      "all": 全てのログインタイプを許可します.
 //      "passsword": パスワードログインのみ許可します.
-//      "aouth": oauthログインのみ許可します.
-// password 仮パスワードを設定します.
+//      "oauth": oauthログインのみ許可します.
+//      指定しない場合は "oauth" が設定されます.
 // 戻り値: UserInfoが返却されます.
-const create = async function(user, type, password) {
+const create = async function(user, type) {
 	//  必須条件が設定されていない場合エラー.
 	if(!authUtil.useString(user) && !authUtil.useString(type)) {
 		if(!authUtil.useString(user)) {
 			throw new Error("username not set.");
 		}
-		throw new Error("user type not set.");
+		// oauthユーザを設定.
+		type = USER_TYPE_OAUTH;
 	}
-	// ユーザタイプが範囲外の場合エラー.
+	// ユーザタイプが範囲外の場合はエラー.
 	type = type.trim().toLowerCase();
 	if(type != USER_TYPE_ALL && type != USER_TYPE_PASSWORD &&
 		type != USER_TYPE_OAUTH) {
-		throw new Error("user type out of range: " + type);
+		throw new Error("Type content is unknown: " + type);
 	}
 	// ユーザ情報作成.
-	let ret = {};
-	ret[USER_NAME] = user;
-	ret[CREATE_DATE] = Date.now();
-	ret[USER_TYPE] = type;
+	let info = {};
+	info[USER_NAME] = user;
+	info[CREATE_DATE] = Date.now();
+	info[USER_TYPE] = type;
+	info[PERMISSION] = PERMISSION_USER;
 	// 一般ユーザで登録.
 	// ユーザタイプが all および password の場合.
 	if(type == USER_TYPE_ALL || type == USER_TYPE_PASSWORD) {
-		// パスワードが設定されてない場合エラー.
-		if(!authUtil.useString(password)) {
-			throw new Error("password not set.");
-		}
-		// 仮パスワードセット.
-		ret[PASSWORD] = _passwordSha256(password);
-		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
+		// 空パスワードを設定.
+		info[PASSWORD] = _passwordSha256("");
+		// 仮パスワード判別.
+		info[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
 	} else {
 		// パスワードなし.
-		ret[PASSWORD] = undefined;
-		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD;
+		info[PASSWORD] = undefined;
+		// パスワードなし.
+		info[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD;
 	}
-	ret[PERMISSION] = PERMISSION_USER;
 	// 返却用のUserInfo生成.
-	ret = UserInfo(ret);
+	info = UserInfo(info);
 	// 既存ユーザが存在する場合はエラー返却.
 	if(!await _isUser(user)) {
 		throw new Error(user + " users already exist.");
 	}
 	// userInfoを保存.
-	await ret.save();
+	await info.save();
 	// userInfo返却.
-	return ret;
+	return info;
 }
 
 // 指定ユーザ情報を削除.
@@ -320,21 +352,45 @@ const UserInfo = function(info) {
 		}
 	}
 	
-	// 内容を取得.
+	// UserInfo情報をObject(dict)変換.
 	// ※ ここで取得された内容には passwordが除外されます.
-	//   また、この情報をUserInfoにすると、読み込み専用となります。
 	// 戻り値: {} 形式の内容が返却されます.
 	const get = function() {
 		// コピーする.
 		const ret = JSON.parse(JSON.stringify(info));
 		// パスワードが存在する場合は、空にする.
 		if(ret[PASSWORD] != undefined) {
-	 		ret[PASSWORD] = "";
+			ret[PASSWORD] = "";
 		}
 		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		return ret;
 	}
 	o.get = get();
+
+	// UserInfo情報をJSON.stringifyで閲覧できる内容で変換.
+	// ※ ここで取得された内容には passwordが除外されます.
+	// 戻り値: {} 形式の内容が返却されます.
+	const getView = function() {
+		// コピーする.
+		const ret = JSON.parse(JSON.stringify(info));
+		// パスワードが存在する場合は伏せ文字にする.
+		if(ret[PASSWORD] != undefined) {
+			ret[PASSWORD] = "**********";
+		}
+		// パスワード更新日が無効な場合.
+		if(ret[UPDATE_PASSWORD_DATE] <= UPDATE_PASSWORD_DATE_BY_NO_PASSWORD) {
+			ret[UPDATE_PASSWORD_DATE] = undefined;
+		// パスワード更新日が有効な場合.
+		} else {
+			ret[UPDATE_PASSWORD_DATE] = new Date(ret[UPDATE_PASSWORD_DATE]);
+		}
+		// ユーザ生成時間を日付に変換.
+		ret[CREATE_DATE] = new Date(ret[CREATE_DATE]);
+		// グループをリスト変換.
+		ret[GROUP] = getGroups();
+		return ret;
+	}
+	o.getView = getView;
 	
 	// JSON内容で取得.
 	// ※ ここで取得された内容には passwordが除外されます.
@@ -444,6 +500,26 @@ const UserInfo = function(info) {
 		return o;
 	}
 	o.setPassword = setPassword;
+
+	// パスワードをリセット.
+	// リセットされた場合、仮パスワードモードになります.
+	// ※ isReadOnky() == true の場合、実行されません.
+	// 戻り値: 仮パスワードが返却されます.
+	const resetPassword = function() {
+		_checkReadOnly();
+		// パスワード利用可能ユーザでない場合.
+		if(!isPasswordUser()) {
+			throw new Error("Not a password available user.");
+		}
+		const tentativePassword = _generateTentativePassword();
+		// 仮パスワードセット.
+		info[PASSWORD] = _passwordSha256(tentativePassword);
+		// 仮パスワード判別.
+		info[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
+		// 仮パスワードを返却.
+		return tentativePassword;
+	}
+	o.resetPassword = resetPassword;
 	
 	// パスワード一致確認.
 	// ※ 読み込み専用の場合エラーとなります.

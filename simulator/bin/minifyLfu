@@ -1,2 +1,2 @@
 ARGS=${*}
-node ${LFU_HOME}/simulator/minifyLfu ${ARGS}
+node ${LFU_HOME}/simulator/command/minifyLfu ${ARGS}

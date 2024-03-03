@@ -29,11 +29,18 @@ const LOGIN_TOKEN_EXPIRE = (process.env[ENV_LOGIN_TOKEN_EXPIRE]|0) <= 0 ?
 // １日 = ミリ秒.
 const ONE_DAY_MS = 86400000;
 
-// デフォルトのS3Kvs.
-const defS3Kvs = s3kvs.create();
+// [ENV]ログインセッション管理情報を出力するS3Prefix.
+const ENV_S3_ASM_PREFIX = "S3_ASM_PREFIX";
 
-// セッションログイン管理テーブル.
-const sessionTable = defS3Kvs.currentTable("authSessions");
+// デフォルトのログインセッション管理情報出力先S3Prefix.
+const DEFAULT_S3_ASM_PREFIX = "authSessions";
+
+// ログインセッション管理テーブル.
+const sessionTable = s3kvs.create().currentTable(
+	authUtil.useString(process.env(ENV_S3_ASM_PREFIX)) ?
+		process.env(ENV_S3_ASM_PREFIX) :
+		DEFAULT_S3_ASM_PREFIX
+);
 
 // (raw)ユーザーセッション情報を読み込む.
 const _loadSession = async function(user, passCode, sessionId) {

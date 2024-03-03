@@ -68,8 +68,8 @@ const syncAjx = function(url) {
 }
 
 // GETパラメーターを解析.
-let pms = [];
 {
+    let pms = [];
     let list = params.split("&");
     const len = list.length;
     for (let i = 0; i < len; i++) {
@@ -82,14 +82,14 @@ let pms = [];
         }
         pms[pms.length] = o;
     }
+    params = pms;
 }
-params = null;
 
 // src設定された複数のjs群を読み込む.
-const len = pms.length;
+const len = params.length;
 let script = "";
 for(let i = 0; i < len; i++) {
-    const o = pms[i];
+    const o = params[i];
     // srcパラメータ以外の設定.
     if(o[0] != "src") {
         continue;

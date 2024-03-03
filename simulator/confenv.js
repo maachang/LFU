@@ -1,5 +1,6 @@
 /////////////////////////////////////////////////////
 // ローカルファイルのenv定義を対応confファイルで反映する.
+// process.envの内容を対象confで書き換えます.
 /////////////////////////////////////////////////////
 (function(_g) {
 'use strict';
@@ -124,7 +125,7 @@ const isExcludedKeys = function(key) {
     return EXCLUDED_KEY == key;
 }
 
-// ロードConfEnvを反映.
+// ロードConfEnvをprocess.envに反映.
 // file 対象のConfEnvファイル内容を設定します.
 const flushConfEnv = function(file) {
     if(file instanceof Buffer) {

@@ -15,17 +15,47 @@ if(frequire == undefined) {
 // crypto.
 const crypto = frequire('crypto');
 
+// nullチェック.
+const isNull = function(value) {
+    return (value == undefined || value == null);
+}
+
 // 文字列が存在するかチェック.
 // s 文字列を設定します.
 // 戻り値: trueの場合、文字列が存在します.
-const useString = function(s) {
-    return typeof(s) == "string" && s.length > 0;
-}
+const useString = (function() {
+    const _USE_STR_REG = /\S/g;
+    return function(str) {
+        let s = str;
+        if (isNull(s)) {
+            return false;
+        }
+        if (typeof(s) != "string") {
+            if (!isNull(s["length"])) {
+                return s["length"] != 0;
+            }
+            s = "" + s;
+        }
+        return s.match(_USE_STR_REG) != undefined;
+    }
+})();
 
 // 数字変換が可能かチェック.
-const isNumeric = function(o) {
-    return !isNaN(parseFloat(o));
-}
+const isNumeric = (function() {
+    const _IS_NUMERIC_REG = /[^0-9.0-9]/g;
+    return function(num){
+        let n = "" + num;
+        if (num == null || num == undefined) {
+            return false;
+        } else if(typeof(num) == "number") {
+            return true;
+        } else if(n.indexOf("-") == 0) {
+            n = n.substring(1);
+        }
+        return !(n.length == 0 || n.match(_IS_NUMERIC_REG)) && 
+            (targetCharCount(0, n, ".") > 1);
+    }
+})();
 
 // base64の最後の=を削除.
 // code 対象のbase64文字列を設定.
@@ -60,6 +90,7 @@ const hmacSHA256 = function(signature, tokenKey) {
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
+exports.isNull = isNull;
 exports.useString = useString;
 exports.isNumeric = isNumeric;
 exports.sha256 = sha256;

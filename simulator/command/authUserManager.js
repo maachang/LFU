@@ -1,0 +1,416 @@
+// [command]authUser管理.
+// 
+(function() {
+'use strict';
+
+// コマンド引数用.
+const args = require("../modules/args.js");
+
+// authUser.
+const authUser = require("../../src/lib/auth/authUser.js");
+
+// loadEnvJSON.
+const envjson = require("../localEnvJSON.js");
+
+// lfu用SecretsManagerコマンド名.
+const COMMAND_NAME = "lfuaum";
+
+// プロセス終了
+const _exit = function(code) {
+    process.on("exit", function() {
+        process.exit(code);
+    });
+}
+
+// エラー出力.
+const error = function() {
+    console.error.apply(null, arguments);
+    _exit(1);
+}
+
+// ユーザ名に対するユーザ情報を取得.
+// userName 対象のユーザ名を設定します.
+// 戻り値: UserInfoが返却されます.
+const getUserInfo = async function(userName) {
+    try {
+        return await authUser.get(userName);
+    } catch(e) {
+        error(
+            "[ERRPR]Target user does not exist.", e);ƒ
+    }
+    return undefined;
+}
+
+// user情報を表示.
+// userInfo userInfoを設定します.
+const getUserView = function(userInfo) {
+    console.log("[SUCCESS]\n" +
+        JSON.stringify(userInfo.getView(). null, "  "));
+}
+
+// 新しいユーザを作成する.
+// userName 新しく作成するユーザ名を設定します.
+// userType 対象のユーザタイプを設定します.
+// admin Admin権限をONにしたい場合は true を設定します.
+// groups 対象ユーザの所属グループを設定する場合は Array(string) で定義します.
+// 戻り値: trueの場合、作成に成功しました.
+const createUser = async function(userName, userType, admin, groups) {
+    let rollbackUserFlag = false;
+    let changeUser = false;
+    let tempPassword = undefined;
+    try {
+        // 新しいユーザを作成.
+        const userInfo = await authUser.create(userName, userType);
+        // 今回の処理でユーザが作成された事を示す.
+        rollbackUserFlag = true;
+        // 権限付与指定が行われてる場合.
+        if(admin == true || admin == false) {
+            if(admin == true) {
+                // trueの場合はadmin権限付与.
+                userInfo.setAdminPermission();
+            } else {
+                // falseの場合はユーザ権限付与.
+                userInfo.setUserPermission();
+            }
+            changeUser = true;
+        }
+        // グループが指定されている場合.
+        if(Array.isArray(groups) && groups.length > 0) {
+            const len = groups.length;
+            for(let i = 0; i < len; i ++) {
+                userInfo.addGroup(groups[i]);
+                changeUser = true;
+            }
+        }
+        // パスワードユーザの場合.
+        if(userInfo.isPasswordUser()) {
+            // 仮パスワードを発行.
+            tempPassword = userInfo.resetPassword();
+            changeUser = true;
+        }
+        // ユーザ生成後にユーザ情報の変更があった場合.
+        if(changeUser) {
+            // 変更内容を保存.
+            await userInfo.save();
+        }
+        if(tempPassword != undefined) {
+            // 発行された仮パスワードと生成結果を表示.
+            console.log(
+                "[SUCCESS]Temporary password: " + password + "\n" +
+                JSON.stringify(userInfo.getView(), null, "  "));
+        } else {
+            // 生成結果を表示.
+            getUserView(userInfo);
+        }
+        return true;
+    } catch(e) {
+        // エラーの場合、今回新規作成したユーザは削除(rollback).
+        if(rollbackUserFlag) {
+            try {
+                await authUser.remove(userName);
+            } catch(ee) {}
+        }
+        error(
+            "[ERROR]User creation failed.", e);
+    }
+    return false;
+}
+
+// 既存ユーザを編集.
+// userName 新しく作成するユーザ名を設定します.
+// admin trueの場合、対象ユーザを管理者として設定します.
+// addGroup 追加したいグループ名をArrayで設定します.
+// removeGroup 削除したいグループ名をArrayで設定します.
+// 戻り値: trueの場合、成功しました.
+const editUser = async function(userName, admin, addGroups, removeGroups) {
+    // ユーザ情報を取得.
+    const userInfo = await getUserInfo(userName);
+    if(userInfo == undefined) {
+        return false;
+    }
+    try {
+        let changeUser = false;
+        // 権限付与指定が行われてる場合.
+        if(admin == true || admin == false) {
+            if(admin == true) {
+                // trueの場合はadmin権限付与.
+                userInfo.setAdminPermission();
+            } else {
+                // falseの場合はユーザ権限付与.
+                userInfo.setUserPermission();
+            }
+            changeUser = true;
+        }
+        // 削除グループが指定されている場合.
+        if(Array.isArray(removeGroups) && removeGroups.length > 0) {
+            const len = removeGroups.length;
+            for(let i = 0; i < len; i ++) {
+                userInfo.removeGroup(removeGroups[i]);
+                changeUser = true;
+            }
+        }
+        // 追加グループが指定されている場合.
+        if(Array.isArray(addGroups) && addGroups.length > 0) {
+            const len = addGroups.length;
+            for(let i = 0; i < len; i ++) {
+                userInfo.addGroup(addGroups[i]);
+                changeUser = true;
+            }
+        }
+        // ユーザ生成後にユーザ情報の変更があった場合.
+        if(changeUser) {
+            // 変更内容を保存.
+            await userInfo.save();
+        }
+        // 編集結果を表示.
+        getUserView(userInfo);
+        return true;
+    } catch(e) {
+        error(
+            "[ERROR]User edit failed.", e);
+    }
+    return false;
+}
+
+// 指定ユーザに対するパスワードリセット.
+// userName パスワードリセットするユーザ名を設定します.
+// 戻り値: trueの場合、パスワードリセットに成功しました.
+const resetPassword = async function(userName) {
+    const userInfo = await getUserInfo(userName);
+    if(userInfo == undefined) {
+        return false;
+    }
+    try {
+        // パスワードリセット.
+        const password = userInfo.resetPassword();
+        // 発行された仮パスワードを表示.
+        console.log("[SUCCESS]Temporary password: " + password);
+        return true;
+    } catch(e) {
+        error("[ERROR]Password reset failed.")
+    }
+    return false;
+}
+
+// ユーザの削除.
+// userName 対象のユーザ名を設定します.
+// 戻り値: trueの場合削除に成功しました.
+const remove = async function(userName) {
+    try {
+        // trueの場合成功.
+        if(await authUser.remove(userName)) {
+            console.log(
+                "[SUCCESS]Target user Deletion successful.");
+            return true;    
+        // falseの場合失敗.
+        } else {
+            console.warn(
+                "[WARN]User " + userName + " does not exist.");    
+        }
+    } catch(e) {
+        error(
+            "[ERROR]Target user Deletion failed.", e);
+    }
+    return false;
+}
+
+// 対象ユーザ名の情報を表示.
+// userName 対象のユーザ名を設定します.
+// 戻り値: trueの場合正常に処理されました.
+const getUser = async function(userName) {
+    try {
+        const userInfo = await getUserInfo(userName);
+        if(userInfo == undefined) {
+            return false;
+        }
+        getUserView(userInfo);
+        return true;
+    } catch(e) {
+        error(
+            "[ERRPR]Target user does not exist.", e);ƒ
+    }
+    return false;
+}
+
+// ユーザ名一覧を取得.
+// detail trueの場合、ユーザ毎の詳細情報を含めて表示とします.
+//        false および指定なしの場合は、ユーザ名だけを表示します.
+const list = async function(detail) {
+    try {
+        let i, len, off = 0, max = 50;
+        let list = [];
+        while(true) {
+            const n = await authUser.list(off, max);
+            len = n.length;
+            if(len == 0) {
+                break;
+            }
+            for(i = 0; i < len; i ++) {
+                list[list.length] = n[i];
+            }
+            off += len;
+        }
+        // 詳細を取得.
+        if(detail == true) {
+            const n = [];
+            len = list.length;
+            for(i = 0; i < len; i ++) {
+                // ユーザ表示用として詳細を取得.
+                n[n.length] = await authUser.get(
+                    list[i]).getView();
+            }
+            list = n;
+        }
+        // JSON出力.
+        console.log("[SUCCESS]\n" +
+            JSON.stringify(list, null, "  "));
+        return true;
+    } catch(e) {
+        error("[ERROR]Failed to get user list.", e);
+    }
+    return false;
+}
+
+// 出力.
+const p = function() {
+    console.log.apply(null, arguments);
+}
+
+// ヘルプ.
+const help = function() {
+    p("Usage: %s [OPTION]...", COMMAND_NAME);
+    p("It is a command that manages user information for authentication and approval with LFU.");
+    p("");
+    p("");
+    p("-f or --profile Set the Profile name you want to use in ~/.lfu.env.json.")
+    p("-t or --type: [Required]Set the processing type.")
+    p("  create: Create new authentication and approval users.")
+    p("   -u or --user:       [Required]Set the target user name.")
+    p("   -m or --mode:       [Optional]\"password\" dedicated to password, \"oauth\" GAS authentication.")
+    p("                       If you do not set anything, it will be \"oauth\".")
+    p("                       For password users, a temporary password is registered.")
+    p("   -a or --admin:      [Optional]For Admin users, define this content.")
+    p("   -g or --group:      [Optional]Define a group addition, for example, when doing multiple ABC, Xyz.")
+    p("                       > -g ABC -g xyz")
+    p("  edit: Edit to existing users.")
+    p("   -u or --user:       [Required]Set the target user name.")
+    p("   -a or --admin:      [Optional]For Admin users, define this content.")
+    p("   -p or --put:        [Optional]Set the group you want to add. The addition of multiple groups is as follows.")
+    p("                       > -p ABC -p xyz")
+    p("   -r or --remove:     [Optional]Set the group you want to delete. The addition of multiple groups is as follows.")
+    p("                       > -r ABC -r xyz")
+    p("  password: Reset the password of the target password user.")
+    p("            For password users, a temporary password is registered.")
+    p("   -u or --user:       [Required]Set the target user name.")
+    p("  remove: Delete the specified user.")
+    p("   -u or --user:       [Required]Set the target user name.")
+    p("  get: Displays the setting information of the specified user.")
+    p("   -u or --user:       [Required]Set the target user name.")
+    p("  list: Display the registered user list.")
+    p("   -d or --detail:     [Optional]If this content is defined, output user detailed information.")
+}
+
+// コマンド実行.
+const command = async function() {
+    try {
+        // ヘルプ呼び出し.
+        if(args.isValue("-h", "--help")) {
+            help();
+            _exit(0);
+            return;
+        }
+
+        // typeを取得.
+        let type = args.get("-t", "--type");
+        if(type == null || type == "") {
+            // 設定されてない場合.
+            error("[ERROR]Processing type not set.");
+            return;
+        }
+        type = type.trim().toLowerCase();
+
+        // loadEnvJSON実行.
+        envjson.reflection(args.get("-f", "--profile"));
+        
+        // create処理.
+        if(type == "create") {
+            const user = args.get("-u", "--user");
+            const mode = args.get("-m", "--mode");
+            const admin = args.isValue("-a", "--admin");
+            const group = args.getArray("-g", "-group");
+            const result = await createUser(user, mode, admin, group);
+            if(result) {
+                _exit(0);
+            }
+            return;
+        }
+        // edit処理.
+        else if(type == "edit") {
+            const user = args.get("-u", "--user");
+            const admin = args.isValue("-a", "--admin");
+            const put = args.getArray("-p", "-put");
+            const remove = args.getArray("-r", "-remove");
+            const result = await editUser(user, admin, put, remove);
+            if(result) {
+                _exit(0);
+            }
+            return;
+        }
+        // passwordリセット処理.
+        else if(type == "password") {
+            const user = args.get("-u", "--user");
+            const result = await resetPassword(user);
+            if(result) {
+                _exit(0);
+            }
+            return;
+        }
+        // remove処理.
+        else if(type == "remove") {
+            const user = args.get("-u", "--user");
+            const result = await remove(user);
+            if(result) {
+                _exit(0);
+            }
+            return;
+        }
+        // get処理.
+        else if(type == "get") {
+            const user = args.get("-u", "--user");
+            const result = await get(user);
+            if(result) {
+                _exit(0);
+            }
+            return;
+        }
+        // list処理.
+        else if(type == "list") {
+            const user = args.isValue("-d", "--detail");
+            const result = await get(user);
+            if(result) {
+                _exit(0);
+            }
+            return;
+        }
+
+        // バージョン呼び出し.
+        if(args.isValue("-v", "--version")) {
+            const pkg = require("../package.json");
+            p(pkg.version);
+            _exit(0);
+            return;
+        }
+        
+        // それ以外.
+        error("[ERROR]Unsupported type specification: " + type);
+
+    } catch(e) {
+        // エラー出力.
+        error("[ERROR]", e);
+    }
+}
+
+// コマンド実行.
+command();
+
+})();

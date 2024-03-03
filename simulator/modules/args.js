@@ -57,8 +57,34 @@ o.get = function() {
     return o.next.apply(null, params);
 }
 
+// 指定ヘッダ名を設定して、要素を取得します.
+// names 対象のヘッダ名を設定します.
+// 戻り値: 数字が返却されます.
+o.getNumber = function() {
+    const v = o.get.apply(null, arguments);
+    if(v == null) {
+        return null;
+    }
+    return parseFloat(v);
+}
+
+// 指定ヘッダ名を設定して、要素を取得します.
+// names 対象のヘッダ名を設定します.
+// 戻り値: Booleanが返却されます.
+o.getBoolean = function() {
+    let v = o.get.apply(null, arguments);
+    if(v == null) {
+        return false;
+    }
+    v = v.trim().toLowerCase();
+    if(v == "true" || v == "on") {
+        return true;
+    }
+    return false;
+}
+
+
 // 番号指定での指定ヘッダ名を指定した要素取得処理.
-//
 // たとえば
 // > -i abc -i def -i xyz
 //
@@ -96,6 +122,57 @@ o.next = function() {
         }
     }
     return null;
+}
+
+// 指定ヘッダ名を設定して、要素を取得します.
+// no 取得番目番号を設定します.
+// names 対象のヘッダ名を設定します.
+// 戻り値: 数字が返却されます.
+o.nextNumber = function() {
+    const v = o.next.apply(null, arguments);
+    if(v == null) {
+        return -1;
+    }
+    return parseFloat(v);
+}
+
+// 指定ヘッダ名を設定して、要素を取得します.
+// no 取得番目番号を設定します.
+// names 対象のヘッダ名を設定します.
+// 戻り値: Booleanが返却されます.
+o.nextBoolean = function() {
+    let v = o.next.apply(null, arguments);
+    if(v == null) {
+        return false;
+    }
+    v = v.trim().toLowerCase();
+    if(v == "true" || v == "on") {
+        return true;
+    }
+    return false;
+}
+
+// 番号指定での指定ヘッダ名を指定した要素取得処理.
+// たとえば
+// > -i abc -i def -i xyz
+// この場合 ["abc", "xyz"] = getArray("-i"); が返却されます.
+// names 対象のヘッダ名を設定します.
+// 戻り値: Array型が返却されます.
+o.getArray = function() {
+    const ret = [];
+    const args = [0];
+    const len = arguments.length;
+    for(let i = 0; i < len; i ++) {
+        args[args.length] = arguments[i];
+    }
+    for(let i = 0;; i ++) {
+        args[0] = i;
+        const v = o.next.apply(null, args);
+        if(v == null) {
+            return ret;
+        }
+        ret[ret.length] = v;
+    }
 }
 
 // 指定起動パラメータ名を指定して、存在するかチェックします.

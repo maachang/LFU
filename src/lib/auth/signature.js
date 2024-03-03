@@ -19,9 +19,7 @@ const convb = frequire("./lib/storage/convb.js");
 const xor128 = frequire("./lib/util/xor128.js");
 
 // 乱数初期化.
-const _RAND = xor128.create(
-    Date.now() + process.hrtime()[0] + process.hrtime()[1]);
-exports.random = _RAND;
+const _RAND = xor128.random;
 
 // 乱数キー数.
 const _RAND_LENGTH = 16;

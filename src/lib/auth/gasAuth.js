@@ -42,6 +42,9 @@ const sig = frequire("./lib/auth/signature.js");
 // authUtil.
 const authUtil = frequire("./lib/auth/util.js");
 
+// xor128.
+const xor128 = frequire("./lib/util/xor128.js");
+
 // [ENV]問い合わせ先のGAS認証URL.
 const ENV_GAS_AUTH_URL = "GAS_AUTH_URL";
 
@@ -128,7 +131,7 @@ const createTokenKey = function() {
     // - expire(UnixTimeミリ秒).16進数
     // で生成する.
     // 日付を入れる理由は、このトークンが時限である事を示す.
-    return sig.cutEndBase64Eq(sig.random
+    return sig.cutEndBase64Eq(xor128.random
         .getBytes(len).toString("base64")) + "_" +
             (expire.toString(16));
 }

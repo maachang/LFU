@@ -53,6 +53,7 @@ const getTokenKeyCode = function(request) {
 // params ログインパラメータを設定します.
 // call ログイン固有の実行処理を設定します.
 //      ログインユーザ名 = await call(params)の形で処理します.
+//      またログインユーザ名が返却されない場合、ログイン失敗となります.
 // 戻り値: 成功した場合はログインユーザ名が返却されます.
 const login = async function(resHeader, request, params, call) {
     try {
@@ -61,7 +62,7 @@ const login = async function(resHeader, request, params, call) {
         
         // ログイン成功.
         if(authUtil.useString(user)) {
-            // 新しいセッションを作成.
+            // 新しいログインセッションを作成.
             const session = await authSession.create(request, user);
             if(session == null) {
                 // 新しいセッション取得に失敗.
@@ -149,7 +150,7 @@ const isLogin = async function(level, resHeader, request) {
             return true;
         }
         // トークンの解析.
-        const keyCode = tokenKeyCode(request);
+        const keyCode = getTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
  
         // expire値を超えている場合.

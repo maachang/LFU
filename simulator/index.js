@@ -8,11 +8,8 @@
 (function(_g) {
 'use strict';
 
-// fs.
-const fs = require("fs");
-
 // cluster.
-const cluster = require('cluster');
+const cluster = require("cluster");
 
 // プログラム(node)引数.
 const args = require("./modules/args.js");
@@ -114,7 +111,12 @@ const util = require("./modules/util/util.js");
 let lfuPath = null;
 
 // confEnv条件を取得.
-const requireConfEnv = function() {
+// profile ${HOME}/.lfu.env.json 定義で利用したいprofile名を設定します.
+const requireConfEnv = function(profile) {
+    // ${HOME}/.lfu.env.json を反映する.
+    const loadEnvJSON = require("./loadEnvJSON.js");
+    loadEnvJSON.reflection(profile);
+    // ./lfu.env.json を反映する.
     const confEnv = require("./confenv.js");
     confEnv.loadConfEnv();
 }
@@ -150,7 +152,7 @@ const getMainExternal = function() {
 // confEnvをロード.
 const loadConfEnv = function() {
     // confEnv条件を取得.
-    requireConfEnv();
+    requireConfEnv(args.get("--profile"));
 
     // mainExternalを取得.
     const mainExternal = getMainExternal();

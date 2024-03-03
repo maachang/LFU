@@ -26,6 +26,7 @@ exports.print = function() {
     p(" 1.Run the LFU simulator.");
     p("   -p --port Set the port number to bind.");
     p("   -w --worker Set the number of workers. If not set, the number of CPUs will be set.")
+    p("   --profile Set the Profile name you want to use in ~/.lfu.env.json.")
     p(" 2.Execution provision for encrypting/decrypting config definitions.");
     p("   2-1.Creating access keys and access passes.");
     p("     --keygen Required if you want to run this action.");

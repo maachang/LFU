@@ -1,4 +1,5 @@
 // secretsManager(クライアント利用).
+// awsのsecretManager的なことを、単純にS3で行うためのライブラリ.
 //
 (function() {
 'use strict';
@@ -84,7 +85,6 @@ const getS3Client = function() {
     return s3objCache;
 }
 
-
 // 登録されている1つのsecret情報を取得.
 // key 対象のkeyを設定します.
 // 戻り値: secretValueが返却されます.
@@ -104,7 +104,6 @@ const get = async function(key) {
         return undefined;
     }
 }
-exports.get = get;
 
 // 埋め込みコード用のdescription.
 const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
@@ -124,6 +123,11 @@ const getEmbed = function(key, embedCode) {
     // ２回目の復元.
     return getValue(key, JSON.parse(result));
 }
+
+////////////////////////////////////////////////////////////////
+// 外部定義.
+////////////////////////////////////////////////////////////////
+exports.get = get;
 exports.getEmbed = getEmbed;
 
 })();

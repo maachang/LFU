@@ -1,4 +1,4 @@
-// secretsManager(管理用command).
+// [command]secretsManager(管理用).
 //
 (function() {
 'use strict';
@@ -19,13 +19,16 @@
 // 独自規格だが、S3でそれができる仕組みを提供する.
 
 // コマンド引数用.
-const args = require("./modules/args.js");
+const args = require("../modules/args.js");
 
 // 暗号用.
-const cip = require("./modules/fcipher.js");
+const cip = require("../modules/fcipher.js");
 
 // s3Client.
-const s3cl = require("../src/lib/s3client.js");
+const s3cl = require("../../src/lib/s3client.js");
+
+// loadEnvJSON.
+const envjson = require("../localEnvJSON.js");
 
 // [ENV]メインS3バケット.
 const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
@@ -56,6 +59,19 @@ const OUTPUT_PREFIX = function() {
 
 // lfu用SecretsManagerコマンド名.
 const COMMAND_NAME = "lfuscm";
+
+// プロセス終了
+const _exit = function(code) {
+    process.on("exit", function() {
+        process.exit(code);
+    });
+}
+
+// エラー出力.
+const error = function() {
+    console.error.apply(null, arguments);
+    _exit(1);
+}
 
 // [LFU用]secrets manager用のJSONを生成.
 // key secretsManagerに登録するKey名を文字列で設定します.
@@ -280,7 +296,7 @@ const listS3 = async function(s3BucketName) {
 }
 
 // 出力.
-const p = function(s) {
+const p = function() {
     console.log.apply(null, arguments);
 }
 
@@ -290,6 +306,7 @@ const help = function() {
     p("Performs SecretsManager registration management for LFU.");
     p("The value registered in Secret is packed using LFU's strong encryption process.")
     p("");
+    p("-f or --profile Set the Profile name you want to use in ~/.lfu.env.json.")
     p("-t or --type: [Required]Set the processing type.")
     p("    generate: Generate a new Secret.")
     p("       -k or --key:         [Required]Set the key to register.")
@@ -319,19 +336,6 @@ const help = function() {
     p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
 }
 
-// プロセス終了
-const _exit = function(code) {
-    process.on("exit", function() {
-        process.exit(code);
-    });
-}
-
-// エラー出力.
-const error = function() {
-    console.error.apply(null, arguments);
-    _exit(1);
-}
-
 // コマンド実行.
 const command = async function() {
     try {
@@ -350,6 +354,9 @@ const command = async function() {
             return;
         }
         type = type.trim().toLowerCase();
+
+        // loadEnvJSON実行.
+        envjson.reflection(args.get("-f", "--profile"));
 
         // S3Bucket名が設定されているか.
         let s3Bucket = args.get("-b", "--bucket");
@@ -425,7 +432,7 @@ const command = async function() {
                 const result = await getValue(s3Bucket, key)
                 p(JSON.stringify(result, null, "  "));
             } catch(e) {
-                error("[ERROR]Retrieval failed.")
+                error("[ERROR]Retrieval failed.", e)
             }
             return;
         }
@@ -442,7 +449,7 @@ const command = async function() {
                 const result = await getValue(s3Bucket, key)
                 p(JSON.stringify(result, null, "  "));
             } catch(e) {
-                error("[ERROR]Retrieval failed.")
+                error("[ERROR]Retrieval failed.", e)
             }
             return;
         }
@@ -459,14 +466,14 @@ const command = async function() {
                 const result = await removeS3(s3Bucket, key)
                 p("[SUCCESS]Removed: " + result);
             } catch(e) {
-                error("[ERROR]Retrieval failed.")
+                error("[ERROR]Retrieval failed.", e)
             }
             return;
         }
 
         // バージョン呼び出し.
         if(args.isValue("-v", "--version")) {
-            const pkg = require("./package.json");
+            const pkg = require("../package.json");
             p(pkg.version);
             _exit(0);
             return;
