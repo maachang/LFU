@@ -6,11 +6,11 @@
 // コマンド引数用.
 const args = require("../modules/args.js");
 
+// util.
+const util = require("../modules/util/util.js");
+
 // authUser.
 const authUser = require("../../src/lib/auth/authUser.js");
-
-// loadEnvJSON.
-const envjson = require("../localEnvJSON.js");
 
 // lfu用SecretsManagerコマンド名.
 const COMMAND_NAME = "lfuaum";
@@ -64,15 +64,19 @@ const createUser = async function(userName, userType, admin, groups) {
         // 今回の処理でユーザが作成された事を示す.
         rollbackUserFlag = true;
         // 権限付与指定が行われてる場合.
-        if(admin == true || admin == false) {
-            if(admin == true) {
+        if(typeof(admin) == "string") {
+            admin = admin.trim().toLowerCase();
+            // 管理者権限.
+            if(admin == "true") {
                 // trueの場合はadmin権限付与.
                 userInfo.setAdminPermission();
-            } else {
+                changeUser = true;
+            // 一般ユーザ権限.
+            } else if(admin == "false") {
                 // falseの場合はユーザ権限付与.
                 userInfo.setUserPermission();
+                changeUser = true;
             }
-            changeUser = true;
         }
         // グループが指定されている場合.
         if(Array.isArray(groups) && groups.length > 0) {
@@ -237,18 +241,21 @@ const getUser = async function(userName) {
 //        false および指定なしの場合は、ユーザ名だけを表示します.
 const list = async function(detail) {
     try {
-        let i, len, off = 0, max = 50;
+        let i, len, marker, off = 0, max = 50;
         let list = [];
         while(true) {
-            const n = await authUser.list(off, max);
-            len = n.length;
+            const n = await authUser.nextList(
+                marker, off, max);
+            const lst = n.list;
+            len = lst.length;
             if(len == 0) {
                 break;
             }
             for(i = 0; i < len; i ++) {
-                list[list.length] = n[i];
+                list[list.length] = lst[i];
             }
             off += len;
+            marker = n.marker;
         }
         // 詳細を取得.
         if(detail == true) {
@@ -281,8 +288,7 @@ const help = function() {
     p("Usage: %s [OPTION]...", COMMAND_NAME);
     p("It is a command that manages user information for authentication and approval with LFU.");
     p("");
-    p("");
-    p("-f or --profile Set the Profile name you want to use in ~/.lfu.env.json.")
+    p("--profile Set the Profile name you want to use in ~/.lfu.env.json.")
     p("-t or --type: [Required]Set the processing type.")
     p("  create: Create new authentication and approval users.")
     p("   -u or --user:       [Required]Set the target user name.")
@@ -294,7 +300,7 @@ const help = function() {
     p("                       > -g ABC -g xyz")
     p("  edit: Edit to existing users.")
     p("   -u or --user:       [Required]Set the target user name.")
-    p("   -a or --admin:      [Optional]For Admin users, define this content.")
+    p("   -a or --admin:      [Optional]Set to true if you want to grant administrator privileges, or false if you are a general user.Do not set anything else.")
     p("   -p or --put:        [Optional]Set the group you want to add. The addition of multiple groups is as follows.")
     p("                       > -p ABC -p xyz")
     p("   -r or --remove:     [Optional]Set the group you want to delete. The addition of multiple groups is as follows.")
@@ -308,6 +314,7 @@ const help = function() {
     p("   -u or --user:       [Required]Set the target user name.")
     p("  list: Display the registered user list.")
     p("   -d or --detail:     [Optional]If this content is defined, output user detailed information.")
+    p();
 }
 
 // コマンド実行.
@@ -329,8 +336,14 @@ const command = async function() {
         }
         type = type.trim().toLowerCase();
 
-        // loadEnvJSON実行.
-        envjson.reflection(args.get("-f", "--profile"));
+        // ${HOME}/.lfu.env.json を反映する.
+        require("../lfuEnv.js").reflection(args.get("--profile"));
+
+        // 必須環境変数が定義されているかチェック.
+        if(!util.requireEnv(["MAIN_S3_BUCKET"])) {
+            _exit(1);
+            return;
+        }
         
         // create処理.
         if(type == "create") {
@@ -347,7 +360,7 @@ const command = async function() {
         // edit処理.
         else if(type == "edit") {
             const user = args.get("-u", "--user");
-            const admin = args.isValue("-a", "--admin");
+            const admin = args.get("-a", "--admin");
             const put = args.getArray("-p", "-put");
             const remove = args.getArray("-r", "-remove");
             const result = await editUser(user, admin, put, remove);
@@ -377,7 +390,7 @@ const command = async function() {
         // get処理.
         else if(type == "get") {
             const user = args.get("-u", "--user");
-            const result = await get(user);
+            const result = await getUser(user);
             if(result) {
                 _exit(0);
             }
@@ -385,8 +398,8 @@ const command = async function() {
         }
         // list処理.
         else if(type == "list") {
-            const user = args.isValue("-d", "--detail");
-            const result = await get(user);
+            const detail = args.isValue("-d", "--detail");
+            const result = await list(detail);
             if(result) {
                 _exit(0);
             }

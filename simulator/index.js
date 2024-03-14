@@ -114,8 +114,7 @@ let lfuPath = null;
 // profile ${HOME}/.lfu.env.json 定義で利用したいprofile名を設定します.
 const requireConfEnv = function(profile) {
     // ${HOME}/.lfu.env.json を反映する.
-    const loadEnvJSON = require("./loadEnvJSON.js");
-    loadEnvJSON.reflection(profile);
+    require("./lfuEnv.js").reflection(profile);
     // ./lfu.env.json を反映する.
     const confEnv = require("./confenv.js");
     confEnv.loadConfEnv();

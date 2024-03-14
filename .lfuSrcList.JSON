@@ -15,7 +15,6 @@
         ,"src/lib/sendSlack.js"
         ,"src/lib/httpsClient.js"
         ,"src/lib/mimeType.js"
-        ,"src/lib/s3restApi.js"
         ,"src/lib/secretsManager.js"
         ,"src/lib/utcDate.js"
         ,"src/lib/util/fcipher.js"

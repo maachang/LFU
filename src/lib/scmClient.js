@@ -1,5 +1,9 @@
 // secretsManager(クライアント利用).
 // awsのsecretManager的なことを、単純にS3で行うためのライブラリ.
+//  - scmManager.js LFU用SecretManagerの管理機能.
+//    管理機能ではこちらを利用します.
+//  - scmClient.js LFU用SecretManagerを利用する場合の機能.
+//    プログラムで利用する場合に利用します.
 //
 (function() {
 'use strict';
@@ -15,8 +19,8 @@ if(frequire == undefined) {
 // 暗号用.
 const cip = frequire("./lib/util/fcipher.js");
 
-// s3Client.
-const s3cl = frequire("./lib/s3client.js");
+// S3KevValueStorage.
+const s3kvs = frequire("./lib/storage/s3kvs.js");
 
 // [ENV]メインS3バケット.
 const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
@@ -25,39 +29,22 @@ const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
 const ENV_S3_SCM_PREFIX = "S3_SCM_PREFIX";
 
 // デフォルトのプレフィックス.
-const DEFAULT_PREFIX = "secretsManager";
+const DEFAULT_S3_SCM_PREFIX = "secretsManager";
 
 // descriptionHEAD.
 const DESCRIPTION_HEAD = "q$0I_";
 
-// S3Prefix.
-let _PREFIX = undefined;
-const getPrefix = function() {
-    if(_PREFIX == undefined) {
-        const env = process.env[ENV_S3_SCM_PREFIX];
-        if(env == undefined) {
-            _PREFIX = DEFAULT_PREFIX;
-        } else {
-            _PREFIX = env;
-        }
-    }
-    return _PREFIX;
-}
-
-// s3Bucket.
-let _S3_BUCKET = undefined;
-const getS3Bucket = function() {
-    if(_S3_BUCKET == undefined) {
-        const env = process.env[ENV_MAIN_S3_BUCKET];
-        if(env == undefined) {
-            throw new Error(
-                "Environment variable `" +
-                    ENV_MAIN_S3_BUCKET + "` is not set");
-        } else {
-            _S3_BUCKET = env;
-        }
-    }
-    return _S3_BUCKET;
+// シークレットマネージャ管理用テーブル.
+let _userTable = undefined;
+const userTable = function() {
+	if(_userTable == undefined) {
+		_userTable = s3kvs.create().currentTable(
+			authUtil.useString(process.env(ENV_S3_SCM_PREFIX)) ?
+				process.env(ENV_S3_SCM_PREFIX) :
+				DEFAULT_S3_SCM_PREFIX
+		);
+	}
+	return _userTable;
 }
 
 // 対象secretBodyからvalue情報を取得.
@@ -74,27 +61,13 @@ const getValue = function(key, json) {
     return ret;
 }
 
-// s3Clientオブジェクトキャッシュ.
-let s3objCache = undefined;
-
-// S3Clientオブジェクトを取得.
-const getS3Client = function() {
-    if(s3objCache == undefined) {
-        s3objCache = s3cl.create();
-    }
-    return s3objCache;
-}
-
 // 登録されている1つのsecret情報を取得.
 // key 対象のkeyを設定します.
 // 戻り値: secretValueが返却されます.
 const get = async function(key) {
     try {
         // jsonを取得.
-        const json = await getS3Client().getString({
-            Bucket: getS3Bucket(),
-            Key: getPrefix() + "/" + Buffer.from(key).toString("base64")
-        });
+        const json = await userTable.get("key", key);
         // valueを復号化.
         return getValue(key, JSON.parse(json));
     } catch(e) {
@@ -113,6 +86,7 @@ const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
 //   Secretと同様の処理でvalueを取得するものです.
 // key 対象のkeyを設定します.
 // embedCode 対象の埋め込みコードを設定します.
+// 戻り値: 復号結果が返却されます.
 const getEmbed = function(key, embedCode) {
     // 埋め込みコード用のdescriptionを生成.
     const description = DESCRIPTION_EMBED_CODE + key;
@@ -120,7 +94,7 @@ const getEmbed = function(key, embedCode) {
     let result = cip.dec(embedCode,
         cip.key(cip.fhash(key, true), description)
     );
-    // ２回目の復元.
+    // ２回目復号化.
     return getValue(key, JSON.parse(result));
 }
 

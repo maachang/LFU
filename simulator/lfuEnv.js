@@ -21,7 +21,7 @@
             ・・・・(任意の環境変数を定義)
     },
     "//": "profile名定義指定毎の専用定義.",
-    "profile名": {
+    "{profile名}": {
         "AWS_ACCESS_KEY_ID": "aws IAM UserのAccessKey",
         "AWS_SECRET_ACCESS_KEY": "aws IAM UserのSecretAccessKey",
         "AWS_SESSION_TOKEN": "awsのSSOログイン等での一時的セッショントークン",
@@ -45,16 +45,26 @@
 して共通利用される.
 
 また、それ以外の環境変数を定義していても、差し替えができるようになる.
+
+あと、定義のvalueに対して既存の環境変数が組み込めるので、この場合は
+ - "xxxx/${YYYY}/zzz""
+  とした場合、環境変数 YYYY="Hoge"なら
+ - "xxxx/Hoge/zzz""
+  このようになる.
+ただ、同一定義内で利用している環境変数を埋め込むと認識順の関係でうまく当たらない場合があるので、注意が必要.
 */
 
 // ローカルファイル操作用.
 const fs = require('fs');
 
+// ユーティリティ.
+const util = require("./modules/util/util.js");
+
 // 定義コンフィグファイル名[$HOME/.lfu.env.json].
 const CONF_JSON_FILE = "/.lfu.env.json";
 
 // [環境変数]定義コンフィグファイルRootパス.
-const ENV_CONF_JSON_PATH = "HOME";
+const ENV_HOME = "HOME";
 
 // 基本コンフィグ定義プロファイル名.
 const DEFAULT_CONFIG_PROFILE_NAME = "default";
@@ -62,9 +72,9 @@ const DEFAULT_CONFIG_PROFILE_NAME = "default";
 // ${HOME}/.lfu.env.json ファイルのJSON内容を取得.
 // 戻り値: configJSONが返却されます.
 const _loadJSON = function() {
-    // Rootパスを環境変数から取得.
-    let fileName = process.env[ENV_CONF_JSON_PATH];
-    // 環境変数取得成功の場合.
+    // ログインユーザのRootパスを環境変数から取得.
+    let fileName = process.env[ENV_HOME];
+    // ログインユーザのRootパスを環境変数取得が成功の場合.
     if(fileName != undefined) {
         // 読み込みファイルが存在するか確認.
         fileName += CONF_JSON_FILE;
@@ -88,7 +98,11 @@ const _updateEnv = function(profile, json) {
     let v, t;
     for(let k in target) {
         t = typeof(v = target[k]);
-        if(t == "string" || t == "number" || t == "boolean") {
+        if(t == "string") {
+            // 文字列の場合環境変数定義(${....})対応.
+            process.env[k] = util.changeEnv("" + v);
+        } else if(t == "number" || t == "boolean") {
+            // 文字列意外の場合は環境変数対応しない.
             process.env[k] = "" + v;
         }
     }

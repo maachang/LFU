@@ -28,21 +28,30 @@ const ENV_S3_AUM_PREFIX = "S3_AUM_PREFIX";
 const DEFAULT_S3_AUM_PREFIX = "authUsers";
 
 // ログインユーザテーブル.
-const userTable = s3kvs.create().currentTable(
-	authUtil.useString(process.env(ENV_S3_AUM_PREFIX)) ?
-		process.env(ENV_S3_AUM_PREFIX) :
-		DEFAULT_S3_AUM_PREFIX
-);
+let _userTable = undefined;
+const userTable = function() {
+	if(_userTable == undefined) {
+		_userTable = s3kvs.create().currentTable(
+			authUtil.useString(process.env(ENV_S3_AUM_PREFIX)) ?
+				process.env(ENV_S3_AUM_PREFIX) :
+				DEFAULT_S3_AUM_PREFIX
+		);
+	}
+	return _userTable;
+}
 
-// [ENV]最大ユーザー表示件数設定.
-const ENV_LOGIN_USER_LIST_LIMIT = "LOGIN_USER_LIST_LIMIT";
+// [ENV]最大AUM表示件数設定.
+const ENV_AUM_LIST_LIMIT = "AUM_LIST_LIMIT";
+
+// 最大AUM表示件数を取得.
+const MAX_AUM_LIST_LIMIT = 100;
 
 // [ENV]最大表示件数.
-let LOGIN_USER_LIST_LIMIT = process.env[ENV_LOGIN_USER_LIST_LIMIT]|0;
-if(LOGIN_USER_LIST_LIMIT >= 100) {
-    LOGIN_USER_LIST_LIMIT = 100;
-} else if(LOGIN_USER_LIST_LIMIT <= 0) {
-    LOGIN_USER_LIST_LIMIT = 25;
+let AUM_LIST_LIMIT = process.env[ENV_AUM_LIST_LIMIT]|0;
+if(AUM_LIST_LIMIT >= MAX_AUM_LIST_LIMIT) {
+    AUM_LIST_LIMIT = MAX_AUM_LIST_LIMIT;
+} else if(AUM_LIST_LIMIT <= 0) {
+    AUM_LIST_LIMIT = 25;
 }
 
 // [ENV]oauthログインに対してユーザ登録なしの場合、一般ユーザログイン利用可能設定.
@@ -138,7 +147,7 @@ const _getUser = async function(user) {
     }
     try {
         // ユーザー情報を取得.
-        const ret = await userTable.get("user", user);
+        const ret = await userTable().get("user", user);
         if(ret != undefined && ret != null) {
             // 取得成功.
             return ret;
@@ -274,7 +283,7 @@ const remove = async function(user) {
     if(!authUtil.useString(user)) {
         throw new Error("User has not been set.");
     }
-	return await userTable.remove("user", user);
+	return await userTable().remove("user", user);
 }
 
 // 指定ユーザー情報を取得.
@@ -297,25 +306,34 @@ const get = async function(user) {
 //      繋がるので注意が必要です.
 // max １ページの最大表示数を設定.
 //     100件を超える設定はできません.
-// 戻り値: [user1, user2, ... ] が返却されます.
-const list = async function(page, max) {
-    if(max == undefined || max == null) {
-        max = LOGIN_USER_LIST_LIMIT;
-    }
+// marker 読み取り開始位置のマーカーを設定します.
+//        これを設定する事で、page読み込みじゃなく、このmarkerからの
+//        読み込みとなります.
+// 戻り値: {page, max, marker, list}
+//         page: 返却対象のページ番号が設定されます.
+//         max: 1ページの最大表示数が設定されます.
+//         nextMarker: 次のページに遷移するMarkerが設定されます.
+//                     nullの場合、次のページは存在しません.
+//         list: [user1, user2, ... ]が返却されます.
+const list = async function(page, max, marker) {
+	max = max|0;
+    if(max <= 0) {
+        max = AUM_LIST_LIMIT;
+    } else if(max >= MAX_AUM_LIST_LIMIT) {
+		max = MAX_AUM_LIST_LIMIT;
+	}
     page = page|0;
-    if(page >= 0) {
-        page = 1;
+    if(page <= 0) {
+        page = 0;
     }
     // １ページの情報を取得.
-    const list = await userTable.list(page, max);
-    // 情報が存在しない場合.
-    if(list == null) {
-        return [];
-    }
+    const result = await userTable()
+		.list(page, max, marker);
+	const list = result.list;
     const ret = [];
     const len = list.length;
 	for(let i = 0; i < len; i ++) {
-        // 対象がユーザ情報じゃない場合.
+        // 対象Keyでない場合.
         if(list[i].key != "user") {
             // 無視.
             continue;
@@ -323,7 +341,12 @@ const list = async function(page, max) {
         // ユーザ名をセット.
         ret[ret.length] = list[i].value;
 	}
-	return ret;
+	return {
+		page: page,
+		max: max,
+		marker: result.marker,
+		list: ret
+	};
 }
 
 // 認証用User情報用オブジェクト.
@@ -735,7 +758,7 @@ const UserInfo = function(info) {
 	// ※ 読み込み専用の場合エラーとなります.
 	const save = async function() {
 		_checkReadOnly();
-		await userTable.put("user", info[USER_NAME], info)
+		await userTable().put("user", info[USER_NAME], info)
 		return o;
 	}
 	o.save = save;

@@ -50,27 +50,25 @@ const convertUrlParams = function(urlParams) {
 // 戻り値: encodeURIComponent変換されたパスが返却されます.
 const encodeURIToPath = function(path) {
     path = path.trim();
+    // "/"文字のみの場合.
     // パスが空かパス内に "%" すでにURLEncodeしている場合.
-    if(path.length == 0 || path.indexOf("%") != -1) {
+    if(path.length == 0 || path == "/" || path.indexOf("%") != -1) {
         // 処理しない.
         return path;
     }
     let n, ret;
     const list = path.split("/");
     const len = list.length;
+    // pathの "/" はURLエンコードしないで、それ以外のみURLエンコード処理を行う.
     ret = "";
-    // パスの区切り文字[/]を除外して、
-    // パス名だけをURLEncodeする.
     for(let i = 0; i < len; i ++) {
         n = list[i].trim();
         if(n.length == 0) {
-            continue;
-        }
-        n = encodeURIComponent(n);
-        if(ret.length == 0) {
-            ret = n;
+            ret = ret + "/";
+        } else if(ret.length == 0 || ret == "/") {
+            ret = ret + encodeURIComponent(n);
         } else {
-            ret = ret + "/" + n;
+            ret = ret + "/" + encodeURIComponent(n);
         }
     }
     return ret;
@@ -143,7 +141,7 @@ const request = function(host, path, options) {
         "GET" : options.method.toUpperCase();
     // requestヘッダを取得.
     const header = options.header == undefined ?
-        [] : convertHeaderToLowerKey(options.header);
+        {} : convertHeaderToLowerKey(options.header);
     // requestBodyを取得.
     const body = options.body == undefined ?
         undefined : options.body;

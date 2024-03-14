@@ -63,8 +63,8 @@ if(frequire == undefined) {
 // nodejs library(vm).
 const vm = require('vm');
 
-// s3restApi.
-const s3 = frequire("./lib/s3restApi.js");
+// s3client.
+const s3 = frequire("./lib/s3client.js");
 
 // HttpStatus.
 //const httpStatus = frequire("./lib/httpStatus.js");

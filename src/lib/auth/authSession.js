@@ -36,15 +36,21 @@ const ENV_S3_ASM_PREFIX = "S3_ASM_PREFIX";
 const DEFAULT_S3_ASM_PREFIX = "authSessions";
 
 // ログインセッション管理テーブル.
-const sessionTable = s3kvs.create().currentTable(
-	authUtil.useString(process.env(ENV_S3_ASM_PREFIX)) ?
-		process.env(ENV_S3_ASM_PREFIX) :
-		DEFAULT_S3_ASM_PREFIX
-);
+let _sessionTable = undefined;
+const sessionTable = function() {
+    if(_sessionTable == undefined) {
+        _sessionTable = s3kvs.create().currentTable(
+            authUtil.useString(process.env(ENV_S3_ASM_PREFIX)) ?
+                process.env(ENV_S3_ASM_PREFIX) :
+                DEFAULT_S3_ASM_PREFIX
+        );
+    }
+    return _sessionTable;
+}
 
 // (raw)ユーザーセッション情報を読み込む.
 const _loadSession = async function(user, passCode, sessionId) {
-    const ret = await sessionTable.get("user", user);
+    const ret = await sessionTable().get("user", user);
     if(ret != undefined) {
         // パスコードやセッションIDが一致しない場合エラー.
         if(ret.passCode != passCode ||
@@ -101,7 +107,7 @@ const create = async function(request, user) {
         userInfo: userInfo.get()
     };
     // セッション登録.
-    if(await sessionTable.put("user", user, ret)) {
+    if(await sessionTable().put("user", user, ret)) {
         // 登録時はUserInfoは連想配列で保存なので
         // authUser.UserInfoに再変換(passwordなし)で返却する.
         ret.userInfo = authUser.UserInfo(ret.userInfo);
@@ -144,7 +150,7 @@ const get = async function(user, passCode, sessionId) {
 // 戻り値: trueの場合ユーザーセッションは削除できました.
 const remove = async function(user, passCode, sessionId) {
     try {
-        const ret = await sessionTable.get("user", user);
+        const ret = await sessionTable().get("user", user);
         if(ret != undefined) {
             // パスコードやセッションIDが一致しない場合エラー.
             if(ret.passCode != passCode ||
@@ -152,7 +158,7 @@ const remove = async function(user, passCode, sessionId) {
                 return false;
             }
             // セッション削除.
-            return await sessionTable.remove("user", user);
+            return await sessionTable().remove("user", user);
         }
     } catch(e) {}
     return false;
@@ -170,7 +176,7 @@ const update = async function(user, passCode, sessionId) {
         // 更新日付を更新.
         session.lastModified = Date.now();
         // セッション更新
-        return await sessionTable.put("user", user, session);
+        return await sessionTable().put("user", user, session);
     } catch(e) {}
     return false;
 }

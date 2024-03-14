@@ -39,4 +39,23 @@ const getEnv = function(name) {
 }
 exports.getEnv = getEnv;
 
+// 必須環境変数名をリスト指定して、定義されているかチェック.
+// 定義されていない場合、エラーとなります.
+// list [string, string, string, ...]
+//      チェックしたい環境変数名を設定します.
+// 戻り値: trueの場合、指定環境変数は定義されています.
+const requireEnv = function(list) {
+    const len = list.length;
+    for(let i = 0; i < len; i ++) {
+        if(process.env[list[i]] == undefined) {
+            console.error(
+                "The specified environment variable \'" +
+                    list[i] + "\' is a required setting.");
+            return false;
+        }    
+    }
+    return true;
+}
+exports.requireEnv = requireEnv;
+
 })(global);

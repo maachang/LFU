@@ -52,6 +52,7 @@ exports.print = function() {
     p("     -t or --type Sets the output type of generated random numbers.");
     p("       base64 Output in base64 format.");
     p("       hex Output in hex format.");
+    p();
    
 }
 

@@ -26,8 +26,8 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// s3restApi.
-const s3 = frequire("./lib/s3restApi.js");
+// s3client.
+const s3 = frequire("./lib/s3client.js");
 
 // convb.
 const convb = frequire("./lib/storage/convb.js");
@@ -192,7 +192,7 @@ const decodeKeyValue = function(keyValue) {
 }
 
 // decodeKeyValue でリスト変換.
-// list s3restApi.listObjectsでの取得結果をセット.
+// list s3client.listObjectsでの取得結果をセット.
 // 戻り値: [{key: value} ... ] が返却される.
 const decodeKeyValueList = function(list) {
     let p;
@@ -279,7 +279,6 @@ const tableAccessParams = function(valueCount, args) {
 
     // テーブル名.
     tableName = args[0];
-    off = 1;
 
     // valueCountが存在する場合.
     if(valueCount > 0) {
@@ -291,6 +290,7 @@ const tableAccessParams = function(valueCount, args) {
     }
 
     // indexを設定.
+    off = 1;
     if(end - off > 0) {
         const len = end - off;
         // 2の倍数でない場合.
@@ -373,7 +373,8 @@ const create = function(options) {
         options.bucket = process.env[ENV_MAIN_S3_BUCKET];
         if(options.bucket == null || options.bucket == undefined ||
             options.bucket.length == 0) {
-            throw new Error("Bucket name is empty.");
+            throw new Error("[ENV: " +
+                ENV_MAIN_S3_BUCKET + "]Bucket name is empty.");
         }
     } else {
         // bucket名の整形.
@@ -491,16 +492,8 @@ const create = function(options) {
         return response.status <= 299;
     }
 
-    // 指定テーブルのリスト一覧を取得.
-    // tableName 対象のテーブル名を設定します.
-    // page ページ数を設定します.
-    //      呼び出しに毎回先頭から取得するので、ページ数が多いと「速度低下」に
-    //      繋がるので注意が必要です.
-    // max １ページの最大表示数を設定.
-    //     100件を超える設定はできません.
-    // 戻り値: [{key: value} ... ]
-    //        指定したpath位置以下のobject名のkeyValue群が返却されます.
-    const list = async function(tableName, page, max) {
+    // リスト取得に対するPage、Maxのパラメータチェック.
+    const _checkListPageMax = function(page, max) {
         page = page|0;
         max = max|0;
         // １度に取得できる最大リスト件数の範囲外の場合.
@@ -516,42 +509,145 @@ const create = function(options) {
             throw new Error(
                 "The number of pages is set to zero.");
         }
+    }
+
+    // 指定テーブルのリスト一覧を取得.
+    // ページ番号とページ表示数を設定して取得.
+    // tableName 対象のテーブル名を設定します.
+    // page ページ数を設定します.
+    //      呼び出しに毎回先頭から取得するので、ページ数が多いと「速度低下」に
+    //      繋がるので注意が必要です.
+    // max １ページの最大表示数を設定.
+    //     100件を超える設定はできません.
+    // marker 読み取り開始位置のマーカーを設定します.
+    //        これを設定する事で、page読み込みじゃなく、このmarkerからの
+    //        読み込みとなります.
+    // 戻り値: {page, max, marker, list}
+    //         page: 返却対象のページ番号が設定されます.
+    //         max: 1ページの最大表示数が設定されます.
+    //         nextMarker: 次のページに遷移するMarkerが設定されます.
+    //                     nullの場合、次のページは存在しません.
+    //         list: [{key: value} ... ]
+    //              指定したpath位置以下のobject名のkeyValue群が返却されます.
+    const list = async function(tableName, page, max, marker) {
+        if(typeof(marker) == "string" && marker.length > 0) {
+            return await _nextList(tableName, marker, page, max);
+        }
+        return await _list(tableName, page, max);
+    }
+
+    // 指定テーブルのリスト一覧を取得.
+    // ページ番号とページ表示数を設定して取得.
+    // tableName 対象のテーブル名を設定します.
+    // page ページ数を設定します.
+    //      呼び出しに毎回先頭から取得するので、ページ数が多いと「速度低下」に
+    //      繋がるので注意が必要です.
+    // max １ページの最大表示数を設定.
+    //     100件を超える設定はできません.
+    // 戻り値: {page, max, marker, list}
+    //         page: 返却対象のページ番号が設定されます.
+    //         max: 1ページの最大表示数が設定されます.
+    //         nextMarker: 次のページに遷移するMarkerが設定されます.
+    //                     nullの場合、次のページは存在しません.
+    //         list: [{key: value} ... ]
+    //              指定したpath位置以下のobject名のkeyValue群が返却されます.
+    const _list = async function(tableName, page, max) {
+        page = page|0;
+        max = max|0;
+        _checkListPageMax(page, max);
+        // S3パラメータを取得.
         const pm = getS3Params(
             bucketName, prefixName, tableName, undefined);
         // 利用条件をセット.
         const bucket = pm.Bucket;
         const prefix = pm.Key;
         let cnt = 1;
-        let res = null;
-        let ret = null;
+        let response = undefined;
+        let ret = undefined;
+        let nextMarker = null;
         // １ページの取得条件を設定.
         //  - １回の取得は max.
         //  - 対象のprefixのみ検索.
         //  - Key名のみ取得.
-        const opt = {maxKeys: max, delimiter: "/" + prefix, keyOnly: true};
+        const opt = {maxKeys: max, keyOnly: true};
         while(true) {
-            // response情報.
-            res = {};
+            // response.
+            response = {};
             // 対象のリストを取得.
             ret = await s3.listObject(
-                res, regionName, bucket, prefix, opt,
+                response, regionName, bucket, prefix, opt,
                 credential);
-            // ページ番号の場合.
-            if(cnt >= page) {
+            // NextMarkerが存在しない場合.
+            if(response.header[s3.NEXT_MARKER_NAME] != "true") {
+                nextMarker = null;
+            // 次のNextMarkerが存在する場合.
+            } else {
+                nextMarker = ret[ret.length - 1];
+            }
+            opt.marker = nextMarker;
+            ret = undefined; params = undefined;
+            cnt ++;
+            // 次のnextMarkerが存在しない.
+            // ページ読み込み終了の場合.
+            if(nextMarker == null ||
+                cnt >= page) {
                 // 処理終了.
                 break;
             }
-            //  次の条件が存在しない場合.
-            if(res.header[s3.NEXT_MARKER_NAME] != "true") {
-                return null;
-            }
-            // 次の情報の準備.
-            opt.marker = ret[ret.length - 1].key;
-            ret = undefined; res = undefined;
-            cnt ++;
         }
-        // [{key: value} ... ]で返却.
-        return decodeKeyValueList(ret);
+        return {
+            page: page,
+            max: max,
+            nextMarker: nextMarker,
+            list: decodeKeyValueList(ret)
+        }
+    }
+
+    // 指定テーブルのリスト一覧を取得.
+    // 指定マーカーを設定して、リストを取得.
+    // こちらは list と違ってマーカー指定リスト取得なので、
+    // 速度は遅くなりません.
+    // tableName 対象のテーブル名を設定します.
+    // marker 読み取り開始位置のマーカーを設定します.
+    // page ページ数を設定します.
+    // max １ページの最大表示数を設定.
+    //     100件を超える設定はできません.
+    // 戻り値: {page, max, marker, list}
+    //         page: 返却対象のページ番号が設定されます.
+    //         max: 1ページの最大表示数が設定されます.
+    //         nextMarker: 次のページに遷移するMarkerが設定されます.
+    //                     nullの場合、次のページは存在しません.
+    //         list: [{key: value} ... ]
+    //              指定したpath位置以下のobject名のkeyValue群が返却されます.
+    const _nextList = async function(tableName, marker, page, max) {
+        page = page|0;
+        max = max|0;
+        _checkListPageMax(page, max);
+        marker = typeof(marker) == "string" ? marker : undefined;
+        // S3パラメータを取得.
+        const pm = getS3Params(
+            bucketName, prefixName, tableName, undefined);
+        // response.
+        const response = {};
+        let nextMarker = null;
+        // 対象のリストを取得.
+        ret = await s3.listObject(
+            response, regionName, pm.Bucket, pm.Key,
+            {maxKeys: max, keyOnly: true, marker: marker},
+            credential);
+        // NextMarkerが存在しない場合.
+        if(response.header[s3.NEXT_MARKER_NAME] != "true") {
+            nextMarker = null;
+        // 次のNextMarkerが存在する場合.
+        } else {
+            nextMarker = ret[ret.length - 1];
+        }
+        return {
+            page: page,
+            max: max,
+            nextMarker: nextMarker,
+            list: decodeKeyValueList(ret)
+        };
     }
 
     // オブジェクト.
@@ -589,17 +685,28 @@ const create = function(options) {
                     _appendParams([tableName], arguments));
             }
 
-            // 指定位置のリスト一覧を取得.
+            // 指定テーブルのリスト一覧を取得.
+            // ページ番号とページ表示数を設定して取得.
             // page ページ数を設定します.
             //      呼び出しに毎回先頭から取得するので、ページ数が多いと「速度低下」に
             //      繋がるので注意が必要です.
             // max １ページの最大表示数を設定.
             //     100件を超える設定はできません.
-            // 戻り値: [{key: value} ... ]
-            //        指定したpath位置以下のobject名のkeyValue群が返却されます.
-            ,list: function(page, max) {
-                return list(tableName, page, max);
+            // marker 読み取り開始位置のマーカーを設定します.
+            //        これを設定する事で、page読み込みじゃなく、このmarkerからの
+            //        読み込みとなります.
+            // 戻り値: {page, max, marker, list}
+            //         page: 返却対象のページ番号が設定されます.
+            //         max: 1ページの最大表示数が設定されます.
+            //         nextMarker: 次のページに遷移するMarkerが設定されます.
+            //                     nullの場合、次のページは存在しません.
+            //         list: [{key: value} ... ]
+            //              指定したpath位置以下のobject名のkeyValue群が返却されます.
+            ,list: function() {
+                return list.apply(null,
+                    _appendParams([tableName], arguments));
             }
+
             // 現在のカレントテーブル名を取得.
             // 戻り値: 現在設定されているカレントテーブル名が返却されます.
             ,getCurrentTable: function() {

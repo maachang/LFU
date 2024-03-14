@@ -3,32 +3,17 @@
 (function() {
 'use strict';
 
-// AWS Secrets Manager を利用すると
-// - 10000アクセス毎に0.15USDが発生する.
-//
-// 一方でS3は１ファイル128kbyte以下なら1つのシークレットが月で
-// - 0.0000032USD.
-//
-// で、アクセス数に依存しない事から、明らかにコストダウンできる.
-// > 0.15 / 0.0000032 = 46875個のsecret作成(月管理)ができる.
-//   AWSのSecrets Manager月10kアクセス換算で、46875の
-//   LFU Secretsが作成できることになる(理論値).
-//
-// LFUの観点としては、コストが安くAWSでWebアプリが作れる観点から
-// この辺コストがかからないで、同じような機能提供できる形として
-// 独自規格だが、S3でそれができる仕組みを提供する.
-
 // コマンド引数用.
 const args = require("../modules/args.js");
 
 // 暗号用.
 const cip = require("../modules/fcipher.js");
 
+// util.
+const util = require("../modules/util/util.js");
+
 // s3Client.
 const s3cl = require("../../src/lib/s3client.js");
-
-// loadEnvJSON.
-const envjson = require("../localEnvJSON.js");
 
 // [ENV]メインS3バケット.
 const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
@@ -190,11 +175,11 @@ const getS3ToKeyAndDescription = async function(s3BucketName, key) {
     };
 }
 
-// 指定Keyからvalue要素以外の内容を取得.
+// 指定Keyからvalue意外の内容(key, description)を取得.
 // s3BucketName 対象のS3Bucket名を設定します.
 // key base64変換されていないKeyを設定します.
 // 戻り値: {key: "", description: ""} が返却されます.
-const getValue = async function(s3BucketName, key) {
+const getView = async function(s3BucketName, key) {
     return await getS3ToKeyAndDescription(s3BucketName,
         Buffer.from(key).toString("base64"));
 }
@@ -247,7 +232,8 @@ const removeS3 = async function(s3BucketName, key) {
 
 // s3リストを取得.
 const _listGet = async function(out, params) {
-    const list = await getS3Client().listObjects(params);
+    const result = await getS3Client()
+        .listObjects(params);
 
     // レスポンスステータスが400以上の場合エラー.
     if(params.response.status >= 400) {
@@ -256,6 +242,7 @@ const _listGet = async function(out, params) {
             " prefix: " + params.Prefix);
     }
     // 取得リストに対してKeyとdescriptionを取得してセット.
+    const list = result.list;
     const len = list.length;
     for(let i = 0; i < len; i ++) {
         const key = list[i].substring(params.Prefix.length + 1);
@@ -263,7 +250,7 @@ const _listGet = async function(out, params) {
             params.Bucket, key);
     }
     // 次のMarkerを返却.
-    return params.response.header["x-next-marker"];
+    return result.nextMarker;
 }
 
 // [LFU用]secrets manager 一覧を取得.
@@ -278,7 +265,7 @@ const listS3 = async function(s3BucketName) {
         Bucket: s3BucketName,
         Prefix: outputPrefix,
         MaxKeys: 10,
-        delimiter: "/" + outputPrefix + "/",
+        elimiter: "/" + outputPrefix + "/",
         KeyOnly: true
     };
     // リストを格納するための情報を生成.
@@ -306,7 +293,7 @@ const help = function() {
     p("Performs SecretsManager registration management for LFU.");
     p("The value registered in Secret is packed using LFU's strong encryption process.")
     p("");
-    p("-f or --profile Set the Profile name you want to use in ~/.lfu.env.json.")
+    p("--profile Set the Profile name you want to use in ~/.lfu.env.json.")
     p("-t or --type: [Required]Set the processing type.")
     p("    generate: Generate a new Secret.")
     p("       -k or --key:         [Required]Set the key to register.")
@@ -334,6 +321,7 @@ const help = function() {
     p("       -k or --key:         [Required]Set the key to register.")
     p("       -b or --bucket:      [Optional]Set the S3Bucket name to register.")
     p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
+    p()
 }
 
 // コマンド実行.
@@ -355,8 +343,15 @@ const command = async function() {
         }
         type = type.trim().toLowerCase();
 
-        // loadEnvJSON実行.
-        envjson.reflection(args.get("-f", "--profile"));
+        // ${HOME}/.lfu.env.json を反映する.
+        !require("../lfuEnv.js")
+            .reflection(args.get("--profile"));
+
+        // 必須環境変数が定義されているかチェック.
+        if(!util.requireEnv(["MAIN_S3_BUCKET"])) {
+            _exit(1);
+            return;
+        }
 
         // S3Bucket名が設定されているか.
         let s3Bucket = args.get("-b", "--bucket");
@@ -429,24 +424,7 @@ const command = async function() {
                 return;
             }
             try {
-                const result = await getValue(s3Bucket, key)
-                p(JSON.stringify(result, null, "  "));
-            } catch(e) {
-                error("[ERROR]Retrieval failed.", e)
-            }
-            return;
-        }
-
-        // 1つのsecret内容を取得.
-        if(type == "get") {
-            // 引数を取得.
-            const key = args.get("-k", "--key");
-            if(key == null || key == "") {
-                error("Key setting is required.");
-                return;
-            }
-            try {
-                const result = await getValue(s3Bucket, key)
+                const result = await getView(s3Bucket, key)
                 p(JSON.stringify(result, null, "  "));
             } catch(e) {
                 error("[ERROR]Retrieval failed.", e)
