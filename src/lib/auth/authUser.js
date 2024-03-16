@@ -139,7 +139,7 @@ const _requiredUserInfo = function(info) {
 }
 
 // ユーザ情報を取得.
-// ユーザ名を設定します.
+// user ユーザ名を設定します.
 // 戻り値: UserInfoが返却されます.
 const _getUser = async function(user) {
     if(!authUtil.useString(user)) {

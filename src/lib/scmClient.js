@@ -22,9 +22,6 @@ const cip = frequire("./lib/util/fcipher.js");
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
 
-// [ENV]メインS3バケット.
-const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
-
 // [ENV]S3scm-Prefix.
 const ENV_S3_SCM_PREFIX = "S3_SCM_PREFIX";
 
@@ -33,6 +30,9 @@ const DEFAULT_S3_SCM_PREFIX = "secretsManager";
 
 // descriptionHEAD.
 const DESCRIPTION_HEAD = "q$0I_";
+
+// 埋め込みコード用のdescription.
+const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
 
 // シークレットマネージャ管理用テーブル.
 let _userTable = undefined;
@@ -47,18 +47,17 @@ const userTable = function() {
 	return _userTable;
 }
 
-// 対象secretBodyからvalue情報を取得.
-const getValue = function(key, json) {
+// 対象secretBodyから復元value情報を取得.
+const _decodeValue = function(key, json) {
     const value = json.value;
     const description = json.description;
     // 復号化.
-    const ret = cip.dec(value,
+    return cip.dec(value,
         cip.key(
             cip.fhash(key, true),
             cip.fhash(DESCRIPTION_HEAD + description, true)
         )
     );
-    return ret;
 }
 
 // 登録されている1つのsecret情報を取得.
@@ -69,7 +68,7 @@ const get = async function(key) {
         // jsonを取得.
         const json = await userTable.get("key", key);
         // valueを復号化.
-        return getValue(key, JSON.parse(json));
+        return _decodeValue(key, JSON.parse(json));
     } catch(e) {
         // エラー出力.
         console.warn("[WARN]secret key: " + key, e);
@@ -77,9 +76,6 @@ const get = async function(key) {
         return undefined;
     }
 }
-
-// 埋め込みコード用のdescription.
-const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
 
 // 埋め込みコードのSecret内容を取得.
 // ※埋め込みコードはS3ではなく、環境変数に埋め込まれたコードに対して
@@ -91,11 +87,11 @@ const getEmbed = function(key, embedCode) {
     // 埋め込みコード用のdescriptionを生成.
     const description = DESCRIPTION_EMBED_CODE + key;
     // １回目の復号化.
-    let result = cip.dec(embedCode,
+    const result = cip.dec(embedCode,
         cip.key(cip.fhash(key, true), description)
     );
     // ２回目復号化.
-    return getValue(key, JSON.parse(result));
+    return _decodeValue(key, JSON.parse(result));
 }
 
 ////////////////////////////////////////////////////////////////

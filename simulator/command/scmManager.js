@@ -6,41 +6,11 @@
 // コマンド引数用.
 const args = require("../modules/args.js");
 
-// 暗号用.
-const cip = require("../modules/fcipher.js");
-
 // util.
 const util = require("../modules/util/util.js");
 
-// s3Client.
-const s3cl = require("../../src/lib/s3client.js");
-
-// [ENV]メインS3バケット.
-const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
-
-// [ENV]S3scm-Prefix.
-const ENV_S3_SCM_PREFIX = "S3_SCM_PREFIX";
-
-// デフォルトのプレフィックス.
-const DEFAULT_PREFIX = "secretsManager";
-
-// descriptionなし.
-const NONE_DESCRIPTION = "*???*";
-
-// descriptionHEAD.
-const DESCRIPTION_HEAD = "q$0I_";
-
-// 埋め込みコード用のdescription.
-const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
-
-// S3Prefix.
-const OUTPUT_PREFIX = function() {
-    const env = process.env[ENV_S3_SCM_PREFIX];
-    if(env == undefined) {
-        return DEFAULT_PREFIX;
-    }
-    return env;
-}
+// secretManager.
+const scmMan = require("../../src/lib/scmManager.js");
 
 // lfu用SecretsManagerコマンド名.
 const COMMAND_NAME = "lfuscm";
@@ -52,239 +22,136 @@ const _exit = function(code) {
     });
 }
 
+// 出力.
+const p = function() {
+    console.log.apply(null, arguments);
+}
+
 // エラー出力.
 const error = function() {
     console.error.apply(null, arguments);
     _exit(1);
 }
 
-// [LFU用]secrets manager用のJSONを生成.
-// key secretsManagerに登録するKey名を文字列で設定します.
-// value secretsManagerに登録するValue情報を文字列で設定します.
-// description 説明を設定します.
-// 戻り値: {description: "", value: ""} の文字列が返却されます.
-const createJSON = function(key, value, description) {
-    // keyはstring必須で情報存在が必須.
-    if(!(typeof(key) == "string" && key.length > 0)) {
-        throw new Error("key must be a string.");
-    }
-    // valueはstring必須で情報存在が必須.
-    if(!(typeof(value) == "string" && value.length > 0)) {
-        throw new Error("value must be a string.");
-    }
-    // descriptionが文字列でない場合は空をセット.
-    if(!(typeof(description) == "string" && description.length > 0)) {
-        description = NONE_DESCRIPTION;
-    }
-    // descriptionをbase64変換.
-    description = Buffer.from(description).toString("base64");
-    // 暗号化.
-    const ret = cip.enc(value,
-        cip.key(cip.fhash(key, true),
-            cip.fhash(DESCRIPTION_HEAD + description, true)));
-    // json文字列で戻す.
-    return "{\"description\":\"" + description + "\",\"value\":\"" +
-        Buffer.from(ret).toString() + "\"}";
-};
+// secretJSON情報を表示.
+// json secretJSON情報を設定します.
+const _getSecretView = function(json) {
+    p("[SUCCESS]\n" +
+        JSON.stringify(json, null, "  "));
+}
 
-// [LFU用]secrets manager用の埋め込みコードを生成.
+// 新しいSecret登録を行います.
+// secret secret名を設定します.
+// description 説明を設定します.
+// json secret化するkey, value情報を連想配列で設定します.
+// 戻り値: trueの場合、正常に登録されました.
+const create = async function(secret, description, json) {
+    try {
+        // 生成処理.
+        await scmMan.create(secret, description, json);
+        // 正常に処理が成功した場合、登録結果を出力.
+        return await get(secret);
+    } catch(e) {
+        error(
+            "[ERRPR]Creation of specified secret " +
+            secret + " failed.", e);
+    }
+    return false;
+}
+
+// 新しい組み込みsecretコードを生成します.
 // ※埋め込みコードなので、S3に保存されずに、Lambdaの環境変数埋め込み対応
 //   で利用される事が想定されます.
-// key secretsManagerに登録するKey名を文字列で設定します.
-// value secretsManagerに登録するValue情報を文字列で設定します.
-// 戻り値: 埋め込み用のコードが返却されます.
-const createEmbedCode = function(key, value) {
-    // 埋め込みコード用のdescriptionを生成.
-    const description = DESCRIPTION_EMBED_CODE + key;
-    // 埋め込み用のコード生成.
-    const result = createJSON(key, value, description);
-    // 戻り値を返却.
-    return Buffer.from(
-        cip.enc(result, cip.key(cip.fhash(key, true), description))
-    ).toString();
+// secret secret名を設定します.
+// value value情報を設定します.
+// 戻り値: trueの場合、正常に処理されました.
+const createEmbedCode = function(secret, value) {
+    try {
+        // 組み込みコードを生成.
+        const result = scmMan.createEmbedCode(secret, value);
+        // 生成できたものを表示する.
+        p(result);
+        return true;
+    } catch(e) {
+        error("[ERROR]secret embed code creation failed.", e);
+    }
+    return false;
 }
 
-// [LFU用]s3のprefixKeyからkeyを取得.
-// prefixKey s3のprefixKeyを設定します.
-// 戻り値: key情報が返却されます.
-const getS3PrefixToKey = function(prefixKey) {
-    // OUTPUT_PREFIX が先頭に存在する場合.
-    const outputPrefix = OUTPUT_PREFIX();
-    if(prefixKey.startsWith(outputPrefix + "/")) {
-        prefixKey = prefixKey.substring(outputPrefix.length + 1);
+// secretの削除.
+// secret secret名を設定します.
+// 戻り値: trueの場合削除に成功しまし.
+const remove = function(secret) {
+    try {
+        if(scmMan.remove(secret)) {
+            p("[SUCCESS]Target secret Deletion successful.");
+            return true;
+        } else {
+            console.warn(
+                "[WARN]Secret " + secret + " does not exist.");
+        }
+    } catch(e) {
+        error(
+            "[ERROR]Target secret Deletion failed.", e);
     }
-    // 開始スラッシュは除外.
-    if(prefixKey.startsWith("/")) {
-        prefixKey = prefixKey.substring(1);
-    }
-    // 終了スラッシュは除外.
-    if(prefixKey.endsWith("/")) {
-        prefixKey = prefixKey.substring(0, prefixKey.length - 1);
-    }
-    // base64デコード.
-    return Buffer.from(prefixKey, 'base64').toString();
-}
-
-// [LFU用]jsonに設定されているdescriptionを取得.
-// jsonValue BodyのJSONを設定します.
-// 戻り値: 説明が返却されます.
-const getBodyJsonToDescription = function(jsonValue) {
-    // descriptionはbase64変換されているので、decode.
-    const ret = Buffer.from(jsonValue.description, 'base64').toString();
-    // 未設定な内容の場合.
-    if(ret == NONE_DESCRIPTION) {
-        return "";
-    }
-    return ret;
-}
-
-// s3Clientオブジェクトキャッシュ.
-let s3objCache = undefined;
-
-// S3Clientオブジェクトを取得.
-const getS3Client = function() {
-    if(s3objCache == undefined) {
-        s3objCache = s3cl.create();
-    }
-    return s3objCache;
-}
-
-// [LFU用]対象S3のprefixから、Keyとdescriptionを取得.
-// s3BucketName 対象のS3Bucket名を設定します.
-// key base64変換されているKeyを設定します.
-// 戻り値: {key: "", description: ""} が返却されます.
-const getS3ToKeyAndDescription = async function(s3BucketName, key) {
-    // s3BucketNameはstring必須で情報存在が必須.
-    if(!(typeof(s3BucketName) == "string" && s3BucketName.length > 0)) {
-        throw new Error("s3BucketName must be a string.");
-    }
-    // keyはstring必須で情報存在が必須.
-    if(!(typeof(key) == "string" && key.length > 0)) {
-        throw new Error("key must be a string.");
-    }
-    // s3から情報を取得.
-    const result = await getS3Client().getObject({
-        Bucket: s3BucketName,
-        Key: OUTPUT_PREFIX() + "/" + key
-    });
-    // keyとdescriptionのJSON返却.
-    return {
-        key: getS3PrefixToKey(key),
-        description: getBodyJsonToDescription(
-            JSON.parse(Buffer.from(result).toString()))
-    };
+    return false;
 }
 
 // 指定Keyからvalue意外の内容(key, description)を取得.
-// s3BucketName 対象のS3Bucket名を設定します.
-// key base64変換されていないKeyを設定します.
-// 戻り値: {key: "", description: ""} が返却されます.
-const getView = async function(s3BucketName, key) {
-    return await getS3ToKeyAndDescription(s3BucketName,
-        Buffer.from(key).toString("base64"));
+// secret secret名を設定します.
+// 戻り値: trueの場合、取得に成功しました.
+const get = async function(secret) {
+    try {
+        const json = await scmMan.get(secret);
+         _getSecretView(json);
+        return true;
+    } catch(e) {
+        error("[ERRPR]Target secret does not exist.", e);
+    }
+    return false;
 }
 
-// [LFU用]生成したsecrets managerのValueをS3にUpload.
-// s3BucketName 対象のS3Bucket名を設定します.
-// key secretsManagerに登録するKey名を文字列で設定します.
-// jsonValue JSON暗号加工された内容を設定します.
-// 戻り値: trueの場合、無事更新されました.
-const outputS3 = async function(s3BucketName, key, jsonValue) {
-    // s3BucketNameはstring必須で情報存在が必須.
-    if(!(typeof(s3BucketName) == "string" && s3BucketName.length > 0)) {
-        throw new Error("s3BucketName must be a string.");
-    }
-    // keyはstring必須で情報存在が必須.
-    if(!(typeof(key) == "string" && key.length > 0)) {
-        throw new Error("key must be a string.");
-    }
-    // prefixKeyはbase64変換.
-    const prefixKey = Buffer.from(key).toString("base64");
-    // 送信処理.
-    return await getS3Client().putObject({
-        Bucket: s3BucketName,
-        Key: OUTPUT_PREFIX() + "/" + prefixKey,
-        Body: jsonValue
-    });
-}
-
-// [LFU用]secrets managerから削除.
-// s3BucketName 対象のS3Bucket名を設定します.
-// key secretsManagerに登録するKey名を文字列で設定します.
-// 戻り値: trueの場合、無事削除されました.
-const removeS3 = async function(s3BucketName, key) {
-    // s3BucketNameはstring必須で情報存在が必須.
-    if(!(typeof(s3BucketName) == "string" && s3BucketName.length > 0)) {
-        throw new Error("s3BucketName must be a string.");
-    }
-    // keyはstring必須で情報存在が必須.
-    if(!(typeof(key) == "string" && key.length > 0)) {
-        throw new Error("key must be a string.");
-    }
-    // prefixKeyはbase64変換.
-    const prefixKey = Buffer.from(key).toString("base64");
-    // 削除処理.
-    return await getS3Client().deleteObject({
-        Bucket: s3BucketName,
-        Key: OUTPUT_PREFIX() + "/" + prefixKey
-    });
-}
-
-// s3リストを取得.
-const _listGet = async function(out, params) {
-    const result = await getS3Client()
-        .listObjects(params);
-
-    // レスポンスステータスが400以上の場合エラー.
-    if(params.response.status >= 400) {
-        throw new Error("[ERROR: " + response.status +
-            "]getList bucket: " + bucket +
-            " prefix: " + params.Prefix);
-    }
-    // 取得リストに対してKeyとdescriptionを取得してセット.
-    const list = result.list;
-    const len = list.length;
-    for(let i = 0; i < len; i ++) {
-        const key = list[i].substring(params.Prefix.length + 1);
-        out[out.length] = await getS3ToKeyAndDescription(
-            params.Bucket, key);
-    }
-    // 次のMarkerを返却.
-    return result.nextMarker;
-}
-
-// [LFU用]secrets manager 一覧を取得.
-// s3BucketName 対象のS3Bucket名を設定します.
-// 戻り値: [{key: string, description: string}, ...]
-//   - key key名が格納されます.
-//   - description 説明が格納されます. 
-const listS3 = async function(s3BucketName) {
-    // 基本的なパラメータをセット.
-    const outputPrefix = OUTPUT_PREFIX();
-    const params = {
-        Bucket: s3BucketName,
-        Prefix: outputPrefix,
-        MaxKeys: 10,
-        elimiter: "/" + outputPrefix + "/",
-        KeyOnly: true
-    };
-    // リストを格納するための情報を生成.
-    const ret = [];
-    // リスト一覧が取得完了までループ.
-    while(true) {
-        const marker = await _listGet(ret, params);
-        if(marker == "false") {
-            // 次のmarkerが存在しない場合は返却処理.
-            return ret;
+// 登録Secret一覧を取得.
+// detail trueの場合、Secret毎の詳細情報を含めて表示とします.
+//        false および指定なしの場合は、Secretキー名だけを表示します.
+// 戻り値: trueの場合、取得に成功しました.
+const list = async function(detail) {
+    try {
+        let i, len, marker, off = 0, max = 50;
+        let list = [];
+        while(true) {
+            const n = await scmMan.list(
+                off, max, marker);
+            const lst = n.list;
+            len = lst.length;
+            if(len == 0) {
+                break;
+            }
+            for(i = 0; i < len; i ++) {
+                list[list.length] = lst[i];
+            }
+            off += len;
+            marker = n.marker;
         }
-        params.response = null;
-        params.Marker = marker;
+        // 詳細を取得.
+        if(detail == true) {
+            const n = [];
+            len = list.length;
+            for(i = 0; i < len; i ++) {
+                // Secret表示用として詳細を取得.
+                n[n.length] = await scmMan.get(
+                    list[i]);
+            }
+            list = n;
+        }
+        // JSON出力.
+        p("[SUCCESS]\n" +
+            JSON.stringify(list, null, "  "));
+        return true;
+    } catch(e) {
+        error("[ERROR]Failed to get user list.", e);
     }
-}
-
-// 出力.
-const p = function() {
-    console.log.apply(null, arguments);
+    return false;
 }
 
 // ヘルプ.
@@ -296,31 +163,25 @@ const help = function() {
     p("--profile Set the Profile name you want to use in ~/.lfu.env.json.")
     p("-t or --type: [Required]Set the processing type.")
     p("    generate: Generate a new Secret.")
-    p("       -k or --key:         [Required]Set the key to register.")
-    p("       -v or --value:       [Required]Set the value to register.")
+    p("       -s or --secret:      [Required]Set the key to register.")
     p("       -d or --description: [Optional]Set a description.")
-    p("       -b or --bucket:      [Optional]Set the S3Bucket name to be registered.")
-    p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
+    p("       -k or --key:         *At least one definition is required.")
+    p("       -v or --value:       *At least one definition is required.")
+    p("         > -k hoge -v abcdefg -k moge -v xyz")
+    p("           secretValue will be json={hoge:'abcdefg', moge: 'xyz'}.")
     p("")
     p("   embed: Create the embed code.");
-    p("       -k or --key:         [Required]Set the key to register.")
+    p("       -s or --secret:      [Required]Set the key to register.")
     p("       -v or --value:       [Required]Set the value to register.")
-    p("       -b or --bucket:      [Optional]Set the S3Bucket name to be registered.")
-    p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
     p("")
     p("   list: Display a list of registered secrets.")
-    p("       -b or --bucket:      [Optional]Set the S3Bucket name to register.")
-    p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
+    p("       -d or --detail:      [Optional]If true, show detailed list.")
     p("")
     p("   get: Gets the contents of the specified SecretKey.")
-    p("       -k or --key:         [Required]Set the key to register.")
-    p("       -b or --bucket:      [Optional]Set the S3Bucket name to register.")
-    p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
+    p("       -s or --secret:      [Required]Set the key to register.")
     p("")
-    p("   delete: Delete registered Secret.")
-    p("       -k or --key:         [Required]Set the key to register.")
-    p("       -b or --bucket:      [Optional]Set the S3Bucket name to register.")
-    p("         Required if the environment variable `MAIN_S3_BUCKET` is not set.")
+    p("   remove: Delete registered Secret.")
+    p("       -s or --secret:      [Required]Set the key to register.")
     p()
 }
 
@@ -344,7 +205,7 @@ const command = async function() {
         type = type.trim().toLowerCase();
 
         // ${HOME}/.lfu.env.json を反映する.
-        !require("../lfuEnv.js")
+        require("../lfuEnv.js")
             .reflection(args.get("--profile"));
 
         // 必須環境変数が定義されているかチェック.
@@ -353,98 +214,81 @@ const command = async function() {
             return;
         }
 
-        // S3Bucket名が設定されているか.
-        let s3Bucket = args.get("-b", "--bucket");
-        if(s3Bucket == null || s3Bucket == "") {
-            // 環境変数に登録されている内容を利用する.
-            s3Bucket = process.env[ENV_MAIN_S3_BUCKET];
-            if(s3Bucket == undefined) {
-                error("[ERROR]The S3Bucket name to be registered as a secret has not been set.")
-                return;
-            }
-        }
-
         // secretsManagerに登録.
-        if(type == "generate") {
+        if(type == "generate" || type == "create") {
             // 引数を取得.
-            const key = args.get("-k", "--key");
-            const value = args.get("-v", "--value");
-            if(key == null || key == "") {
-                error("Key setting is required.");
-                return;
-            }
-            if(value == null || value == "") {
-                error("Value setting is required.");
-                return;
-            }
+            const secret = args.get("-s", "--secret");
             let description = args.get("-d", "--description");
-            if(description == null || description == "") {
-                description = "";
+            // value登録情報群を取得.
+            // -k xxx -v yyy -k zzz -v abc
+            //  > json: {xxx: yyy, zzz abc}
+            //    となる.
+            let k, v;
+            const jsonValue = {};
+            let cnt = 0;
+            while(true) {
+                // key: value情報を取得.
+                k = args.next(cnt, "-k", "--key");
+                v = args.next(cnt, "-v", "--value");
+                // key及びvalueが存在しない場合は処理を終了.
+                if(k == null || v == null) {
+                    break;
+                }
+                // JSON追加.
+                jsonValue[k] = v;
             }
-            // json変換.
-            const json = createJSON(key, value, description);
-            // S3に登録.
-            await outputS3(s3Bucket, key, json);
-            p("[SUCCESS]Generation and registration completed successfully.")
+            const result = create(secret, description, jsonValue);
+            if(result) {
+                _exit(0);
+            }
             return;
         }
 
         // 埋め込みコードを生成.
         if(type == "embed") {
             // 引数を取得.
-            const key = args.get("-k", "--key");
+            const secret = args.get("-s", "--secret");
             const value = args.get("-v", "--value");
-            if(key == null || key == "") {
-                error("Key setting is required.");
-                return;
-            }
-            if(value == null || value == "") {
-                error("Value setting is required.");
-                return;
-            }
             // 埋め込みコードを生成.
-            const result = createEmbedCode(key, value);
-            p(result);
+            const result = createEmbedCode(secret, value);
+            if(result) {
+                _exit(0);
+            }
             return;
         }
 
         // secretsManagerに登録.
         if(type == "list") {
-            const result = await listS3(s3Bucket)
-            p(JSON.stringify(result, null, "  "));
+            // 引数を取得.
+            let detail = args.get("-d", "--detail");
+            if(typeof(detail) == "string") {
+                detail = detail.toLowerCase();
+            }
+            const result = await list(detail == "true");
+            if(result) {
+                _exit(0);
+            }
             return;
         }
 
         // 1つのsecret内容を取得.
         if(type == "get") {
             // 引数を取得.
-            const key = args.get("-k", "--key");
-            if(key == null || key == "") {
-                error("Key setting is required.");
-                return;
-            }
-            try {
-                const result = await getView(s3Bucket, key)
-                p(JSON.stringify(result, null, "  "));
-            } catch(e) {
-                error("[ERROR]Retrieval failed.", e)
+            const secret = args.get("-k", "--key");
+            const result = get(secret);
+            if(result) {
+                _exit(0);
             }
             return;
         }
 
         // 1つのsecret内容を削除.
-        if(type == "delete") {
+        if(type == "remove" || type == "delete") {
             // 引数を取得.
-            const key = args.get("-k", "--key");
-            if(key == null || key == "") {
-                error("Key setting is required.");
-                return;
-            }
-            try {
-                const result = await removeS3(s3Bucket, key)
-                p("[SUCCESS]Removed: " + result);
-            } catch(e) {
-                error("[ERROR]Retrieval failed.", e)
+            const secret = args.get("-k", "--key");
+            const result = remove(secret);
+            if(result) {
+                _exit(0);
             }
             return;
         }

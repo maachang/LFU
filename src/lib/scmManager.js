@@ -83,12 +83,13 @@ if(SCM_LIST_LIMIT >= MAX_SCM_LIST_LIMIT) {
 }
 
 // secrets manager用のJSONを生成.
+// stringify trueの場合 JSON.stringify でJSON結果を文字列変換します.
 // key secretsManagerに登録するKey名を文字列で設定します.
-// value secretsManagerに登録するValue情報を文字列で設定します.
 // description 説明を設定します.
+// value secretsManagerに登録するValue情報を文字列で設定します.
 // 戻り値: {key: string, description: string, value: string} の
 //         文字列が返却されます.
-const _createJSON = function(key, value, description) {
+const _createJSON = function(stringify, key, description, value) {
     // keyはstring必須で情報存在が必須.
     if(!(typeof(key) == "string" && key.length > 0)) {
         throw new Error("key must be a string.");
@@ -108,10 +109,16 @@ const _createJSON = function(key, value, description) {
     // key, descriptionをbase64変換.
     key = Buffer.from(key).toString("base64");
     description = Buffer.from(description).toString("base64");
-    // json文字列で戻す.
-    return "{\"key\":\"" + key + "\"," +
-        "\"description\":\"" + description + "\"," +
-        "\"value\":\"" + Buffer.from(ret).toString() + "\"}";
+    // 文字列化.
+    if(stringify == true) {
+        // json文字列で戻す.
+        return "{\"key\":\"" + key + "\"," +
+            "\"description\":\"" + description + "\"," +
+            "\"value\":\"" + ret + "\"}";
+    // jsonのままで返却.
+    } else {
+        return {key: key, description: description, value: ret};
+    }
 };
 
 // [LFU用]生成したsecrets managerのValueをS3にUpload.
@@ -127,13 +134,48 @@ const _outputS3 = async function(key, value) {
     return await userTable.put("key", key, value);
 }
 
+// secret情報を取得.
+// key secret登録Key名を設定します.
+// 戻り値: secret情報が返却されます.
+const _getSeecret = async function(key) {
+    // keyはstring必須で情報存在が必須.
+    if(!(typeof(key) == "string" && key.length > 0)) {
+        throw new Error("key must be a string.");
+    }
+    try {
+        const result = await userTable.get("key", key);
+        if(result != undefined && result != null) {
+            return result;
+        }
+    } catch(e) {
+        // 例外.
+        throw new Error("The secret ("
+            + key + ") does not exist.", e);
+    }
+    return undefined;
+}
+
+// secretが既に登録されているかチェック.
+// key secret登録Key名を設定します.
+// 戻り値: trueの場合、存在します.
+const _isSecret = async function(key) {
+	try {
+		return await _getSeecret(user) != undefined;
+	} catch(e) {}
+	return false;
+}
+
 // 新しいsecrets managerを生成.
 // key secretsManagerに登録するKey名を文字列で設定します.
-// value secretsManagerに登録するValue情報を文字列で設定します.
 // description 説明を設定します.
-const create = async function(key, value, description) {
+// jsonValue secret化するkey, value情報を連想配列で設定します.
+const create = async function(key, description, jsonValue) {
     // json変換.
-    const json = _createJSON(key, value, description);
+    const json = _createJSON(
+        false, key, description, JSON.stringify(jsonValue));
+    if(await _isSecret(key)) {
+        throw new Error(key + " secret already exist.");
+    }
     // S3に登録.
     await _outputS3(key, json);
 }
@@ -141,29 +183,43 @@ const create = async function(key, value, description) {
 // [LFU用]secrets manager用の埋め込みコードを生成.
 // ※埋め込みコードなので、S3に保存されずに、Lambdaの環境変数埋め込み対応
 //   で利用される事が想定されます.
-// key secretsManagerに登録するKey名を文字列で設定します.
-// value secretsManagerに登録するValue情報を文字列で設定します.
+// key key名を設定します.
+// value value情報を設定します.
 // 戻り値: 埋め込み用のコードが返却されます.
 const createEmbedCode = function(key, value) {
+    // keyはstring必須で情報存在が必須.
+    if(!(typeof(key) == "string" && key.length > 0)) {
+        throw new Error("key must be a string.");
+    }
+    // valueはstring必須で情報存在が必須.
+    if(!(typeof(value) == "string" && value.length > 0)) {
+        throw new Error("value must be a string.");
+    }
     // 埋め込みコード用のdescriptionを生成.
     const description = DESCRIPTION_EMBED_CODE +
         key + DESCRIPTION_EMBED_ENDPOINT_CODE;
     // 埋め込み用のコード生成.
-    const result = _createJSON(key, value, description);
+    const result = _createJSON(true, key, value, description);
     // 戻り値を返却.
-    return Buffer.from(
-        cip.enc(result, cip.key(cip.fhash(key, true), description))
-    ).toString();
+    return cip.enc(result, cip.key(
+        cip.fhash(key, true), description));
 }
 
-// [LFU用]jsonに設定されているkeyとdescriptionを取得.
-// value BodyのJSONを設定します.
+// 指定KeyからKeyとdescriptionを取得.
+//  ※管理側のsecretManagerでは、暗号化された内容の取得ができません.
+// key 対象のKey明を設定します.
 // 戻り値: {key: string, description: string} が返却されます.
-const _getBodyJsonToKeyAndDescription = function(value) {
+//         valueを取得する場合は scmClient.getで取得します.
+const get = async function(key) {
+    const result = await _getSeecret(key);
+    if(result == undefined) {
+        throw new Error("The secret ("
+            + key + ") does not exist.");
+    }
     // keyはbase64変換されているので、decode.
-    const key = Buffer.from(jsonValue.key, 'base64').toString();
+    const key = Buffer.from(result.key, 'base64').toString();
     // descriptionはbase64変換されているので、decode.
-    let description = Buffer.from(jsonValue.description, 'base64').toString();
+    let description = Buffer.from(result.description, 'base64').toString();
     // descriptionが未設定な内容の場合.
     if(description == NONE_DESCRIPTION) {
         description = "";
@@ -171,21 +227,7 @@ const _getBodyJsonToKeyAndDescription = function(value) {
     return {
         key: key,
         description: description
-    };
-}
-
-// 指定KeyからKeyとdescriptionを取得.
-//  ※管理側のsecretManagerでは、暗号化された内容の取得ができません.
-// key 対象のKey明を設定します.
-// 戻り値: {key: string, description: string} が返却されます.
-const get = async function(key) {
-    // keyはstring必須で情報存在が必須.
-    if(!(typeof(key) == "string" && key.length > 0)) {
-        throw new Error("key must be a string.");
     }
-    const result = await userTable.get("key", key);
-    // keyとdescriptionのJSON返却.
-    return _getBodyJsonToKeyAndDescription(result);
 }
 
 // [LFU用]secrets managerから削除.

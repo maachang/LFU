@@ -22,6 +22,11 @@ const _exit = function(code) {
     });
 }
 
+// 出力.
+const p = function() {
+    console.log.apply(null, arguments);
+}
+
 // エラー出力.
 const error = function() {
     console.error.apply(null, arguments);
@@ -35,8 +40,7 @@ const getUserInfo = async function(userName) {
     try {
         return await authUser.get(userName);
     } catch(e) {
-        error(
-            "[ERRPR]Target user does not exist.", e);ƒ
+        error("[ERRPR]Target user does not exist.", e);
     }
     return undefined;
 }
@@ -44,8 +48,8 @@ const getUserInfo = async function(userName) {
 // user情報を表示.
 // userInfo userInfoを設定します.
 const getUserView = function(userInfo) {
-    console.log("[SUCCESS]\n" +
-        JSON.stringify(userInfo.getView(). null, "  "));
+    p("[SUCCESS]\n" +
+        JSON.stringify(userInfo.getView(), null, "  "));
 }
 
 // 新しいユーザを作成する.
@@ -99,8 +103,7 @@ const createUser = async function(userName, userType, admin, groups) {
         }
         if(tempPassword != undefined) {
             // 発行された仮パスワードと生成結果を表示.
-            console.log(
-                "[SUCCESS]Temporary password: " + password + "\n" +
+            p("[SUCCESS]Temporary password: " + password + "\n" +
                 JSON.stringify(userInfo.getView(), null, "  "));
         } else {
             // 生成結果を表示.
@@ -188,7 +191,7 @@ const resetPassword = async function(userName) {
         // パスワードリセット.
         const password = userInfo.resetPassword();
         // 発行された仮パスワードを表示.
-        console.log("[SUCCESS]Temporary password: " + password);
+        p("[SUCCESS]Temporary password: " + password);
         return true;
     } catch(e) {
         error("[ERROR]Password reset failed.")
@@ -203,8 +206,7 @@ const remove = async function(userName) {
     try {
         // trueの場合成功.
         if(await authUser.remove(userName)) {
-            console.log(
-                "[SUCCESS]Target user Deletion successful.");
+            p("[SUCCESS]Target user Deletion successful.");
             return true;    
         // falseの場合失敗.
         } else {
@@ -244,8 +246,8 @@ const list = async function(detail) {
         let i, len, marker, off = 0, max = 50;
         let list = [];
         while(true) {
-            const n = await authUser.nextList(
-                marker, off, max);
+            const n = await authUser.list(
+                off, max, marker);
             const lst = n.list;
             len = lst.length;
             if(len == 0) {
@@ -269,18 +271,13 @@ const list = async function(detail) {
             list = n;
         }
         // JSON出力.
-        console.log("[SUCCESS]\n" +
+        p("[SUCCESS]\n" +
             JSON.stringify(list, null, "  "));
         return true;
     } catch(e) {
         error("[ERROR]Failed to get user list.", e);
     }
     return false;
-}
-
-// 出力.
-const p = function() {
-    console.log.apply(null, arguments);
 }
 
 // ヘルプ.
@@ -290,7 +287,7 @@ const help = function() {
     p("");
     p("--profile Set the Profile name you want to use in ~/.lfu.env.json.")
     p("-t or --type: [Required]Set the processing type.")
-    p("  create: Create new authentication and approval users.")
+    p("  generate: Create new authentication and approval users.")
     p("   -u or --user:       [Required]Set the target user name.")
     p("   -m or --mode:       [Optional]\"password\" dedicated to password, \"oauth\" GAS authentication.")
     p("                       If you do not set anything, it will be \"oauth\".")
@@ -346,7 +343,7 @@ const command = async function() {
         }
         
         // create処理.
-        if(type == "create") {
+        if(type == "generate" || type == "create") {
             const user = args.get("-u", "--user");
             const mode = args.get("-m", "--mode");
             const admin = args.isValue("-a", "--admin");
@@ -358,7 +355,7 @@ const command = async function() {
             return;
         }
         // edit処理.
-        else if(type == "edit") {
+        else if(type == "edit" || type == "update") {
             const user = args.get("-u", "--user");
             const admin = args.get("-a", "--admin");
             const put = args.getArray("-p", "-put");
@@ -370,7 +367,7 @@ const command = async function() {
             return;
         }
         // passwordリセット処理.
-        else if(type == "password") {
+        else if(type == "password" || type == "change") {
             const user = args.get("-u", "--user");
             const result = await resetPassword(user);
             if(result) {
@@ -379,7 +376,7 @@ const command = async function() {
             return;
         }
         // remove処理.
-        else if(type == "remove") {
+        else if(type == "remove" || type == "delete") {
             const user = args.get("-u", "--user");
             const result = await remove(user);
             if(result) {
