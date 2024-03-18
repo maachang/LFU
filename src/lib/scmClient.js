@@ -16,6 +16,9 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// auth/util.
+const authUtil = frequire("./lib/auth/util.js");
+
 // 暗号用.
 const cip = frequire("./lib/util/fcipher.js");
 
@@ -28,19 +31,25 @@ const ENV_S3_SCM_PREFIX = "S3_SCM_PREFIX";
 // デフォルトのプレフィックス.
 const DEFAULT_S3_SCM_PREFIX = "secretsManager";
 
+// 区切り文字.
+const SEPARATOR = "%$%";
+
 // descriptionHEAD.
 const DESCRIPTION_HEAD = "q$0I_";
 
 // 埋め込みコード用のdescription.
 const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
 
+// 埋め込みコード用のdescription終端.
+const DESCRIPTION_EMBED_ENDPOINT_CODE = "@$||";
+
 // シークレットマネージャ管理用テーブル.
 let _userTable = undefined;
 const userTable = function() {
 	if(_userTable == undefined) {
 		_userTable = s3kvs.create().currentTable(
-			authUtil.useString(process.env(ENV_S3_SCM_PREFIX)) ?
-				process.env(ENV_S3_SCM_PREFIX) :
+			authUtil.useString(process.env[ENV_S3_SCM_PREFIX]) ?
+				process.env[ENV_S3_SCM_PREFIX] :
 				DEFAULT_S3_SCM_PREFIX
 		);
 	}
@@ -49,13 +58,14 @@ const userTable = function() {
 
 // 対象secretBodyから復元value情報を取得.
 const _decodeValue = function(key, json) {
-    const value = json.value;
-    const description = json.description;
+    const description = Buffer.from(json.description, "base64").toString();
+    const createTime = Buffer.from(json.createTime, "base64").toString();
+    const createUser = Buffer.from(json.createUser, "base64").toString();
     // 復号化.
-    return cip.dec(value,
+    return cip.dec(json.value,
         cip.key(
-            cip.fhash(key, true),
-            cip.fhash(DESCRIPTION_HEAD + description, true)
+            cip.fhash(key + SEPARATOR + createTime, true),
+            cip.fhash(DESCRIPTION_HEAD + description + SEPARATOR + createUser, true)
         )
     );
 }
@@ -63,18 +73,15 @@ const _decodeValue = function(key, json) {
 // 登録されている1つのsecret情報を取得.
 // key 対象のkeyを設定します.
 // 戻り値: secretValueが返却されます.
+//         存在しない場合はundefined返却されます.
 const get = async function(key) {
-    try {
-        // jsonを取得.
-        const json = await userTable.get("key", key);
-        // valueを復号化.
-        return _decodeValue(key, JSON.parse(json));
-    } catch(e) {
-        // エラー出力.
-        console.warn("[WARN]secret key: " + key, e);
-        // 存在しない場合は空返却.
+    // jsonを取得.
+    const json = await userTable().get("key", key);
+    if(json == null) {
         return undefined;
     }
+    // valueを復号化.
+    return _decodeValue(key, json);
 }
 
 // 埋め込みコードのSecret内容を取得.
@@ -85,7 +92,8 @@ const get = async function(key) {
 // 戻り値: 復号結果が返却されます.
 const getEmbed = function(key, embedCode) {
     // 埋め込みコード用のdescriptionを生成.
-    const description = DESCRIPTION_EMBED_CODE + key;
+    const description = DESCRIPTION_EMBED_CODE + key +
+        DESCRIPTION_EMBED_ENDPOINT_CODE;
     // １回目の復号化.
     const result = cip.dec(embedCode,
         cip.key(cip.fhash(key, true), description)

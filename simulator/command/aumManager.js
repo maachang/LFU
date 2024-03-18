@@ -70,17 +70,25 @@ const createUser = async function(userName, userType, admin, groups) {
         // 権限付与指定が行われてる場合.
         if(typeof(admin) == "string") {
             admin = admin.trim().toLowerCase();
+            admin = admin == "true";
+        }
+        if(typeof(admin) == "boolean") {
             // 管理者権限.
-            if(admin == "true") {
+            if(admin == true) {
                 // trueの場合はadmin権限付与.
                 userInfo.setAdminPermission();
                 changeUser = true;
             // 一般ユーザ権限.
-            } else if(admin == "false") {
+            } else if(admin == false) {
                 // falseの場合はユーザ権限付与.
                 userInfo.setUserPermission();
                 changeUser = true;
             }
+        // 権限設定が存在しない.
+        } else {
+            // falseの場合はユーザ権限付与.
+            userInfo.setUserPermission();
+            changeUser = true;
         }
         // グループが指定されている場合.
         if(Array.isArray(groups) && groups.length > 0) {
@@ -103,7 +111,7 @@ const createUser = async function(userName, userType, admin, groups) {
         }
         if(tempPassword != undefined) {
             // 発行された仮パスワードと生成結果を表示.
-            p("[SUCCESS]Temporary password: " + password + "\n" +
+            p("[SUCCESS]Temporary password: \"" + tempPassword + "\"\n\n" +
                 JSON.stringify(userInfo.getView(), null, "  "));
         } else {
             // 生成結果を表示.
@@ -138,7 +146,11 @@ const editUser = async function(userName, admin, addGroups, removeGroups) {
     try {
         let changeUser = false;
         // 権限付与指定が行われてる場合.
-        if(admin == true || admin == false) {
+        if(typeof(admin) == "string") {
+            admin = admin.trim().toLowerCase();
+            admin = admin == "true";
+        }
+        if(typeof(admin) == "boolean") {
             if(admin == true) {
                 // trueの場合はadmin権限付与.
                 userInfo.setAdminPermission();
@@ -191,7 +203,7 @@ const resetPassword = async function(userName) {
         // パスワードリセット.
         const password = userInfo.resetPassword();
         // 発行された仮パスワードを表示.
-        p("[SUCCESS]Temporary password: " + password);
+        p("[SUCCESS]Temporary password: \"" + password + "\"");
         return true;
     } catch(e) {
         error("[ERROR]Password reset failed.")
@@ -233,7 +245,7 @@ const getUser = async function(userName) {
         return true;
     } catch(e) {
         error(
-            "[ERRPR]Target user does not exist.", e);ƒ
+            "[ERRPR]Target user does not exist.", e);
     }
     return false;
 }
@@ -250,14 +262,14 @@ const list = async function(detail) {
                 off, max, marker);
             const lst = n.list;
             len = lst.length;
-            if(len == 0) {
-                break;
-            }
             for(i = 0; i < len; i ++) {
                 list[list.length] = lst[i];
             }
             off += len;
             marker = n.marker;
+            if(len == 0 || marker == null) {
+                break;
+            }
         }
         // 詳細を取得.
         if(detail == true) {
@@ -265,8 +277,8 @@ const list = async function(detail) {
             len = list.length;
             for(i = 0; i < len; i ++) {
                 // ユーザ表示用として詳細を取得.
-                n[n.length] = await authUser.get(
-                    list[i]).getView();
+                n[n.length] = (await authUser.get(list[i]))
+                    .getView();
             }
             list = n;
         }
@@ -283,34 +295,44 @@ const list = async function(detail) {
 // ヘルプ.
 const help = function() {
     p("Usage: %s [OPTION]...", COMMAND_NAME);
-    p("It is a command that manages user information for authentication and approval with LFU.");
+    p("It is a command that manages user information for authentication and")
+    p(" approval with LFU.");
     p("");
-    p("--profile Set the Profile name you want to use in ~/.lfu.env.json.")
-    p("-t or --type: [Required]Set the processing type.")
-    p("  generate: Create new authentication and approval users.")
+    p("  --profile Set the Profile name you want to use in ~/.lfu.env.json.")
+    p("");
+    p("Set execution subcommand [generate] [edit] [password] [remove] [get] [list].")
+    p("> " + COMMAND_NAME + " [Set execution subcommand]")
+    p(" generate: Create new authentication and approval users.")
     p("   -u or --user:       [Required]Set the target user name.")
-    p("   -m or --mode:       [Optional]\"password\" dedicated to password, \"oauth\" GAS authentication.")
+    p("   -m or --mode:       [Optional]\"password\" dedicated to password,")
+    p("                                 \"oauth\" GAS authentication.")
     p("                       If you do not set anything, it will be \"oauth\".")
     p("                       For password users, a temporary password is registered.")
     p("   -a or --admin:      [Optional]For Admin users, define this content.")
-    p("   -g or --group:      [Optional]Define a group addition, for example, when doing multiple ABC, Xyz.")
+    p("   -g or --group:      [Optional]Define a group addition, for example,")
+    p("                                 when doing multiple ABC, Xyz.")
     p("                       > -g ABC -g xyz")
-    p("  edit: Edit to existing users.")
+    p(" edit: Edit to existing users.")
     p("   -u or --user:       [Required]Set the target user name.")
-    p("   -a or --admin:      [Optional]Set to true if you want to grant administrator privileges, or false if you are a general user.Do not set anything else.")
-    p("   -p or --put:        [Optional]Set the group you want to add. The addition of multiple groups is as follows.")
+    p("   -a or --admin:      [Optional]Set to 'true' if you want to grant administrator")
+    p("                                 privileges, or 'false' if you are a general user.")
+    p("                                 Do not set anything else.")
+    p("   -p or --put:        [Optional]Set the group you want to add. The addition of")
+    p("                                 multiple groups is as follows.")
     p("                       > -p ABC -p xyz")
-    p("   -r or --remove:     [Optional]Set the group you want to delete. The addition of multiple groups is as follows.")
+    p("   -r or --remove:     [Optional]Set the group you want to delete. The addition")
+    p("                                 of multiple groups is as follows.")
     p("                       > -r ABC -r xyz")
-    p("  password: Reset the password of the target password user.")
-    p("            For password users, a temporary password is registered.")
+    p(" password: Reset the password of the target password user.")
+    p("           For password users, a temporary password is registered.")
     p("   -u or --user:       [Required]Set the target user name.")
-    p("  remove: Delete the specified user.")
+    p(" remove: Delete the specified user.")
     p("   -u or --user:       [Required]Set the target user name.")
-    p("  get: Displays the setting information of the specified user.")
+    p(" get: Displays the setting information of the specified user.")
     p("   -u or --user:       [Required]Set the target user name.")
-    p("  list: Display the registered user list.")
-    p("   -d or --detail:     [Optional]If this content is defined, output user detailed information.")
+    p(" list: Display the registered user list.")
+    p("   -d or --detail:     [Optional]If this content is defined, output user")
+    p("                                 detailed information.")
     p();
 }
 
@@ -324,11 +346,14 @@ const command = async function() {
             return;
         }
 
-        // typeを取得.
-        let type = args.get("-t", "--type");
+        // 実行副コマンドを取得.
+        let type = args.get(0);
         if(type == null || type == "") {
             // 設定されてない場合.
-            error("[ERROR]Processing type not set.");
+            //error("[ERROR]Execution subcommand not set.");
+            // エラー+helpを出力.
+            help()
+            _exit(1);
             return;
         }
         type = type.trim().toLowerCase();
@@ -394,7 +419,7 @@ const command = async function() {
             return;
         }
         // list処理.
-        else if(type == "list") {
+        else if(type == "list" || type == "ls") {
             const detail = args.isValue("-d", "--detail");
             const result = await list(detail);
             if(result) {
@@ -412,7 +437,7 @@ const command = async function() {
         }
         
         // それ以外.
-        error("[ERROR]Unsupported type specification: " + type);
+        error("[ERROR]Execution subcommand not set: " + type);
 
     } catch(e) {
         // エラー出力.

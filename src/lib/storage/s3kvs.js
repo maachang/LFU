@@ -505,7 +505,7 @@ const create = function(options) {
             throw new Error("The maximum number of lists (" +
                 MAX_LIST + ") has been exceeded.");
         // ページ番号が正しくない場合.
-        } else if(page <= 0) {
+        } else if(page < 0) {
             throw new Error(
                 "The number of pages is set to zero.");
         }
@@ -585,12 +585,10 @@ const create = function(options) {
                 nextMarker = ret[ret.length - 1];
             }
             opt.marker = nextMarker;
-            ret = undefined; params = undefined;
             cnt ++;
-            // 次のnextMarkerが存在しない.
+            // 次のnextMarkerがnullの場合.
             // ページ読み込み終了の場合.
-            if(nextMarker == null ||
-                cnt >= page) {
+            if(nextMarker == null || cnt >= page) {
                 // 処理終了.
                 break;
             }

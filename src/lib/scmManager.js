@@ -32,6 +32,10 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// auth/util.
+const authUtil = frequire("./lib/auth/util.js");
+
+// 暗号復号.
 const cip = frequire("./lib/util/fcipher.js");
 
 // S3KevValueStorage.
@@ -43,11 +47,14 @@ const ENV_S3_SCM_PREFIX = "S3_SCM_PREFIX";
 // デフォルトのプレフィックス.
 const DEFAULT_S3_SCM_PREFIX = "secretsManager";
 
-// descriptionなし.
-const NONE_DESCRIPTION = "*???*";
+// 設定なし.
+const NONE_DATA = "*???*";
 
 // descriptionHEAD.
 const DESCRIPTION_HEAD = "q$0I_";
+
+// 区切り文字.
+const SEPARATOR = "%$%";
 
 // 埋め込みコード用のdescription.
 const DESCRIPTION_EMBED_CODE = "#015_$00000032_%";
@@ -60,8 +67,8 @@ let _userTable = undefined;
 const userTable = function() {
 	if(_userTable == undefined) {
 		_userTable = s3kvs.create().currentTable(
-			authUtil.useString(process.env(ENV_S3_SCM_PREFIX)) ?
-				process.env(ENV_S3_SCM_PREFIX) :
+			authUtil.useString(process.env[ENV_S3_SCM_PREFIX]) ?
+				process.env[ENV_S3_SCM_PREFIX] :
 				DEFAULT_S3_SCM_PREFIX
 		);
 	}
@@ -86,10 +93,13 @@ if(SCM_LIST_LIMIT >= MAX_SCM_LIST_LIMIT) {
 // stringify trueの場合 JSON.stringify でJSON結果を文字列変換します.
 // key secretsManagerに登録するKey名を文字列で設定します.
 // description 説明を設定します.
+// createTime 生成時間を設定します.
+// createUser 生成ユーザを設定します.
 // value secretsManagerに登録するValue情報を文字列で設定します.
 // 戻り値: {key: string, description: string, value: string} の
 //         文字列が返却されます.
-const _createJSON = function(stringify, key, description, value) {
+const _createJSON = function(
+    stringify, key, description, createTime, createUser, value) {
     // keyはstring必須で情報存在が必須.
     if(!(typeof(key) == "string" && key.length > 0)) {
         throw new Error("key must be a string.");
@@ -100,24 +110,43 @@ const _createJSON = function(stringify, key, description, value) {
     }
     // descriptionが文字列でない場合は空をセット.
     if(!(typeof(description) == "string" && description.length > 0)) {
-        description = NONE_DESCRIPTION;
+        description = NONE_DATA;
+    }
+    // createTimeが設定されていない場合.
+    if(createTime == undefined || createTime == null) {
+        createTime = -1;
+    }
+    // createTimeを文字列化.
+    createTime = "" + createTime;
+    if(!(typeof(createUser) == "string" && createUser.length > 0)) {
+        createUser = NONE_DATA;
     }
     // 暗号化.
     const ret = cip.enc(value,
-        cip.key(cip.fhash(key, true),
-            cip.fhash(DESCRIPTION_HEAD + description, true)));
-    // key, descriptionをbase64変換.
+        cip.key(cip.fhash(key + SEPARATOR + createTime, true),
+            cip.fhash(DESCRIPTION_HEAD + description + SEPARATOR + createUser, true)));
+    // base64変換.
     key = Buffer.from(key).toString("base64");
     description = Buffer.from(description).toString("base64");
+    createTime = Buffer.from(createTime).toString("base64");
+    createUser = Buffer.from(createUser).toString("base64");
     // 文字列化.
     if(stringify == true) {
         // json文字列で戻す.
         return "{\"key\":\"" + key + "\"," +
             "\"description\":\"" + description + "\"," +
+            "\"createTime\":\"" + createTime + "\"," +
+            "\"createUser\":\"" + createUser + "\"," +
             "\"value\":\"" + ret + "\"}";
     // jsonのままで返却.
     } else {
-        return {key: key, description: description, value: ret};
+        return {
+            key: key,
+            description: description,
+            createTime: createTime,
+            createUser: createUser,
+            value: ret
+        };
     }
 };
 
@@ -131,7 +160,7 @@ const _outputS3 = async function(key, value) {
         throw new Error("key must be a string.");
     }
     // 送信処理.
-    return await userTable.put("key", key, value);
+    return await userTable().put("key", key, value);
 }
 
 // secret情報を取得.
@@ -143,7 +172,7 @@ const _getSeecret = async function(key) {
         throw new Error("key must be a string.");
     }
     try {
-        const result = await userTable.get("key", key);
+        const result = await userTable().get("key", key);
         if(result != undefined && result != null) {
             return result;
         }
@@ -168,11 +197,14 @@ const _isSecret = async function(key) {
 // 新しいsecrets managerを生成.
 // key secretsManagerに登録するKey名を文字列で設定します.
 // description 説明を設定します.
+// createUser 生成したユーザ名を設定します.
 // jsonValue secret化するkey, value情報を連想配列で設定します.
-const create = async function(key, description, jsonValue) {
+const create = async function(
+    key, description, createUser, jsonValue) {
     // json変換.
     const json = _createJSON(
-        false, key, description, JSON.stringify(jsonValue));
+        false, key, description, Date.now(), createUser,
+        JSON.stringify(jsonValue));
     if(await _isSecret(key)) {
         throw new Error(key + " secret already exist.");
     }
@@ -199,7 +231,8 @@ const createEmbedCode = function(key, value) {
     const description = DESCRIPTION_EMBED_CODE +
         key + DESCRIPTION_EMBED_ENDPOINT_CODE;
     // 埋め込み用のコード生成.
-    const result = _createJSON(true, key, value, description);
+    const result = _createJSON(
+        true, key, description, null, null, value);
     // 戻り値を返却.
     return cip.enc(result, cip.key(
         cip.fhash(key, true), description));
@@ -217,16 +250,30 @@ const get = async function(key) {
             + key + ") does not exist.");
     }
     // keyはbase64変換されているので、decode.
-    const key = Buffer.from(result.key, 'base64').toString();
+    key = Buffer.from(result.key, 'base64').toString();
     // descriptionはbase64変換されているので、decode.
-    let description = Buffer.from(result.description, 'base64').toString();
+    let description = Buffer.from(result.description, 'base64')
+        .toString();
     // descriptionが未設定な内容の場合.
-    if(description == NONE_DESCRIPTION) {
+    if(description == NONE_DATA) {
         description = "";
+    }
+    // createTimeはbase64変換されているので、decode.
+    const createTime = parseInt(Buffer.from(result.createTime, 'base64')
+        .toString());
+    // createUserはbase64変換されているので、decode.
+    let createUser = Buffer.from(result.createUser, 'base64')
+        .toString();
+    // createUserが未設定な内容の場合.
+    if(createUser == NONE_DATA) {
+        createUser = "";
     }
     return {
         key: key,
-        description: description
+        description: description,
+        createTime: createTime == -1 ?
+            new Date(0) : new Date(createTime),
+        createUser: createUser
     }
 }
 
@@ -234,11 +281,16 @@ const get = async function(key) {
 // key secretsManagerに登録するKey名を文字列で設定します.
 // 戻り値: trueの場合、無事削除されました.
 const remove = async function(key) {
+    const result = await _getSeecret(key);
+    if(result == undefined) {
+        throw new Error("The secret ("
+            + key + ") does not exist.");
+    }
     // keyはstring必須で情報存在が必須.
     if(!(typeof(key) == "string" && key.length > 0)) {
         throw new Error("key must be a string.");
     }
-    return await userTable.remove("key", key);
+    return await userTable().remove("key", key);
 }
 
 // [LFU用]secrets manager一覧を取得.
@@ -285,7 +337,7 @@ const list = async function(page, max, marker) {
 	return {
 		page: page,
 		max: max,
-		marker: result.marker,
+		marker: result.nextMarker,
 		list: ret
 	};
 }

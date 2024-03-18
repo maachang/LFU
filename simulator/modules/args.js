@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////
 // nodejs 起動パラメータ解釈.
 ////////////////////////////////////////////////
-(function(_g) {
+(function() {
 'use strict';
 
 const nums = require("./util/nums.js");
@@ -43,14 +43,15 @@ const args = init();
 const o = {};
 
 // 指定ヘッダ名を設定して、要素を取得します.
-// names 対象のヘッダ名を設定します.
+// get("-y", "--yes")
+//   -y xxxx or --yes xxxx のxxxxの条件を取得します.
 // 戻り値: 文字列が返却されます.
 o.get = function() {
     if(arguments == null) {
         return null;
     }
     const len = arguments.length;
-    const params = [0];
+    const params = [0]; // next(0, ...);
     for(let i = 0; i < len; i ++) {
         params[i + 1] = arguments[i];
     }
@@ -58,7 +59,7 @@ o.get = function() {
 }
 
 // 指定ヘッダ名を設定して、要素を取得します.
-// names 対象のヘッダ名を設定します.
+// 引数条件はgetと同じです.
 // 戻り値: 数字が返却されます.
 o.getNumber = function() {
     const v = o.get.apply(null, arguments);
@@ -69,7 +70,7 @@ o.getNumber = function() {
 }
 
 // 指定ヘッダ名を設定して、要素を取得します.
-// names 対象のヘッダ名を設定します.
+// 引数条件はgetと同じです.
 // 戻り値: Booleanが返却されます.
 o.getBoolean = function() {
     let v = o.get.apply(null, arguments);
@@ -90,21 +91,25 @@ o.getBoolean = function() {
 //
 // このような情報が定義されてる場合にたとえば
 // next(0, "-i") なら "abc" が返却され
-// next(1, "-i") なら "def" が返却されます.
+// next(1, "-i") なら "def" が返却され
+// next(2, "-i") なら "xyz" が返却されます.
 //
-// no 取得番目番号を設定します.
-// names 対象のヘッダ名を設定します.
 // 戻り値: 文字列が返却されます.
 o.next = function() {
     if(arguments == null) {
         return null;
     }
     const no = arguments[0];
+    // next(0, ...)なので、実際の引数の長さを-1する.
     const len = arguments.length - 1;
+    // 数字で直接指定している場合.
     if(len == 1 && nums.isNumeric(arguments[1])) {
         const pos = arguments[1]|0;
         if(pos >= 0 && pos < args.length) {
-            return args[pos];
+            // args[0] = undefined
+            // args[1] = node xxx.js だと xxx.js が格納される.
+            // なので、開始位置を+2する.
+            return args[pos + 2];
         }
         return null;
     }
@@ -112,7 +117,7 @@ o.next = function() {
     let cnt = 0;
     const lenJ = args.length - 1;
     for(i = 0; i < len; i ++) {
-        for (j = 0; j < lenJ; j++) {
+        for (j = 2; j < lenJ; j++) {
             if (arguments[i + 1] == args[j]) {
                 if(no <= cnt) {
                     return args[j + 1];
@@ -125,8 +130,7 @@ o.next = function() {
 }
 
 // 指定ヘッダ名を設定して、要素を取得します.
-// no 取得番目番号を設定します.
-// names 対象のヘッダ名を設定します.
+// 引数条件はnextと同じです.
 // 戻り値: 数字が返却されます.
 o.nextNumber = function() {
     const v = o.next.apply(null, arguments);
@@ -137,8 +141,7 @@ o.nextNumber = function() {
 }
 
 // 指定ヘッダ名を設定して、要素を取得します.
-// no 取得番目番号を設定します.
-// names 対象のヘッダ名を設定します.
+// 引数条件はnextと同じです.
 // 戻り値: Booleanが返却されます.
 o.nextBoolean = function() {
     let v = o.next.apply(null, arguments);
@@ -233,4 +236,4 @@ for(let k in o) {
     exports[k] = o[k];
 }
 
-})(global);
+})();

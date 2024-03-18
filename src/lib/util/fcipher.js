@@ -461,7 +461,7 @@ o.bdec = function(value, pKey, head) {
 const _randKey = function() {
     let bin = new Uint8Array(32);
     for(let i = 0 ; i < 32 ; i ++) {
-        bin[i] = (RAND.next() & 0x000000ff);
+        bin[i] = (RAND.nextInt() & 0x000000ff);
     }
     return bin;
 }

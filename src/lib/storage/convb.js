@@ -330,30 +330,42 @@ const decodeFloat = function(pos, bin) {
 exports.decodeFloat = decodeFloat;
 
 // long型の32bit計算係数.
-const _LONG_BY32 = 0x100000000;
+// 0x100000000の数字.
+const _LONG_BY32 = 4294967296;
 
 // long(64bit整数)のエンコード.
 // out バイナリをセットするArrayを設定します.
 // value long(64bit整数)を設定します.
 const encodeLong = function(out, value) {
-    let high = (value / _LONG_BY32)|0;
-    if(high != 0) {
-        if(high > 0) {
-            high += 1;
-        } else {
-            high -= 1;
-        }
-    }
-    const low = (((value / _LONG_BY32) - high) * _LONG_BY32)|0;
+    let low, high;
     let p = out.length;
+    // マイナスの場合は文字列で保存.
+    // 微妙にjsの64bit計算が面倒なので文字列で持つ.
+    if(value < 0) {
+        // 文字列変換.
+        value = value.toString();
+        const len = value.length;
+        out[p ++] = 1; // マイナスセット.
+        out[p ++] = (len - 1) & 0x0ff; // 長さセット.
+        // -を加えない.
+        for(let i = 1; i < len; i ++) {
+            out[p ++] = value[i] - "0";
+        }
+        return out;
+    }
+    // プラスの数字の場合.
+    low = value & 0xffffffff;
+    high = (value / _LONG_BY32)|0;
+    out[p ++] = 0; // プラス.
     out[p ++] = low & 0x0ff;
-    out[p ++] = (low & 0x0ff00) >> 8;
-    out[p ++] = (low & 0x0ff0000) >> 16;
-    out[p ++] = (low & 0x0ff000000) >> 24;
+    out[p ++] = ((low & 0x0ff00) >> 8) & 0x0ff;
+    out[p ++] = ((low & 0x0ff0000) >> 16) & 0x0ff;
+    out[p ++] = ((low & 0x0ff000000) >> 24) & 0x0ff;
     out[p ++] = high & 0x0ff;
-    out[p ++] = (high & 0x0ff00) >> 8;
-    out[p ++] = (high & 0x0ff0000) >> 16;
-    out[p ++] = (high & 0x0ff000000) >> 24;
+    out[p ++] = ((high & 0x0ff00) >> 8) & 0x0ff;
+    out[p ++] = ((high & 0x0ff0000) >> 16) & 0x0ff;
+    out[p ++] = ((high & 0x0ff000000) >> 24) & 0x0ff;
+    return out;
 }
 // 外部定義.
 exports.encodeLong = encodeLong;
@@ -366,16 +378,30 @@ exports.encodeLong = encodeLong;
 // 戻り値: デコードされたlong(64bit整数)が返却されます.
 const decodeLong = function(pos, bin) {
     let p = pos[0];
-    const low = ((bin[p ++] & 0x0ff) |
-        ((bin[p ++] & 0x0ff) << 8) |
-        ((bin[p ++] & 0x0ff) << 16) |
-        ((bin[p ++] & 0x0ff) << 24));
-    const high = ((bin[p ++] & 0x0ff) |
-        ((bin[p ++] & 0x0ff) << 8) |
-        ((bin[p ++] & 0x0ff) << 16) |
-        ((bin[p ++] & 0x0ff) << 24));
-    pos[0] = p;
-    return (high * _LONG_BY32) + low;
+    const type = bin[p ++];
+    // プラスの数字の場合.
+    if(type == 0) {
+        const low = ((bin[p ++] & 0x0ff) +
+            ((bin[p ++] & 0x0ff) * (1 << 8)) +
+            ((bin[p ++] & 0x0ff) * (1 << 16)) +
+            ((bin[p ++] & 0x0ff) * (1 << 24)));
+        const high = ((bin[p ++] & 0x0ff) +
+            ((bin[p ++] & 0x0ff) * (1 << 8)) +
+            ((bin[p ++] & 0x0ff) * (1 << 16)) +
+            ((bin[p ++] & 0x0ff) * (1 << 24)));
+        pos[0] = p;
+        return (high * _LONG_BY32) + low;
+    // マイナスの場合.
+    } else if(type == 1) {
+        // 長さを取得.
+        const len = bin[p ++] & 0x0ff;
+        let str = "-";
+        for(let i = 0; i < len; i ++) {
+            str = str + bin[p ++];
+        }
+        return parseInt(str);
+    }
+    throw new Error("Unknown long decoding type: " + type);
 }
 // 外部定義.
 exports.decodeLong = decodeLong;

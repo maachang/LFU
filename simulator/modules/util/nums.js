@@ -117,13 +117,16 @@ o.Xor128 = function(seet) {
   
   // シートセット.
   r.setSeet = function(s) {
-    if (o.isNumeric(s)) {
-      const n = this.v;
-      s = s|0;
-      n.a=s=1812433253*(s^(s>>30))+1;
-      n.b=s=1812433253*(s^(s>>30))+2;
-      n.c=s=1812433253*(s^(s>>30))+3;
-      n.d=s=1812433253*(s^(s>>30))+4;
+    if (typeof(s) == "number") {
+      let hs = ((s / 1812433253)|0) + 1;
+      let ls = ((s % 1812433253)|0) - 1;
+      if((ls & 0x01) == 0) {
+        hs = (~hs)|0;
+      }
+      _a=hs=(((this.v.a*(~ls))*hs)+1)|0;
+      if((this.v.a & 0x01) == 1) {
+        this.v.c=(((this.v.c*(~ls))*hs)-1)|0;
+      }
     }
   }  
   // 乱数取得.

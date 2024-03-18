@@ -7,3 +7,5 @@ coverage
 .minSrc
 lfu.zip
 src.zip
+
+test.js

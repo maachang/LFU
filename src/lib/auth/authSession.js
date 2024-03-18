@@ -40,8 +40,8 @@ let _sessionTable = undefined;
 const sessionTable = function() {
     if(_sessionTable == undefined) {
         _sessionTable = s3kvs.create().currentTable(
-            authUtil.useString(process.env(ENV_S3_ASM_PREFIX)) ?
-                process.env(ENV_S3_ASM_PREFIX) :
+            authUtil.useString(process.env[ENV_S3_ASM_PREFIX]) ?
+                process.env[ENV_S3_ASM_PREFIX] :
                 DEFAULT_S3_ASM_PREFIX
         );
     }

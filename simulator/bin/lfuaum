@@ -1,2 +1,2 @@
 ARGS=${*}
-node ${LFU_HOME}/simulator/command/authUserManager ${ARGS}
+node ${LFU_HOME}/simulator/command/aumManager ${ARGS}

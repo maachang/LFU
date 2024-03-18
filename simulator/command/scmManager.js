@@ -48,7 +48,7 @@ const _getSecretView = function(json) {
 const create = async function(secret, description, json) {
     try {
         // 生成処理.
-        await scmMan.create(secret, description, json);
+        await scmMan.create(secret, description, null, json);
         // 正常に処理が成功した場合、登録結果を出力.
         return await get(secret);
     } catch(e) {
@@ -81,9 +81,9 @@ const createEmbedCode = function(secret, value) {
 // secretの削除.
 // secret secret名を設定します.
 // 戻り値: trueの場合削除に成功しまし.
-const remove = function(secret) {
+const remove = async function(secret) {
     try {
-        if(scmMan.remove(secret)) {
+        if(await scmMan.remove(secret)) {
             p("[SUCCESS]Target secret Deletion successful.");
             return true;
         } else {
@@ -124,14 +124,14 @@ const list = async function(detail) {
                 off, max, marker);
             const lst = n.list;
             len = lst.length;
-            if(len == 0) {
-                break;
-            }
             for(i = 0; i < len; i ++) {
                 list[list.length] = lst[i];
             }
             off += len;
             marker = n.marker;
+            if(len == 0 || marker == null) {
+                break;
+            }
         }
         // 詳細を取得.
         if(detail == true) {
@@ -139,8 +139,7 @@ const list = async function(detail) {
             len = list.length;
             for(i = 0; i < len; i ++) {
                 // Secret表示用として詳細を取得.
-                n[n.length] = await scmMan.get(
-                    list[i]);
+                n[n.length] = await scmMan.get(list[i]);
             }
             list = n;
         }
@@ -160,27 +159,32 @@ const help = function() {
     p("Performs SecretsManager registration management for LFU.");
     p("The value registered in Secret is packed using LFU's strong encryption process.")
     p("");
-    p("--profile Set the Profile name you want to use in ~/.lfu.env.json.")
-    p("-t or --type: [Required]Set the processing type.")
-    p("    generate: Generate a new Secret.")
+    p("  --profile Set the Profile name you want to use in ~/.lfu.env.json.")
+    p("");
+    p("Set execution subcommand [generate] [embed] [list] [get] [remove].")
+    p("> " + COMMAND_NAME + " [Set execution subcommand]")
+    p("  generate: Generate a new Secret.")
+    p("    If you wish to update, please regenerate.")
     p("       -s or --secret:      [Required]Set the key to register.")
     p("       -d or --description: [Optional]Set a description.")
     p("       -k or --key:         *At least one definition is required.")
     p("       -v or --value:       *At least one definition is required.")
     p("         > -k hoge -v abcdefg -k moge -v xyz")
     p("           secretValue will be json={hoge:'abcdefg', moge: 'xyz'}.")
+    p("       -f or --force:       [Optional]Set when overwriting registration.")
     p("")
-    p("   embed: Create the embed code.");
+    p("  embed: Create the embed code.");
     p("       -s or --secret:      [Required]Set the key to register.")
     p("       -v or --value:       [Required]Set the value to register.")
     p("")
-    p("   list: Display a list of registered secrets.")
-    p("       -d or --detail:      [Optional]If true, show detailed list.")
+    p("  list: Display a list of registered secrets.")
+    p("       -d or --detail:      [Optional]If this content is defined, output")
+    p("                                      user detailed information.")
     p("")
-    p("   get: Gets the contents of the specified SecretKey.")
+    p("  get: Gets the contents of the specified SecretKey.")
     p("       -s or --secret:      [Required]Set the key to register.")
     p("")
-    p("   remove: Delete registered Secret.")
+    p("  remove: Delete registered Secret.")
     p("       -s or --secret:      [Required]Set the key to register.")
     p()
 }
@@ -195,11 +199,14 @@ const command = async function() {
             return;
         }
 
-        // typeを取得.
-        let type = args.get("-t", "--type");
+        // 実行副コマンドを取得.
+        let type = args.get(0);
         if(type == null || type == "") {
             // 設定されてない場合.
-            error("[ERROR]Processing type not set.");
+            //error("[ERROR]Execution subcommand not set.");
+            // エラー+helpを出力.
+            help()
+            _exit(1);
             return;
         }
         type = type.trim().toLowerCase();
@@ -236,7 +243,25 @@ const command = async function() {
                 }
                 // JSON追加.
                 jsonValue[k] = v;
+                cnt ++;
             }
+            // 上書き指定でない場合.
+            if(!args.isValue("-f", "--force")) {
+                // secretKeyが既に登録されている場合はエラー.
+                let use = false;
+                try {
+                    await scmMan.get(secret);
+                    use = true
+                } catch(e) {
+                    use = false;
+                }
+                if(use) {
+                    error("[ERROR]The specified SecretKey(" +
+                        secret + ") already exists.")
+                    return;
+                }
+            }
+            // 登録処理.
             const result = create(secret, description, jsonValue);
             if(result) {
                 _exit(0);
@@ -245,7 +270,7 @@ const command = async function() {
         }
 
         // 埋め込みコードを生成.
-        if(type == "embed") {
+        if(type == "embed" || type == "embedded") {
             // 引数を取得.
             const secret = args.get("-s", "--secret");
             const value = args.get("-v", "--value");
@@ -258,13 +283,10 @@ const command = async function() {
         }
 
         // secretsManagerに登録.
-        if(type == "list") {
+        if(type == "list" || type == "ls") {
             // 引数を取得.
-            let detail = args.get("-d", "--detail");
-            if(typeof(detail) == "string") {
-                detail = detail.toLowerCase();
-            }
-            const result = await list(detail == "true");
+            const detail = args.isValue("-d", "--detail");
+            const result = await list(detail);
             if(result) {
                 _exit(0);
             }
@@ -274,7 +296,7 @@ const command = async function() {
         // 1つのsecret内容を取得.
         if(type == "get") {
             // 引数を取得.
-            const secret = args.get("-k", "--key");
+            const secret = args.get("-s", "--secret");
             const result = get(secret);
             if(result) {
                 _exit(0);
@@ -285,7 +307,7 @@ const command = async function() {
         // 1つのsecret内容を削除.
         if(type == "remove" || type == "delete") {
             // 引数を取得.
-            const secret = args.get("-k", "--key");
+            const secret = args.get("-s", "--secret");
             const result = remove(secret);
             if(result) {
                 _exit(0);
@@ -302,7 +324,7 @@ const command = async function() {
         }
         
         // それ以外.
-        error("[ERROR]Unsupported type specification: " + type);
+        error("[ERROR]Execution subcommand not set: " + type);
 
     } catch(e) {
         // エラー出力.

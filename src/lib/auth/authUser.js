@@ -32,8 +32,8 @@ let _userTable = undefined;
 const userTable = function() {
 	if(_userTable == undefined) {
 		_userTable = s3kvs.create().currentTable(
-			authUtil.useString(process.env(ENV_S3_AUM_PREFIX)) ?
-				process.env(ENV_S3_AUM_PREFIX) :
+			authUtil.useString(process.env[ENV_S3_AUM_PREFIX]) ?
+				process.env[ENV_S3_AUM_PREFIX] :
 				DEFAULT_S3_AUM_PREFIX
 		);
 	}
@@ -71,6 +71,9 @@ const USER_NAME = "user";
 // -1の場合はUserInfoは読み込み専用モード.
 const CREATE_DATE = "createDate";
 
+// [変更時に更新]更新日.
+const UPDATE_DATE = "updateDate";
+
 // *[変更不可]ユーザタイプ(string).
 // ログインに関するタイプ定義.
 const USER_TYPE = "userType";
@@ -81,6 +84,7 @@ const PASSWORD = "password";
 
 // *[自動更新]パスワード更新日.
 // -1の場合、仮パスワード状態.
+// 0の場合はパスワードなし.
 const UPDATE_PASSWORD_DATE = "updatePasswordDate";
 
 // [変更可能]グループ(array).
@@ -126,6 +130,7 @@ const _requiredUserInfo = function(info) {
 			!authUtil.useString(info[USER_TYPE]) ||
 			!authUtil.useString(info[PERMISSION]) ||
 			!authUtil.isNumeric(info[CREATE_DATE]) ||
+			!authUtil.isNumeric(info[UPDATE_DATE]) ||
 			!authUtil.isNumeric(info[UPDATE_PASSWORD_DATE])) {
 			err = true;
 			throw new Error("User info does not exist.");
@@ -190,6 +195,7 @@ const _getOauthToNoUserRegister = function(user) {
 		ret[USER_TYPE] = USER_TYPE_OAUTH; // oauthユーザ.
 		ret[PERMISSION] = PERMISSION_USER; // ユーザ権限.
 		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
+		ret[UPDATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD; // パスワードなし.
 		return ret;
 	}
@@ -232,10 +238,10 @@ const isOauthToNoUserRegister = function() {
 // 戻り値: UserInfoが返却されます.
 const create = async function(user, type) {
 	//  必須条件が設定されていない場合エラー.
-	if(!authUtil.useString(user) && !authUtil.useString(type)) {
-		if(!authUtil.useString(user)) {
-			throw new Error("username not set.");
-		}
+	if(!authUtil.useString(user)) {
+		throw new Error("username not set.");
+	}
+	if(!authUtil.useString(type)) {
 		// oauthユーザを設定.
 		type = USER_TYPE_OAUTH;
 	}
@@ -249,6 +255,7 @@ const create = async function(user, type) {
 	let info = {};
 	info[USER_NAME] = user;
 	info[CREATE_DATE] = Date.now();
+	info[UPDATE_DATE] = info[CREATE_DATE];
 	info[USER_TYPE] = type;
 	info[PERMISSION] = PERMISSION_USER;
 	// 一般ユーザで登録.
@@ -267,7 +274,7 @@ const create = async function(user, type) {
 	// 返却用のUserInfo生成.
 	info = UserInfo(info);
 	// 既存ユーザが存在する場合はエラー返却.
-	if(!await _isUser(user)) {
+	if(await _isUser(user)) {
 		throw new Error(user + " users already exist.");
 	}
 	// userInfoを保存.
@@ -280,9 +287,11 @@ const create = async function(user, type) {
 // user 対象のユーザ名を設定します.
 // 戻り値: trueの場合、削除に成功しました.
 const remove = async function(user) {
-    if(!authUtil.useString(user)) {
-        throw new Error("User has not been set.");
-    }
+	let info = await _getUser(user);
+	if(info == undefined) {
+        throw new Error("The user ("
+            + user + ") does not exist.");
+	}
 	return await userTable().remove("user", user);
 }
 
@@ -344,7 +353,7 @@ const list = async function(page, max, marker) {
 	return {
 		page: page,
 		max: max,
-		marker: result.marker,
+		marker: result.nextMarker,
 		list: ret
 	};
 }
@@ -386,9 +395,10 @@ const UserInfo = function(info) {
 			ret[PASSWORD] = "";
 		}
 		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
+		ret[UPDATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		return ret;
 	}
-	o.get = get();
+	o.get = get;
 
 	// UserInfo情報をJSON.stringifyで閲覧できる内容で変換.
 	// ※ ここで取得された内容には passwordが除外されます.
@@ -399,6 +409,9 @@ const UserInfo = function(info) {
 		// パスワードが存在する場合は伏せ文字にする.
 		if(ret[PASSWORD] != undefined) {
 			ret[PASSWORD] = "**********";
+		// パスワードが存在しない場合は存在自体を削除.
+		} else {
+			delete ret[PASSWORD];
 		}
 		// パスワード更新日が無効な場合.
 		if(ret[UPDATE_PASSWORD_DATE] <= UPDATE_PASSWORD_DATE_BY_NO_PASSWORD) {
@@ -409,6 +422,7 @@ const UserInfo = function(info) {
 		}
 		// ユーザ生成時間を日付に変換.
 		ret[CREATE_DATE] = new Date(ret[CREATE_DATE]);
+		ret[UPDATE_DATE] = new Date(ret[UPDATE_DATE]);
 		// グループをリスト変換.
 		ret[GROUP] = getGroups();
 		return ret;
@@ -421,7 +435,7 @@ const UserInfo = function(info) {
 	const getJSON = function() {
 		return JSON.stringify(get());
 	}
-	o.getJSON = getJSON();
+	o.getJSON = getJSON;
 
 	// ユーザ作成日を取得.
 	// 戻り値: ユーザ作成日(Date)が返却されます.
@@ -433,6 +447,17 @@ const UserInfo = function(info) {
 		return null;
 	}
 	o.getCreateDate = getCreateDate;
+
+	// ユーザ更新日を取得.
+	// 戻り値: ユーザ更新日(Date)が返却されます.
+	//        読み込み専用の場合は null返却されます.
+	const getUpdateDate = function() {
+		if(info[UPDATE_DATE] != CREATE_DATE_BY_READONLY) {
+			return new Date(info[UPDATE_DATE])
+		}
+		return null;
+	}
+	o.getUpdateDate = getUpdateDate;
 		
 	// ユーザー名を取得.
 	// 戻り値: ユーザ名が返却されます.
@@ -758,6 +783,7 @@ const UserInfo = function(info) {
 	// ※ 読み込み専用の場合エラーとなります.
 	const save = async function() {
 		_checkReadOnly();
+		info[UPDATE_DATE] = Date.now();
 		await userTable().put("user", info[USER_NAME], info)
 		return o;
 	}

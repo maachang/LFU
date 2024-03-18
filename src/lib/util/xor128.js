@@ -100,6 +100,7 @@ const create = function(seed) {
     return {
         setSeed: setSeed,
         next: next,
+        nextInt: next,
         getBytes: getBytes,
         getArray: getArray
     }
