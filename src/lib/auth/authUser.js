@@ -219,9 +219,11 @@ const _generateTentativePassword = function() {
 // 戻り値: trueの場合、ユーザ登録なしでoauthログインが利用できます.
 const isOauthToNoUserRegister = function() {
 	let ret = process.env[ENV_OAUTH_NO_USER_REGISTER];
-	if(!authUtil.useString(ret) ||
-		(ret = ret.trim().toLowerCase()) != "true" ||
-		ret != "on") {
+	// 環境変数でOFF設定されている場合.
+	if(authUtil.useString(ret) &&
+		((ret = ret.trim().toLowerCase()) == "false" ||
+		ret == "off")) {
+		// ユーザ登録なしでoauthログイン不許可.
 		return false;
 	}
 	return true;

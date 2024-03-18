@@ -174,18 +174,6 @@ const cutEndBase64Eq = function(code) {
 }
 exports.cutEndBase64Eq = cutEndBase64Eq;
 
-// ランダム文字列返却.
-// len ランダム文字列の長さを設定します.
-// 戻り値: ランダムな文字列が返却されます.
-const randString = function(len) {
-    len = len|0;
-    if(len == 0) {
-        throw new Error("");
-    }
-    return Buffer.from(_RAND.getBytes(len))
-        .toString("base64").substring(len);
-}
-
 // outのバイナリ情報にvalue内容を追加.
 // out 格納先のバイナリを設定します.
 // value 追加対象のバイナリを設定します.
@@ -344,7 +332,7 @@ const encodeToken = function(
     // keyをハッシュ計算する.
     const hashKeyCode = hash(keyCode);
     const list = [0, 0]; // [0]stepCode, [1]keyCodeStepCode.
-    // パスコードを設定します.
+    // passCodeを設定します.
     convb.encodeString(list, passCode);
     // ユーザー名を設定します.
     convb.encodeString(list, user);
@@ -409,14 +397,14 @@ const decodeToken = function(keyCode, token) {
     key = null;
     
     // expire日付を取得
-    pos += 8;
+    pos += 9; // プラス値のみ(マイナスの場合はエラーとなる)
     const oPos = [tokenLen - pos];
     const expire = convb.decodeLong(oPos, token);
 
     // hashKeyCodeでデコード.
     decodeValue(token, 2, tokenLen - pos, keyCodeHash);
     
-    // パスワードコードを取得.
+    // パスコードを取得.
     oPos[0] = 2;
     let len = convb.decodeStringLength(oPos, token);
     if(len > MAX_STRING_LENGTH || len <= 0) {

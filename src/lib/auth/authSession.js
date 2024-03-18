@@ -12,6 +12,12 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// auth/util.
+const authUtil = frequire("./lib/auth/util.js");
+
+// login用signature.
+const sig = frequire("./lib/auth/signature.js");
+
 // S3KevValueStorage.
 const s3kvs = frequire("./lib/storage/s3kvs.js");
 
@@ -57,6 +63,8 @@ const _loadSession = async function(user, passCode, sessionId) {
             ret.sessionId != sessionId) {
             throw new Error("Failed to get session: " + user);
         }
+        // 更新時間.
+        const lastModified = Date.now();
         // セッションタイムアウトの場合.
         const expire = LOGIN_TOKEN_EXPIRE * ONE_DAY_MS;
         if(Date.now() >= (lastModified + expire)) {
@@ -160,7 +168,9 @@ const remove = async function(user, passCode, sessionId) {
             // セッション削除.
             return await sessionTable().remove("user", user);
         }
-    } catch(e) {}
+    } catch(e) {
+        console.warn("Failed to delete auth session token.", e)
+    }
     return false;
 }
 
@@ -177,7 +187,9 @@ const update = async function(user, passCode, sessionId) {
         session.lastModified = Date.now();
         // セッション更新
         return await sessionTable().put("user", user, session);
-    } catch(e) {}
+    } catch(e) {
+        console.error("Failed to refresh auth session token.", e)
+    }
     return false;
 }
 

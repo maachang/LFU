@@ -136,11 +136,13 @@ const flushConfEnv = function(file) {
     }
     file = JSON.parse(file);
     for(let k in file) {
+        // キー除外及び、valueがnull or undefinedは
+        // 反映させない.
         if(isExcludedKeys(k) ||
             file[k] == null || file[k] == undefined) {
             continue;
         }
-        process.env[k] = file[k];
+        process.env[k] = "" + file[k];
     }
 }
 

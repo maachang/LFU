@@ -416,17 +416,19 @@ const isRedirectToken = function(redirectToken, type, requestTokenKey) {
 // authLogin.loginの call処理.
 // params 基本はrequest.queryParamsを設定します.
 //        別にdict型なら何でもOK.
-// 戻り値: ログイン対象のユーザ情報が返却されます.
+// 戻り値: ログイン対象のUserInfoが返却されます.
 const _callLogin = async function(params) {
     // [oauth]gas認証のメールアドレスを取得.
-    const ret = params["mail"];
-    if(!authUtil.useString(ret)) {
+    const user = params["mail"];
+    if(!authUtil.useString(user)) {
         // gasOauthメールアドレスが取得できない場合.
         throw new HttpError({
             status: 401,
             message: "gas oauth authentication failed."
         });
     }
+    // UserInfoを取得
+    const ret = await authUser.get(user);
     // redirectTokenのチェック.
     if(!isRedirectToken(
         params["redirectToken"],
@@ -448,7 +450,8 @@ const _callLogin = async function(params) {
 // 戻り値: trueの場合は成功しました.
 const redirectOAuth = async function(resState, resHeader, request) {
     // ログイン処理.
-    authLogin.login(resHeader, request, request.queryParams, _callLogin);
+    await authLogin.login(
+        resHeader, request, request.queryParams, _callLogin);
 
     // リダイレクト先URLを取得します.
     let redirectURL = request.queryParams["srcURL"];

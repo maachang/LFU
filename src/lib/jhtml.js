@@ -16,6 +16,8 @@
 // - jhtml組み込み機能.
 //   $out = function(string)
 //     stringをhtmlとして出力するFunction.
+//     戻り値が$outのfunctionなので
+//     > $out("abc")(def) ... 的に実装が出来る.
 //   $params = object
 //     getまたはpostで渡されたパラメータ情報.
 //     - getパラメータの場合 {key: value} のような形で格納される.

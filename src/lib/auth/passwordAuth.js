@@ -12,9 +12,6 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// login用signature.
-const sig = frequire("./lib/auth/signature.js");
-
 // authログイン.
 const authLogin = frequire("./lib/auth/authLogin.js");
 
@@ -28,7 +25,7 @@ const authUtil = frequire("./lib/auth/util.js");
 // params: {user: string, password: string}を設定します.
 //         user 対象のユーザ名を設定します.
 //         password パスワードを設定します.
-// 戻り値: user名が返却された場合、ログイン成功です.
+// 戻り値: UserInfoが返却されます.
 const _confirm = async function(params) {
     // パスワードが存在しない.
     if(!authUtil.useString(params.password)) {
@@ -39,11 +36,11 @@ const _confirm = async function(params) {
     // ユーザ情報が存在しない。もしくはパスワードユーザじゃない場合.
     // またはパスワードが一致しない.
     if(userInfo == undefined || !userInfo.isPasswordUser() ||
-        !userInfo.equalsPassword(password)) {
+        !userInfo.equalsPassword(params.password)) {
         return null;
     }
     // ログイン成功.
-    return params.user;
+    return userInfo;
 }
 
 // パスワード認証でのログイン処理.
@@ -51,12 +48,13 @@ const _confirm = async function(params) {
 // request Httpリクエスト情報.
 // user 対象のユーザー名を設定します.
 // password 対象のパスワードを設定します.
+// 戻り値: ログインユーザのUserInfoが返却されます.
 const login = async function(
     resHeader, request, user, password) {
-    await authLogin.login(
+    return await authLogin.login(
         resHeader, request,
         {user: user, password: password},
-        _confirm);
+        _confirm)
 }
 // パスワード認証用のユーザー情報を生成.
 // user 対象のユーザ名を設定します.

@@ -17,6 +17,11 @@ const args = require("./modules/args.js");
 // 定数定義.
 const cons = require("./constants.js");
 
+// 出力.
+const p = function() {
+    console.log.apply(null, arguments);
+}
+
 // クラスタ実行の場合、コマンド実行を行う.
 if(cluster.isMaster) {
     
@@ -38,8 +43,8 @@ if(cluster.isMaster) {
             args.get("-k", "--key"),
             args.get("-p", "--pass")
         );
-        console.log("access key : %s", ret.key);
-        console.log("access path: %s", ret.pass);
+        p("access key : %s", ret.key);
+        p("access path: %s", ret.pass);
         return;
     // confEnvファイルの暗号化.
     } else if(args.isValue("--encode")) {
@@ -48,9 +53,9 @@ if(cluster.isMaster) {
             args.get("-k", "--key"),
             args.get("-p", "--pass")
         );
-        console.log("success.");
-        console.log("src : %s", ret.src);
-        console.log("dest: %s", ret.dest);
+        p("success.");
+        p("src : %s", ret.src);
+        p("dest: %s", ret.dest);
         return;
     // confEnvファイルの復号化.
     } else if(args.isValue("--decode")) {
@@ -59,9 +64,9 @@ if(cluster.isMaster) {
             args.get("-k", "--key"),
             args.get("-p", "--pass")
         );
-        console.log("success.");
-        console.log("src : %s", ret.src);
-        console.log("dest: %s", ret.dest);
+        p("success.");
+        p("src : %s", ret.src);
+        p("dest: %s", ret.dest);
         return;
     // 乱数発行を行う.
     } else if(args.isValue("-g", "--gen")) {
@@ -92,9 +97,9 @@ if(cluster.isMaster) {
         // 変換タイプを取得.
         let type = args.get("-t", "--type");
         if(type == "base64") { 
-            console.log(bin.toString("base64"));
+            p(bin.toString("base64"));
         } else {
-            console.log(bin.toString("hex"));
+            p(bin.toString("hex"));
         }
         return;
     }
@@ -226,13 +231,13 @@ const startupCluster = function() {
 
     // プロセスが落ちた時の処理.
     const _exitNodeJs = function() {
-        console.log("## exit lfu-simurator");
+        p("## exit lfu-simurator");
         process.exit();
     };
 
     // node処理終了.
     process.on('exit', function() {
-        console.log("exit");
+        p("exit");
     });
 
     // 割り込み系と、killコマンド終了.

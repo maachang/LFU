@@ -337,10 +337,9 @@ const _LONG_BY32 = 4294967296;
 // out バイナリをセットするArrayを設定します.
 // value long(64bit整数)を設定します.
 const encodeLong = function(out, value) {
-    let low, high;
     let p = out.length;
     // マイナスの場合は文字列で保存.
-    // 微妙にjsの64bit計算が面倒なので文字列で持つ.
+    // 微妙にjsの64bit計算が面倒なので.
     if(value < 0) {
         // 文字列変換.
         value = value.toString();
@@ -354,8 +353,8 @@ const encodeLong = function(out, value) {
         return out;
     }
     // プラスの数字の場合.
-    low = value & 0xffffffff;
-    high = (value / _LONG_BY32)|0;
+    const low = value & 0xffffffff;
+    const high = (value / _LONG_BY32)|0;
     out[p ++] = 0; // プラス.
     out[p ++] = low & 0x0ff;
     out[p ++] = ((low & 0x0ff00) >> 8) & 0x0ff;

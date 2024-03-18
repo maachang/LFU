@@ -12,9 +12,6 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// auth/util.
-const authUtil = frequire("./lib/auth/util.js");
-
 // authSession. 
 const authSession = frequire("./lib/auth/authSession.js");
 
@@ -52,18 +49,19 @@ const getTokenKeyCode = function(request) {
 // request Httpリクエスト情報.
 // params ログインパラメータを設定します.
 // call ログイン固有の実行処理を設定します.
-//      ログインユーザ名 = await call(params)の形で処理します.
-//      またログインユーザ名が返却されない場合、ログイン失敗となります.
-// 戻り値: 成功した場合はログインユーザ名が返却されます.
+//      userInfo = await call(params)の形で処理します.
+//      またuserInfoが返却されない場合、ログイン失敗となります.
+// 戻り値: 成功した場合はuserInfoが返却されます.
 const login = async function(resHeader, request, params, call) {
     try {
         // ログイン処理.
-        const user = await call(params);
+        const userInfo = await call(params);
         
         // ログイン成功.
-        if(authUtil.useString(user)) {
+        if(userInfo != null && userInfo != undefined) {
             // 新しいログインセッションを作成.
-            const session = await authSession.create(request, user);
+            const session = await authSession.create(
+                request, userInfo.getUserName());
             if(session == null) {
                 // 新しいセッション取得に失敗.
                 throw new Error("Failed to get a login session.");
@@ -73,12 +71,12 @@ const login = async function(resHeader, request, params, call) {
 
             // ログイントークンを作成.
             const token = sig.encodeToken(
-                keyCode, user, session.passCode,
+                keyCode, userInfo.getUserName(), session.passCode,
                 session.sessionId, authSession.LOGIN_TOKEN_EXPIRE);
 
             // レスポンスCookieにセッションキーを設定.
             resHeader.putCookie(COOKIE_SESSION_KEY, {value: token});
-            return user;
+            return userInfo;
         }
     } catch(e) {
         console.error("I failed to login", e);
@@ -103,7 +101,7 @@ const logout = async function(resHeader, request) {
         const keyCode = getTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
         // ユーザーセッションを削除.
-        const res = await removeSession(
+        const res = await authSession.remove(
             dtoken.user, dtoken.passCode, dtoken.sessionId);
         // ユーザセッション削除に成功した場合.
         if(res == true) {
@@ -178,6 +176,7 @@ const isLogin = async function(level, resHeader, request) {
             // レスポンスにセッションキーを再設定.
             resHeader.putCookie(COOKIE_SESSION_KEY, {value: nextToken});
         }
+
         return ret;
     } catch(e) {
         // ログイン確認エラー
@@ -201,7 +200,7 @@ const getUserName = function(request) {
             return undefined;
         }
         // トークンの解析.
-        const keyCode = getLoginTokenKeyCode(request);
+        const keyCode = getTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
 
         // expire値を超えている場合(セッション切れ)

@@ -123,7 +123,7 @@ o.Xor128 = function(seet) {
       if((ls & 0x01) == 0) {
         hs = (~hs)|0;
       }
-      _a=hs=(((this.v.a*(~ls))*hs)+1)|0;
+      this.v.a=hs=(((this.v.a*(~ls))*hs)+1)|0;
       if((this.v.a & 0x01) == 1) {
         this.v.c=(((this.v.c*(~ls))*hs)-1)|0;
       }

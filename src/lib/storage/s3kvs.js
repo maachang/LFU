@@ -35,8 +35,8 @@ const convb = frequire("./lib/storage/convb.js");
 // [ENV]メインS3バケット.
 const ENV_MAIN_S3_BUCKET = "MAIN_S3_BUCKET";
 
-// [ENV]S3Kvs-Prefix.
-const ENV_S3_KVS_PREFIX = "S3_KVS_PREFIX";
+// [ENV]メインS3Kvs-Prefix.
+const ENV_MAIN_S3_KVS_PREFIX = "MAIN_S3_KVS_PREFIX";
 
 // デフォルトのプレフィックス.
 const DEFAULT_PREFIX = "s3kvs";
@@ -403,7 +403,7 @@ const create = function(options) {
     if(typeof(options.prefix) != "string") {
         // バケットから空セット.
         // 環境変数から取得.
-        options.prefix = process.env[ENV_S3_KVS_PREFIX];
+        options.prefix = process.env[ENV_MAIN_S3_KVS_PREFIX];
         if(options.prefix == null || options.prefix == undefined ||
             options.prefix.length == 0) {
             // 設定されていない場合.
