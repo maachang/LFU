@@ -125,7 +125,7 @@ const create = function(status) {
                     srcStatus + " is not a number.");
             }
         } else {
-            status = 200;
+            status = 301;
         }
         hstate = status;
         httpRedirectURL =

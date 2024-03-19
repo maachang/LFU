@@ -521,13 +521,15 @@ const UserInfo = function(info) {
 		if(!isPasswordUser()) {
 			return false;
 		}
-		return info[UPDATE_PASSWORD_DATE] == UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
+		return info[UPDATE_PASSWORD_DATE] ==
+			UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
 	}
 	o.isTentativePassword = isTentativePassword;
 	
 	// パスワード設定.
 	// ※ isReadOnky() == true の場合、実行されません.
 	// oldPassword 前のパスワードを設定します.
+	//             仮パスワードの場合は空文字("")を指定します.
 	// password パスワードを設定します.
 	const setPassword = function(oldPassword, password) {
 		_checkReadOnly();
@@ -535,13 +537,23 @@ const UserInfo = function(info) {
 		if(!isPasswordUser()) {
 			throw new Error("Not a password available user.");
 		}
+		// 前のパスワード引数が設定なし.
+		else if(!authUtil.useString(oldPassword)) {
+			// ただし「仮パスワード」の場合はエラーとしない.
+			if(!isTentativePassword()) {
+				throw new Error("The oldPassword is not a string.");
+			}
+		}
 		// パスワード引数が設定なし.
-		if(!authUtil.useString(oldPassword) || !authUtil.useString(password)) {
+		else if(!authUtil.useString(password)) {
 			throw new Error("The password is not a string.");
 		}
 		// 変更前のパスワードが一致しない場合はエラー.
-		if(_passwordSha256(oldPassword) != info[PASSWORD]) {
-			throw new Error("Does not match current password.");
+		else if(_passwordSha256(oldPassword) != info[PASSWORD]) {
+			// ただし「仮パスワード」の場合はエラーとしない.
+			if(!isTentativePassword()) {
+				throw new Error("Does not match current password.");
+			}
 		}
 		// パスワードは直接持たずsha256化.
 		info[PASSWORD] = _passwordSha256(password);
@@ -550,6 +562,14 @@ const UserInfo = function(info) {
 		return o;
 	}
 	o.setPassword = setPassword;
+
+	// 仮パスワードの変更.
+	// ※ isReadOnky() == true の場合、実行されません.
+	// password パスワードを設定します.
+	const changeTentativePassword = function(password) {
+		return setPassword("", password);
+	}
+	o.changeTentativePassword = changeTentativePassword;
 
 	// パスワードをリセット.
 	// リセットされた場合、仮パスワードモードになります.
