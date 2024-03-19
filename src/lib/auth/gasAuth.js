@@ -458,8 +458,7 @@ const redirectOAuth = async function(resState, resHeader, request) {
 
     // リレイレクト先のURLが存在しない場合はリダイレクト.
     if(authUtil.useString(redirectURL)) {
-        resState.setStatus(301);
-        resHeader.put("location", redirectURL);
+        resHeader.redirect(redirectURL);
         return true;
     }
     return false;

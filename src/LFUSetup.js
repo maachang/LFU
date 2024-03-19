@@ -647,11 +647,27 @@ const returnResponse = function(
 const resultJsOut = function(resState, resHeader, resBody) {
     // 実行結果リダイレクト条件が設定されている場合.
     if(resState.isRedirect()) {
+        let header, cookies;
+        const url = resState.getRedirectURL();
+        // URL別のリダイレクトの場合.
+        if(url.startsWith("http://") || url.startsWith("http://")) {
+            // headerやcookieは引き継がない.
+            header = {};
+            cookies = [];
+        // lfu内のリダイレクトの場合.
+        } else {
+            // headerやcookieは引き継ぐ.
+            header = resHeader.toHeaders();
+            cookies = resHeader.toCookies()
+        }
+        // リダイレクトURLをセット.
+        header["location"] = url;
         // リダイレクト返信.
         return returnResponse(
             resState.getStatus(),
-            {location: resState.getRedirectURL()},
-            [], null, true);
+            header,
+            cookies,
+            null, true);
     // レスポンスBodyが存在しない場合.
     } else if(resBody == undefined || resBody == null) {
         // 0文字でレスポンス返却.

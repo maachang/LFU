@@ -164,6 +164,7 @@ const isLogin = async function(level, resHeader, request) {
         // ユーザーセッションをアップデート(この処理が結構重い).
         const ret = await authSession.update(
             dtoken.user, dtoken.passCode, dtoken.sessionId);
+        
         // アップデート成功の場合.
         if(ret == true) {
             // セッションアップデートのタイミングでcookie内容も更新する.
