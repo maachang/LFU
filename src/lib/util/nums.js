@@ -118,7 +118,7 @@ o.getTime = function() {
 // ナノ時間を取得.
 o.getNanoTime = function() {
     const ret = process.hrtime()
-    return ((ret[0] * 1000000000) + ret[1]);
+    return parseInt((ret[0] * 10000000000) + ret[1]);
 }
 
 // ゼロサプレス.

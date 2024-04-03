@@ -65,4 +65,7 @@ exports.LOG_TIMES = "lfu-simurator";
 // 乱数発行デフォルトバイナリ長.
 exports.DEF_RANDOM_BINARY = 48;
 
+// 乱数発行最小バイナリ長.
+exports.MIN_RANDOM_BINARY = 16;
+
 })(global);

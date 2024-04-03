@@ -203,6 +203,11 @@ o.binaryToUTF8 = function( n,off,len ) {
     return ret;
 }
 
+// textarea内容を表示.
+o.viewTextArea = function(value) {
+    return o.changeString(value, "\n", "<br>");
+}
+
 /////////////////////////////////////////////////////
 // 外部定義.
 /////////////////////////////////////////////////////

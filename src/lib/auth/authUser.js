@@ -119,6 +119,9 @@ const PERMISSION_ADMIN = "admin";
 // [PERMISSION]一般ユーザ.
 const PERMISSION_USER = "user";
 
+// [MFA]パスワードMFAコード.
+const PASSWORD_MFA_CODE = "passwordMfa";
+
 // userInfo情報の必須項目チェック.
 // info UserInfoを設定します.
 const _requiredUserInfo = function(info) {
@@ -215,6 +218,12 @@ const _generateTentativePassword = function() {
     return xor128.random.getBytes(len).toString("base64").substring(0, len);
 }
 
+// ナノ時間を取得.
+const _getNanoTime = function() {
+	const ret = process.hrtime()
+	return parseInt(((ret[0] * 10000000000) + ret[1]) / 1000);
+}
+
 // oauthログインに対してユーザ登録なしの場合、一般ユーザログイン利用可能かを取得.
 // 戻り値: trueの場合、ユーザ登録なしでoauthログインが利用できます.
 const isOauthToNoUserRegister = function() {
@@ -267,6 +276,9 @@ const create = async function(user, type) {
 		info[PASSWORD] = _passwordSha256("");
 		// 仮パスワード判別.
 		info[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_TENTATIVE_PASSWORD;
+		// mfa(2段階認証用)のコード(パスワード以上に表示隠蔽).
+		// このコードを元になんちゃってMFAコードとして２段階認証で使う.
+		info[PASSWORD_MFA_CODE] = _getNanoTime();
 	} else {
 		// パスワードなし.
 		info[PASSWORD] = undefined;
@@ -360,6 +372,43 @@ const list = async function(page, max, marker) {
 	};
 }
 
+// 登録されている全てのUser一覧を取得.
+// detail trueの場合、User毎の詳細情報を含めて表示とします.
+//        false および指定なしの場合は、User名だけを表示します.
+// 戻り値: [user1, user2, ... ] が返却されます. 
+const listAll = async function(detail) {
+    try {
+        let i, len, marker, off = 0, max = 50;
+        let ret = [];
+        while(true) {
+            const n = await list(off, max, marker);
+            const lst = n.list;
+            len = lst.length;
+            for(i = 0; i < len; i ++) {
+                ret[ret.length] = lst[i];
+            }
+            off += len;
+            marker = n.marker;
+            if(len == 0 || marker == null) {
+                break;
+            }
+        }
+        // 詳細を取得.
+        if(detail == true) {
+            const n = [];
+            len = ret.length;
+            for(i = 0; i < len; i ++) {
+                // Secret表示用として詳細を取得.
+                n[n.length] = await get(ret[i]);
+            }
+            ret = n;
+        }
+        return ret;
+    } catch(e) {
+        throw new Error("Failed to get user list.", e);
+    }
+}
+
 // 認証用User情報用オブジェクト.
 // info  S3に管理されてるログインユーザ情報を設定します.
 const UserInfo = function(info) {
@@ -395,6 +444,7 @@ const UserInfo = function(info) {
 		// パスワードが存在する場合は、空にする.
 		if(ret[PASSWORD] != undefined) {
 			ret[PASSWORD] = "";
+			delete ret[PASSWORD_MFA_CODE];
 		}
 		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		ret[UPDATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
@@ -411,9 +461,7 @@ const UserInfo = function(info) {
 		// パスワードが存在する場合は伏せ文字にする.
 		if(ret[PASSWORD] != undefined) {
 			ret[PASSWORD] = "**********";
-		// パスワードが存在しない場合は存在自体を削除.
-		} else {
-			delete ret[PASSWORD];
+			delete ret[PASSWORD_MFA_CODE];
 		}
 		// パスワード更新日が無効な場合.
 		if(ret[UPDATE_PASSWORD_DATE] <= UPDATE_PASSWORD_DATE_BY_NO_PASSWORD) {
@@ -848,6 +896,7 @@ exports.create = create;
 exports.remove = remove;
 exports.get = get;
 exports.list = list;
+exports.listAll = listAll;
 exports.UserInfo = UserInfo;
 
 })();

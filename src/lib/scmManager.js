@@ -342,6 +342,43 @@ const list = async function(page, max, marker) {
 	};
 }
 
+// 登録されている登録Secret一覧を取得.
+// detail trueの場合、Secret毎の詳細情報を含めて表示とします.
+//        false および指定なしの場合は、Secretキー名だけを表示します.
+// 戻り値: [scm1, scm2, ... ] が返却されます.
+const listAll = async function(detail) {
+    try {
+        let i, len, marker, off = 0, max = 50;
+        let ret = [];
+        while(true) {
+            const n = await list(off, max, marker);
+            const lst = n.list;
+            len = lst.length;
+            for(i = 0; i < len; i ++) {
+                ret[ret.length] = lst[i];
+            }
+            off += len;
+            marker = n.marker;
+            if(len == 0 || marker == null) {
+                break;
+            }
+        }
+        // 詳細を取得.
+        if(detail == true) {
+            const n = [];
+            len = ret.length;
+            for(i = 0; i < len; i ++) {
+                // Secret表示用として詳細を取得.
+                n[n.length] = await get(ret[i]);
+            }
+            ret = n;
+        }
+        return ret;
+    } catch(e) {
+        throw new Error("Failed to get scm list.", e);
+    }
+}
+
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
@@ -350,5 +387,6 @@ exports.createEmbedCode = createEmbedCode;
 exports.get = get;
 exports.remove = remove;
 exports.list = list;
+exports.listAll = listAll;
 
 })();

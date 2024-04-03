@@ -11,9 +11,8 @@
 (function() {
 'use strict';
 
-//
-// このコマンドはそのうち `lfuSim` に統合する.
-//
+// コマンド引数用.
+const args = require("../modules/args.js");
 
 // コマンド実行.
 const { execSync } = require("child_process");

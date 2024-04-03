@@ -83,23 +83,33 @@ if(cluster.isMaster) {
         // 乱数の長さを取得.
         len = args.get("-l", "--len");
         if(!nums.isNumeric(len)) {
-            // 乱数の長さは28文字.
+            // 乱数の長さは48文字.
             len = cons.DEF_RANDOM_BINARY;
         } else {
             // 指定された内容を数字変換.
             len = parseInt(len);
-            if(len <= 0) {
-                // 長さが0以下の場合.
-                len = cons.DEF_RANDOM_BINARY;
+            if(len < cons.MIN_RANDOM_BINARY) {
+                // 長さが16以下の場合48文字.
+                len = cons.MIN_RANDOM_BINARY;
             }
         }
         const bin = rand.getBytes(len);
         // 変換タイプを取得.
-        let type = args.get("-t", "--type");
-        if(type == "base64") { 
-            p(bin.toString("base64"));
-        } else {
+        if(args.get("-t", "--type") == "hex") { 
             p(bin.toString("hex"));
+        } else {
+            // 最後の=を削除.
+            const v = bin.toString("base64");
+            len = v.length;
+            if(v[len-1] == "=") {
+                if(v[len-2] == "=") {
+                    p(v.substring(0, len - 2));
+                } else {
+                    p(v.substring(0, len - 1));
+                }
+            } else {
+                p(v);
+            }
         }
         return;
     }

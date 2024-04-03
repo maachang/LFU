@@ -175,39 +175,74 @@ const request = function(host, path, options) {
             const url = options["directURL"] == true ?
                 host: getUrl(host, path, port, urlParams);
             // request作成.
-            const req = https.request(url, params, (res) => 
-            {
+            const req = https.request(
+                url, params, function(res) {
+                // バイナリ受信.
+                const body = [];
+                // クリーンアップ.
+                const cleanup = function() {
+                    try {
+                        req.removeListener('data', dataCall);
+                    } catch(e) {}
+                    try {
+                        req.removeListener('end', endCall);
+                    } catch(e) {}
+                    try {
+                        req.removeListener('error', errCall);
+                    } catch(e) {}
+                }
+                // データ受取.
+                const dataCall = function(chunk) {
+                    body.push(chunk);
+                }
+                // データ受取終了.
+                const endCall = function() {
+                    cleanup();
+                    // レスポンス情報を受け付ける.
+                    if(response != undefined) {
+                        response.status =
+                            res.statusCode;
+                        response.header =
+                            convertHeaderToLowerKey(
+                                res.headers);
+                    }
+                    resolve(Buffer.concat(body));
+                }
+                // エラー.
+                const errCall = function(e) {
+                    cleanup();
+                    reject(e)
+                }
                 // response処理.
                 try {
-                    // バイナリ受信.
-                    const body = [];
-                    res.on("data", (chunk)=>{
-                        body.push(chunk);
-                    });
-                    res.on("end", ()=>{
-                        // レスポンス情報を受け付ける.
-                        if(response != undefined) {
-                            response.status =
-                                res.statusCode;
-                            response.header =
-                                convertHeaderToLowerKey(
-                                    res.headers);
-                        }
-                        resolve(Buffer.concat(body));
-                    });
-                    res.on("error", reject);
+                    res.on("data", dataCall);
+                    res.on("end", endCall);
+                    res.on("error", errCall);
                 } catch (err) {
+                    cleanup();
                     reject(err)
                 }
             });
-            // request処理.
-            req.on('error', reject);
+            // [req]クリーンアップ.
+            const cleanupReq = function() {
+                try {
+                    req.removeListener('error', errCallReq);
+                } catch(e) {}
+            }
+            // [req]エラー.
+            const errCallReq = function(e) {
+                cleanupReq();
+                reject(e)
+            }
+            // requestエラー処理.
+            req.on('error', errCallReq);
             // bodyが存在する場合.
             if(body != undefined) {
                 // body送信.
                 req.write(body);
             }
             req.end();
+            cleanupReq();
         } catch (err) {
             reject(err)
         }

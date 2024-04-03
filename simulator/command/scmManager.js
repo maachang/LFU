@@ -45,10 +45,10 @@ const _getSecretView = function(json) {
 // description 説明を設定します.
 // json secret化するkey, value情報を連想配列で設定します.
 // 戻り値: trueの場合、正常に登録されました.
-const create = async function(secret, description, json) {
+const create = async function(secret, description, userName, json) {
     try {
         // 生成処理.
-        await scmMan.create(secret, description, null, json);
+        await scmMan.create(secret, description, userName, json);
         // 正常に処理が成功した場合、登録結果を出力.
         return await get(secret);
     } catch(e) {
@@ -148,7 +148,7 @@ const list = async function(detail) {
             JSON.stringify(list, null, "  "));
         return true;
     } catch(e) {
-        error("[ERROR]Failed to get user list.", e);
+        error("[ERROR]Failed to get scm list.", e);
     }
     return false;
 }
@@ -245,16 +245,26 @@ const command = async function() {
                 jsonValue[k] = v;
                 cnt ++;
             }
+            // 同じsecret名が存在するかの判別.
+            let userName = "";
+            let use = false;
+            try {
+                // 既に存在するsecretを取得.
+                const sc = await scmMan.get(secret);
+                // 存在する場合はユーザ名を取得.
+                userName = sc.createUser;
+                // descriptionが指定されていない場合は
+                // 更新前のものを利用する.
+                if(typeof(description) != "string") {
+                    description = sc.description;
+                }
+                use = true
+            } catch(e) {
+                use = false;
+            }
             // 上書き指定でない場合.
             if(!args.isValue("-f", "--force")) {
                 // secretKeyが既に登録されている場合はエラー.
-                let use = false;
-                try {
-                    await scmMan.get(secret);
-                    use = true
-                } catch(e) {
-                    use = false;
-                }
                 if(use) {
                     error("[ERROR]The specified SecretKey(" +
                         secret + ") already exists.")
@@ -262,7 +272,8 @@ const command = async function() {
                 }
             }
             // 登録処理.
-            const result = create(secret, description, jsonValue);
+            const result = create(
+                secret, description, userName, jsonValue);
             if(result) {
                 _exit(0);
             }

@@ -237,15 +237,15 @@ const checEnvOAuth = function() {
 // 戻り値: protocolが返却されます.
 const getHttpProtocol = function(host) {
     host = host.trim().toLowerCase();
-    if(!(host == "localhost" || host.startsWith("localhost:"))) {
+    // localhost以外.
+    if(!(host == "127.0.0.1" || host.startsWith("127.0.0.1:") ||
+        host == "localhost" || host.startsWith("localhost:"))) {
         let c;
         const len = host.length;
         for(let i = 0; i < len; i ++) {
             c = host.charAt(i);
             // ipアドレス以外.
-            if(!(
-                (c >= '0' && c <= '9') || c == '.' || c == ':'
-            )) {
+            if(!((c >= '0' && c <= '9') || c == '.' || c == ':')) {
                 // lambda関数URLのURLなのでhttps.
                 return "https://";
             }

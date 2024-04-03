@@ -489,24 +489,60 @@ const httpRequest = function(req, res) {
             let off = 0;
             let body = Buffer.allocUnsafe(
                 req.headers["content-length"]|0);
-            req.on('data', function(bin) {
+            // クリーンアップ.
+            const cleanup = function() {
+                try {
+                    req.removeListener('data', dataCall);
+                } catch(e){}
+                try {
+                    req.removeListener('end', endCall);
+                } catch(e){}
+                try {
+                    req.removeListener('error', errCall);
+                } catch(e){}
+            }
+            // データ取得.
+            const dataCall = function(bin) {
                 bin.copy(body, off);
                 off += bin.length;
-            });
-            req.on('end', function() {
+            };
+            // データ取得終了.
+            const endCall = function() {
+                cleanup();
                 callLfu(req, res, body);
-            });
+            }
+            // エラー終了.
+            const errCall = function(e) {
+                cleanup();
+                console.warn(e);
+            }
+            req.on('data', dataCall);
+            req.on('end', endCall);
+            req.on('error', errCall);
         // コンテンツ長が設定されていない場合.
         } else {
             let list = [];
             let binLen = 0;
-            // あるだけ取得.
-            req.on('data', function(bin) {
+            // クリーンアップ.
+            const cleanup = function() {
+                try {
+                    req.removeListener('data', dataCall);
+                } catch(e) {}
+                try {
+                    req.removeListener('end', endCall);
+                } catch(e) {}
+                try {
+                    req.removeListener('error', errCall);
+                } catch(e) {}
+            }
+            // データ取得.
+            const dataCall = function(bin) {
                 list.push(bin);
                 binLen += bin.length;
-            });
-            // 処理終了.
-            req.on('end', function() {
+            };
+            // データ取得終了.
+            const endCall = function() {
+                cleanup();
                 let n = null;
                 let off = 0;
                 let body = Buffer.allocUnsafe(binLen);
@@ -521,7 +557,15 @@ const httpRequest = function(req, res) {
                 }
                 list = null;
                 callLfu(req, res, body);
-            });
+            }
+            // エラー終了.
+            const errCall = function(e) {
+                cleanup();
+                console.warn(e);
+            }
+            req.on('data', dataCall);
+            req.on('end', endCall);
+            req.on('error', errCall);
         }
     // GET処理.
     } else {
@@ -533,15 +577,14 @@ const httpRequest = function(req, res) {
 const startupServer = function() {
     // サーバー生成.
     var server = require("http")
-        .createServer(
-            function (req, res) {
-                // 全requireキャッシュのクリア
-                //  （simulatorなので毎回削除).
-                clearRequireCache();
-                // httpRequestを受信処理.
-                httpRequest(req, res);
-            }
-        );
+        .createServer(function (req, res) {
+            // 全requireキャッシュのクリア
+            //  （simulatorなので毎回削除).
+            clearRequireCache();
+            // httpRequestを受信処理.
+            httpRequest(req, res);
+        }
+    );
 
     // タイムアウトセット.
     server.setTimeout(TIMEOUT);

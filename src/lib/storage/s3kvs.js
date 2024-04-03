@@ -148,6 +148,7 @@ const decodeKeyValue = function(keyValue) {
     }
     // 単一のKeyを取得.
     keyValue = keyValue.split("~");
+
     // valueを解析.
     let value = keyValue[2];
     if(value.length > 0) {
@@ -648,11 +649,40 @@ const create = function(options) {
         };
     }
 
+    // 登録されている全ての一覧を取得.
+    // tableName 対象のテーブル名を設定します.
+    // 戻り値: list: [{key: value} ... ]
+    //         指定したpath位置以下のobject名のkeyValue群が返却されます.
+    const listAll = async function(tableName) {
+        try {
+            let i, len, marker, off = 0, max = 50;
+            let ret = [];
+            while(true) {
+                const n = await list(
+                    tableName, off, max, marker);
+                const lst = n.list;
+                len = lst.length;
+                for(i = 0; i < len; i ++) {
+                    ret[ret.length] = lst[i];
+                }
+                off += len;
+                marker = n.marker;
+                if(len == 0 || marker == null) {
+                    break;
+                }
+            }
+            return ret;
+        } catch(e) {
+            throw new Error(
+                "Failed to get list.", e);
+        }
+    }
+
     // オブジェクト.
     const ret = {};
 
     // カレントテーブル条件を設定.
-    // table 対象のテーブル名を設定します.
+    // tableName 対象のテーブル名を設定します.
     // 戻り値: それぞれの処理が返却されます.
     ret.currentTable = function(tableName) {
         return {
@@ -705,6 +735,14 @@ const create = function(options) {
                     _appendParams([tableName], arguments));
             }
 
+            // 登録されている全ての一覧を取得.
+            // 戻り値: list: [{key: value} ... ]
+            //         指定したpath位置以下のobject名のkeyValue群が返却されます.
+            ,listAll: function() {
+                return listAll.apply(null,
+                    _appendParams([tableName], arguments));
+            }
+
             // 現在のカレントテーブル名を取得.
             // 戻り値: 現在設定されているカレントテーブル名が返却されます.
             ,getCurrentTable: function() {
@@ -712,12 +750,123 @@ const create = function(options) {
             }
         };
     }
+
+    // 汎用性テーブル.
+    // 単純なkvs形式で利用する場合はこちらを利用します.
+    // tableName 対象のテーブル名を設定します.
+    // keyName キー名を設定します.
+    // 戻り値: それぞれの処理が返却されます.
+    ret.versatilityTable = function(tableName, keyName) {
+        return {
+
+            // put.
+            // key key名を設定します.
+            // value valueを設定します.
+            // 戻り値: trueの場合設定に成功しました.            
+            put: function(key, value) {
+                return put(tableName, keyName, key, value)
+            }
+
+            // get.
+            // key key名を設定します.
+            // 戻り値: 検索結果(json)が返却されます.
+            //         情報取得に失敗した場合は null が返却されます.
+            ,get: function(key) {
+                return get(tableName, keyName, key);
+            }
+
+            // remove.
+            // key key名を設定します.
+            // 戻り値: trueの場合削除に成功しました.
+            ,remove: function(key) {
+                return remove(tableName, keyName, key);
+            }
+
+            // 指定テーブルのリスト一覧を取得.
+            // ページ番号とページ表示数を設定して取得.
+            // page ページ数を設定します.
+            //      呼び出しに毎回先頭から取得するので、ページ数が多いと「速度低下」に
+            //      繋がるので注意が必要です.
+            // max １ページの最大表示数を設定.
+            //     100件を超える設定はできません.
+            // marker 読み取り開始位置のマーカーを設定します.
+            //        これを設定する事で、page読み込みじゃなく、このmarkerからの
+            //        読み込みとなります.
+            // 戻り値: {page, max, marker, list}
+            //         page: 返却対象のページ番号が設定されます.
+            //         max: 1ページの最大表示数が設定されます.
+            //         nextMarker: 次のページに遷移するMarkerが設定されます.
+            //                     nullの場合、次のページは存在しません.
+            //         list: [key, key, key ... ]
+            //              指定したpath位置以下のobject名のkeyValue群が返却されます.
+            ,list: async function(page, max, marker) {
+                const result = await list(tableName, page, max, marker);
+                const list = result.list;
+                const len = list.length;
+                const ret = [];
+                let em;
+                for(let i = 0; i < len; i ++) {
+                    em = list[i];
+                    if(em.key == keyName) {
+                        ret[ret.length] = em.value;
+                    }
+                }
+                result.list = ret;
+                return result;
+            }
+
+            // 登録されている全ての一覧を取得.
+            // detail 
+            // 戻り値: detaul == true:
+            //        [{key: key, value: get(key)}, ... ]が返却されます.
+            //        detaul == false:
+            //        [key1, key2, ... ]が返却されます.
+            ,listAll: async function(detail) {
+                const list = await listAll(tableName);
+                const len = list.length;
+                const ret = [];
+                let em;
+                if(detail == true) {
+                    for(let i = 0; i < len; i ++) {
+                        em = list[i];
+                        if(em.key == keyName) {
+                            ret[ret.length] = {
+                                key: em.value,
+                                value: await get(tableName, keyName, em.value)
+                            };
+                        }
+                    }
+                } else {
+                    for(let i = 0; i < len; i ++) {
+                        em = list[i];
+                        if(em.key == keyName) {
+                            ret[ret.length] = em.value;
+                        }
+                    }
+                }
+                return ret;
+            }
+
+            // 現在のカレントテーブル名を取得.
+            // 戻り値: 現在設定されているカレントテーブル名が返却されます.
+            ,getCurrentTable: function() {
+                return tableName;
+            }
+
+            // 現在のkeyName名を取得.
+            // 戻り値: 現在設定されているkeyName名が返却されます.
+            ,getkeyName: function() {
+                return keyName;
+            }
+        }
+    }
     
     // 固有設定.
     ret.put = put;
     ret.get = get;
     ret.remove = remove;
     ret.list = list;
+    ret.listAll = listAll;
 
     return ret;
 }

@@ -185,8 +185,7 @@ const editUser = async function(userName, admin, addGroups, removeGroups) {
         getUserView(userInfo);
         return true;
     } catch(e) {
-        error(
-            "[ERROR]User edit failed.", e);
+        error("[ERROR]User edit failed.", e);
     }
     return false;
 }

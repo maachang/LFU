@@ -30,6 +30,9 @@ const ENV_LOGIN_TOKEN_KEYCODE = "LOGIN_TOKEN_KEYCODE";
 // [ENV]ログイントークン作成キーコードを取得.
 const LOGIN_TOKEN_KEYCODE = process.env[ENV_LOGIN_TOKEN_KEYCODE];
 
+// userInfo用のRequestキャッシュ名.
+const USER_INFO_REQUEST_CACHE = "userInfoCache";
+
 // ログイントークンキーコードを取得.
 // request Httpリクエスト情報.
 // 戻り値: ログイントークンキーコードが返却されます.
@@ -219,6 +222,8 @@ const getUserName = function(request) {
 }
 
 // 現在ログイン中のUserInfoを取得.
+// ※ またこの機能はよく使われるので、一度取得したuserInfoは
+// request内で一時保存されます.
 // request 対象のrequestを設定.
 // 戻り値: ログイン中のUserInfoを返却.
 //        ログインしていない場合はundefined.
@@ -227,7 +232,13 @@ const getUserInfo = async function(request) {
 	if(userName == undefined) {
 		return undefined;
 	}
-	return await authUser.get(userName);
+    // userInfoはRequestにキャッシュ化する事で無駄なI/Oを回避する.
+    let userInfo = request[USER_INFO_REQUEST_CACHE];
+    if(userInfo == undefined || userInfo.getUserName() != userName) {
+        userInfo = await authUser.get(userName);
+        request[USER_INFO_REQUEST_CACHE] = userInfo;
+    }
+    return userInfo;
 }
 
 // ログイン済みか確認をするfilter実行.
@@ -270,7 +281,7 @@ const filter = async function(
         resState.setStatus(403);
         return true;
     }
-    // ログインされているかチェックしない場合.
+    // 正常な状態.
     return false;
 }
 

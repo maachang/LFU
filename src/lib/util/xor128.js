@@ -21,7 +21,7 @@ exports.getTime = getTime;
 // ナノ時間を取得.
 const getNanoTime = function() {
   const ret = process.hrtime()
-  return (((ret[0] * 1000000000) + ret[1]) / 1000);
+  return parseInt(((ret[0] * 10000000000) + ret[1]) / 1000);
 }
 exports.getNanoTime + getNanoTime;
 

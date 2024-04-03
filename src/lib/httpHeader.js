@@ -76,8 +76,13 @@ const create = function(headers, cookies) {
 
     // コンテンツタイプを設定.
     // mime mimeTypeを設定します.
+    // charset コンテンツタイプの文字コードを設定します.
+    //         設定しない場合は設定されません.
     // 戻り値: このオブジェクトが返却されます.
-    ret.setContentType = function(mime) {
+    ret.setContentType = function(mime, charset) {
+        if(typeof(charset) == "string" && charset.length > 0) {
+            mime += "; charset=" + charset;
+        }
         headList["content-type"] = mime;
         return ret;
     }
