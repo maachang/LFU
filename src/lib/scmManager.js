@@ -91,6 +91,8 @@ if(SCM_LIST_LIMIT >= MAX_SCM_LIST_LIMIT) {
 
 // secrets manager用のJSONを生成.
 // stringify trueの場合 JSON.stringify でJSON結果を文字列変換します.
+// type 区分を設定します.
+//      特に不要な場合は "" で入力します.
 // key secretsManagerに登録するKey名を文字列で設定します.
 // description 説明を設定します.
 // createTime 生成時間を設定します.
@@ -99,7 +101,14 @@ if(SCM_LIST_LIMIT >= MAX_SCM_LIST_LIMIT) {
 // 戻り値: {key: string, description: string, value: string} の
 //         文字列が返却されます.
 const _createJSON = function(
-    stringify, key, description, createTime, createUser, value) {
+    stringify, type, key, description, createTime, createUser, value) {
+    // typeがstring以外の場合.
+    if(typeof(type) != "string") {
+        // 空をセット.
+        type = "";
+    } else {
+        type = type.trim();
+    }
     // keyはstring必須で情報存在が必須.
     if(!(typeof(key) == "string" && key.length > 0)) {
         throw new Error("key must be a string.");
@@ -126,6 +135,7 @@ const _createJSON = function(
         cip.key(cip.fhash(key + SEPARATOR + createTime, true),
             cip.fhash(DESCRIPTION_HEAD + description + SEPARATOR + createUser, true)));
     // base64変換.
+    type = Buffer.from(type).toString("base64");
     key = Buffer.from(key).toString("base64");
     description = Buffer.from(description).toString("base64");
     createTime = Buffer.from(createTime).toString("base64");
@@ -133,7 +143,8 @@ const _createJSON = function(
     // 文字列化.
     if(stringify == true) {
         // json文字列で戻す.
-        return "{\"key\":\"" + key + "\"," +
+        return "{\"type\":\"" + type + "\"," +
+            "\"key\":\"" + key + "\"," +
             "\"description\":\"" + description + "\"," +
             "\"createTime\":\"" + createTime + "\"," +
             "\"createUser\":\"" + createUser + "\"," +
@@ -141,6 +152,7 @@ const _createJSON = function(
     // jsonのままで返却.
     } else {
         return {
+            type: type,
             key: key,
             description: description,
             createTime: createTime,
@@ -166,7 +178,7 @@ const _outputS3 = async function(key, value) {
 // secret情報を取得.
 // key secret登録Key名を設定します.
 // 戻り値: secret情報が返却されます.
-const _getSeecret = async function(key) {
+const _getSecret = async function(key) {
     // keyはstring必須で情報存在が必須.
     if(!(typeof(key) == "string" && key.length > 0)) {
         throw new Error("key must be a string.");
@@ -189,21 +201,23 @@ const _getSeecret = async function(key) {
 // 戻り値: trueの場合、存在します.
 const _isSecret = async function(key) {
 	try {
-		return await _getSeecret(user) != undefined;
+		return await _getSecret(user) != undefined;
 	} catch(e) {}
 	return false;
 }
 
 // 新しいsecrets managerを生成.
+// type 区分を設定します.
+//      特に不要な場合は "" で入力します.
 // key secretsManagerに登録するKey名を文字列で設定します.
 // description 説明を設定します.
 // createUser 生成したユーザ名を設定します.
 // jsonValue secret化するkey, value情報を連想配列で設定します.
 const create = async function(
-    key, description, createUser, jsonValue) {
+    type, key, description, createUser, jsonValue) {
     // json変換.
     const json = _createJSON(
-        false, key, description, Date.now(), createUser,
+        false, type, key, description, Date.now(), createUser,
         JSON.stringify(jsonValue));
     if(await _isSecret(key)) {
         throw new Error(key + " secret already exist.");
@@ -232,7 +246,7 @@ const createEmbedCode = function(key, value) {
         key + DESCRIPTION_EMBED_ENDPOINT_CODE;
     // 埋め込み用のコード生成.
     const result = _createJSON(
-        true, key, description, null, null, value);
+        true, "", key, description, null, null, value);
     // 戻り値を返却.
     return cip.enc(result, cip.key(
         cip.fhash(key, true), description));
@@ -244,11 +258,13 @@ const createEmbedCode = function(key, value) {
 // 戻り値: {key: string, description: string} が返却されます.
 //         valueを取得する場合は scmClient.getで取得します.
 const get = async function(key) {
-    const result = await _getSeecret(key);
+    const result = await _getSecret(key);
     if(result == undefined) {
         throw new Error("The secret ("
             + key + ") does not exist.");
     }
+    // typeはbase64変換されているので、decode.
+    const type = Buffer.from(result.type, 'base64').toString();
     // keyはbase64変換されているので、decode.
     key = Buffer.from(result.key, 'base64').toString();
     // descriptionはbase64変換されているので、decode.
@@ -269,6 +285,7 @@ const get = async function(key) {
         createUser = "";
     }
     return {
+        type: type,
         key: key,
         description: description,
         createTime: createTime == -1 ?
@@ -281,7 +298,7 @@ const get = async function(key) {
 // key secretsManagerに登録するKey名を文字列で設定します.
 // 戻り値: trueの場合、無事削除されました.
 const remove = async function(key) {
-    const result = await _getSeecret(key);
+    const result = await _getSecret(key);
     if(result == undefined) {
         throw new Error("The secret ("
             + key + ") does not exist.");

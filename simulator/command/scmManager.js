@@ -48,7 +48,7 @@ const _getSecretView = function(json) {
 const create = async function(secret, description, userName, json) {
     try {
         // 生成処理.
-        await scmMan.create(secret, description, userName, json);
+        await scmMan.create("", secret, description, userName, json);
         // 正常に処理が成功した場合、登録結果を出力.
         return await get(secret);
     } catch(e) {
