@@ -119,21 +119,27 @@ const createTokenKey = function() {
         if(expire < 1) {
             expire = 1
         // 最大値を超える場合(１日以上).
-    } else if(expire > 86400) {
+        } else if(expire > 86400) {
             expire = 86400;
         }
     }
     // tokeyExpire値(秒)をミリ秒に変換.
     expire = Date.now() + (expire * 60000)
-    // tokenには
+    // tokenにはbase64(
     // - randomToken(任意の長さ).base64
-    // - /
+    // - =
     // - expire(UnixTimeミリ秒).16進数
-    // で生成する.
+    // )で生成する.
     // 日付を入れる理由は、このトークンが時限である事を示す.
-    return sig.cutEndBase64Eq(xor128.random
-        .getBytes(len).toString("base64")) + "_" +
-            (expire.toString(16));
+    return sig.cutEndBase64Eq(
+        Buffer.from(
+            (
+                xor128.random.getBytes(len).toString("base64") +
+                "_" +
+                (expire.toString(16))
+            )
+        ).toString("base64")
+    );
 }
 
 // token区切り文字.
@@ -141,18 +147,17 @@ const TOKEN_DELIMIRATER = "$_$/\n";
 
 // gasAuthにアクセスするためのToken作成.
 // target GASの引数`target`を設定します.
-// paramsArray [key, value, key, value, ...]
-//             対象のパラメータを設定します.
-//             ここでは順番を気にするので、注意が必要です.
-// 戻り値: tokenとtokenKeyが返却されます.
+// sortKeys addParamsに対する昇順sortKey(Array)を設定します.
+// addParams 追加パラメータを設定します.
+// 戻り値: {request-token, request-token-key}
 //         request-token: tokenを設定します.
 //         request-token-key tokenKeyを設定します.
-const createSendToken = function(target, paramsArray) {
+const createSendToken = function(target, sortKeys, addParams) {
     /**
      * authKeyCode + TOKEN_DELIMIRATER +
      * target + TOKEN_DELIMIRATER +
      * tokenKeyCode +
-     * TOKEN_DELIMIRATER + params.key
+     * TOKEN_DELIMIRATER + params.key(昇順sort)
      * TOKEN_DELIMIRATER + params.value
      */
     // 新しいtokenKeyを生成.
@@ -160,13 +165,15 @@ const createSendToken = function(target, paramsArray) {
     // allowAuthKeyCodeを環境変数から取得.
     const authKeyCode = process.env[ENV_GAS_ALLOW_AUTH_KEY_CODE];
     // シグニチャーを生成.
-    let signature = authKeyCode + TOKEN_DELIMIRATER + target +
-        TOKEN_DELIMIRATER + tokenKeyCode;
-    // 指定された変数(Array順番を気にする)を元にシグニチャーを更新.
-    const len = paramsArray.length;
-    for(let i = 0; i < len; i += 2) {
-        signature += TOKEN_DELIMIRATER + paramsArray[i] +
-            TOKEN_DELIMIRATER + paramsArray[i + 1];
+    let signature =
+        authKeyCode + TOKEN_DELIMIRATER +
+        target + TOKEN_DELIMIRATER +
+        tokenKeyCode;
+    // ソートされたパラメータを追加.
+    const len = sortKeys.length;
+    for(let i = 0; i < len; i ++) {
+        signature += TOKEN_DELIMIRATER + sortKeys[i] +
+            TOKEN_DELIMIRATER + addParams[sortKeys[i]];
     }
     const ret = {};
     // [token生成]hmacSHA256計算で16進数で返却.
@@ -177,17 +184,23 @@ const createSendToken = function(target, paramsArray) {
     return ret;
 }
 
+// パラメータのKeyをソートする.
+const sortParamsKey = function(params) {
+    const ret = [];
+    for(let k in params) {
+        ret[ret.length] = k;
+    }
+    return ret.sort();
+}
+
 // Gasアクセス用のURLを生成.
 // target 対象の処理タイプを設定します.
 //        "oAuth" oAuth認証の処理要求をします.
 //        "businessDay" 対象GASで定義されている営業日での計算を行います.
-// paramsArray Arrayで追加するGETパラメータを設定します.
-//             この内容は設定順番を気にするのでArray定義です.
-//             [key, value, key, value, ・・・・] と設定します.
+// addParams 追加パラメータを設定します.
 // 戻り値: GASに問い合わせるURL, Paramsを返却します.
 //         {url, params}
-const getGasAccessURLEncodeGetParams = function(
-    target, paramsArray) {
+const getGasAccessURLEncodeGetParams = function(target, addParams) {
     if(!authUtil.useString(target)) {
         throw new Error("Specified target not set: " + target);
     }
@@ -196,28 +209,39 @@ const getGasAccessURLEncodeGetParams = function(
         throw new Error(
             "[ENV]The URL destination GoogleAppsScript is not set.");
     }
+    // [ENV]gasアクセス先URLを環境変数から取得.
     const url = process.env[ENV_GAS_AUTH_URL];
 
+    // パラメータKeyをソート.
+    const sortKeys = sortParamsKey(addParams)
+
     // 指定TypeのTokenを生成.
-    const oAuthParams = createSendToken(target, paramsArray);
+    const oAuthParams = createSendToken(target, sortKeys, addParams);
+
+    // oAuthParamのKeyをソート.
+    const sortOAuthKeys = sortParamsKey(oAuthParams)
     
     // targetをセット.
-    let getParams = encodeURIComponent(PARAMS_EXECUTE_TARGET) + "="
+    let resParams = encodeURIComponent(PARAMS_EXECUTE_TARGET) + "="
         + encodeURIComponent(target);
     
     // paramsをGETパラメータ変換.
-    const len = paramsArray.length;
-    for(let i = 0; i < len; i += 2) {
-        getParams += "&" + encodeURIComponent(paramsArray[i]) + "="
-            + encodeURIComponent(paramsArray[i + 1]);
+    let k;
+    let len = sortKeys.length;
+    for(let i = 0; i < len; i ++) {
+        k = sortKeys[i];
+        resParams += "&" + encodeURIComponent(k) + "="
+            + encodeURIComponent(addParams[k]);
     }
     // oAuthParamsをGETパラメータ変換.
-    for(let k in oAuthParams) {
-        getParams += "&" + encodeURIComponent(k) + "="
+    len = sortOAuthKeys.length;
+    for(let i = 0; i < len; i ++) {
+        k = sortOAuthKeys[i];
+        resParams += "&" + encodeURIComponent(k) + "="
             + encodeURIComponent(oAuthParams[k]);
     }
-    // URL, getParams.
-    return {url: url, params: getParams};
+    // 返却: URL, resParams.
+    return {url: url, params: resParams};
 }
 
 // [実行パラメータ]oAuth認証確認.
@@ -276,7 +300,7 @@ const allowAccountDataURL = function() {
 // request 対象のrequest情報を設定します.
 // 戻り値: GASに問い合わせるURLが返却されます.
 const createOAuthURL = function(request) {
-    const params = [];
+    const params = {};
     const host = request.header.get("host");
 
     // ログイン後の元のURLを取得.
@@ -284,11 +308,10 @@ const createOAuthURL = function(request) {
     const srcUrl = request.queryParams[PARAMS_SRC_URL];
     if(authUtil.useString(srcUrl)) {
         const protocol = getHttpProtocol(host);
-        sourceAccessUrl = protocol + host +
+        const sourceAccessUrl = protocol + host +
             (srcUrl.startsWith("/") ?
                 srcUrl : "/" + srcUrl);
-        params[params.length] = PARAMS_SRC_URL;
-        params[params.length] = sourceAccessUrl;        
+        params[PARAMS_SRC_URL] = sourceAccessUrl;        
     }
     
     // Gasアクセス用のURL + URLEncodeのGetパラメータを生成.
@@ -355,10 +378,9 @@ const getBusinessDayToGetParams = function(
     }
     
     // パラメータ用のリストを作成.
-    const params = [
-        PARAMS_START_DATE, startDate,
-        PARAMS_BUSINESS_DAY, businessDay,
-    ];
+    const params = {}
+    params[PARAMS_START_DATE] = startDate;
+    params[PARAMS_BUSINESS_DAY] = businessDay;
 
     // Gasアクセス用のURLEncodeのGetパラメータを生成.
     return getGasAccessURLEncodeGetParams(
@@ -443,6 +465,44 @@ const _callLogin = async function(params) {
     return ret;
 }
 
+// urlPathを取得.
+const getUrlPath = function(url) {
+    let p = url.indexOf("://");
+    if(p == -1) {
+        return url;
+    }
+    let pp = url.indexOf("/", p + 3);
+    if(pp == -1) {
+        return url;
+    }
+    return url.substring(pp);
+}
+
+// リダイレクトURLにパラメータが存在する場合
+// URLエンコード変換し直す.
+const encodeRedirectUrlParams = function(url) {
+    // パラメータが存在する場合.
+    const p = url.indexOf("?");
+    if(p == -1) {
+        return url;
+    }
+    let kv;
+    let ret = getUrlPath(url.substring(0, p)) + "?";
+    const paramList = url.substring(p + 1).split("&");
+    const len = paramList.length;
+    for(let i = 0; i < len; i ++) {
+        kv = paramList[i].split("=");
+        if(i != 0) {
+            ret += "&";
+        }
+        ret += encodeURIComponent(kv[0])
+        if(kv.length > 1) {
+            ret += "=" + encodeURIComponent(kv[1])
+        }
+    }
+    return ret;
+}
+
 // executeOAuth処理(gasOAuth)処理結果に対するログインセッションを作成します.
 // resState: レスポンスステータス(httpStatus.js).
 // resHeader レスポンスヘッダ(httpHeader.js).
@@ -454,11 +514,12 @@ const redirectOAuth = async function(resState, resHeader, request) {
         resHeader, request, request.queryParams, _callLogin);
 
     // リダイレクト先URLを取得します.
-    let redirectURL = request.queryParams["srcURL"];
+    let redirectURL = request.queryParams[PARAMS_SRC_URL];
 
-    // リレイレクト先のURLが存在しない場合はリダイレクト.
+    // リダイレクト先のURLが存在しない場合はリダイレクト.
     if(authUtil.useString(redirectURL)) {
-        resHeader.redirect(redirectURL);
+        resState.redirect(
+            encodeRedirectUrlParams(redirectURL));
         return true;
     }
     return false;

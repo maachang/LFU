@@ -180,6 +180,8 @@ const remove = async function(user, passCode, sessionId) {
 // sessionId 対象のセッションIDを設定します.
 // 戻り値: trueの場合、ユーザーセッションの更新成功です.
 const update = async function(user, passCode, sessionId) {
+    // 500msecぐらいかかってた。
+    // 逆にlambda上だと早くなるかも？
     try {
         // セッションを取得.
         const session = await _loadSession(user, passCode, sessionId);

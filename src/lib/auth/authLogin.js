@@ -110,7 +110,7 @@ const logout = async function(resHeader, request) {
         if(res == true) {
             // cookieセッションを削除.
             resHeader.putCookie(COOKIE_SESSION_KEY,
-                {value: token, expires: new Date(0).toUTCString()});
+                {value: token, "max-age": 0});
         }
         return res;
     } catch(e) {
@@ -153,7 +153,6 @@ const isLogin = async function(level, resHeader, request) {
         // トークンの解析.
         const keyCode = getTokenKeyCode(request);
         const dtoken = sig.decodeToken(keyCode, token);
- 
         // expire値を超えている場合.
         if(Date.now() >= dtoken.expire) {
             // ログインされていない.
@@ -179,6 +178,9 @@ const isLogin = async function(level, resHeader, request) {
 
             // レスポンスにセッションキーを再設定.
             resHeader.putCookie(COOKIE_SESSION_KEY, {value: nextToken});
+            // 前のセッションを削除.
+            resHeader.putCookie(COOKIE_SESSION_KEY,
+                {value: token, "max-age": 0});
         }
 
         return ret;
