@@ -65,6 +65,18 @@ const getPath = function() {
     return path;
 }
 
+// notMinify指定かチェック.
+const getNotMinify = function() {
+    // notMinifyを取得.
+    let notMinify = process.argv[2];
+    if(notMinify == undefined) {
+        return false;
+    }
+    notMinify = notMinify.toLowerCase();
+    return notMinify == "true" || notMinify == "yes" ||
+        notMinify == "on" || notMinify == "ok";
+}
+
 // ディレクトリ作成.
 // srcの最下層を除いた形でディレクトリを作成します.
 // path 対象の基本パスを設定します.
@@ -133,7 +145,8 @@ const cmdCopy = function(path, fileName, moveDir) {
 // .lfuSrcList.JSONのjsファイルをミニファイする.
 // path 対象の基本パスを設定します.
 // srcList loadLfuSrcListJsonFile で取得した内容を設定します.
-const executeMinify = function(path, srcList) {
+const executeMinify = function(path, srcList, notMinify) {
+    notMinify = notMinify == true;
     // minify出力先のディレクトリを作成.
     try {
         // 一旦.minSrcディレクトリを削除(rmコマンドで削除).
@@ -161,8 +174,13 @@ const executeMinify = function(path, srcList) {
         }
         // js ファイルのみminify化.
         if(baseList[i].trim().toLowerCase().endsWith(".js")) {
-            //cmdMimify(path, baseList[i], MINIFY_DIR);
-            cmdCopy(path, baseList[i], MINIFY_DIR);
+            // jsをminifyしない場合.
+            if(notMinify == true) {
+                cmdCopy(path, baseList[i], MINIFY_DIR);
+            // jsをminifyする場合.
+            } else {
+                cmdMimify(path, baseList[i], MINIFY_DIR);
+            }
         } else {
             cmdCopy(path, baseList[i], MINIFY_DIR);
         }
@@ -232,9 +250,12 @@ const executeMinify = function(path, srcList) {
     console.log();
 }
 
-// 実行処理.
+// 引数条件取得.
 const path = getPath();
+const notMinify = getNotMinify();
+// 対象リストを取得.
 const srcList = loadLfuSrcListJsonFile(path);
-executeMinify(path, srcList);
+// 実行処理.
+executeMinify(path, srcList, notMinify);
 
 })();

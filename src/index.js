@@ -6,6 +6,9 @@
 
 // lambda main.
 exports.handler = async (event, context) => {
+    // イベント11超えでメモリーリーク警告が出るのでこれを排除.
+    require('events').EventEmitter.
+        defaultMaxListeners = 0;
     ////////////////////////////////////
     // 初期処理系はここにセット.
     ////////////////////////////////////
