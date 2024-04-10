@@ -136,6 +136,7 @@ const _responseCall = function(outResult, res, resolve, reject) {
     }
     // エラー.
     const errCall = function(e) {
+        res.end();
         reject(e);
         cleanup();
     }
@@ -234,6 +235,7 @@ const request = function(host, path, options) {
             req.setMaxListeners(0);
             // [request]エラー.
             const errCall = function(e) {
+                req.end();
                 reject(e)
                 cleanup();
             }

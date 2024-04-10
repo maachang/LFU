@@ -359,22 +359,22 @@ const regRequestRequireFunc = function(env) {
         //}
 
         // s3内で利用するrequire処理.
-        global.exrequire = function(
+        global.exrequire = async function(
             path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = ".";
+                currentPath = "";
             }
-            return global.s3require(path, currentPath,
+            return await global.s3require(path, currentPath,
                 noneCache, response);
         }
 
         // s3内で利用するcontains処理.
-        global.excontents = function(
+        global.excontents = async function(
             path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = ".";
+                currentPath = "";
             }
-            return global.s3contents(path, currentPath,
+            return await global.s3contents(path, currentPath,
                 response);
         }
 
@@ -407,7 +407,7 @@ const regRequestRequireFunc = function(env) {
         global.exrequire = function(
             path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = ".";
+                currentPath = "";
             }
             return global.grequire(path, currentPath,
                 noneCache, response);
@@ -417,7 +417,7 @@ const regRequestRequireFunc = function(env) {
         global.excontents = function(
             path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
-                currentPath = ".";
+                currentPath = "";
             }
             return global.gcontents(path, currentPath,
                 response);

@@ -313,7 +313,8 @@ const grequire = async function(
     const organization = _DEFAULT_ORGANIZATION;
     const repo = _DEFAULT_REPO;
     const branch = _DEFAULT_BRANCH;
-    if(typeof(currentPath) != "string") {
+    if(typeof(currentPath) != "string" ||
+        currentPath.length == 0) {
         currentPath = _CURRENT_PATH
     }
     // githubObject用のPathを取得.

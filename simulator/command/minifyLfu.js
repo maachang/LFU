@@ -161,7 +161,8 @@ const executeMinify = function(path, srcList) {
         }
         // js ファイルのみminify化.
         if(baseList[i].trim().toLowerCase().endsWith(".js")) {
-            cmdMimify(path, baseList[i], MINIFY_DIR);
+            //cmdMimify(path, baseList[i], MINIFY_DIR);
+            cmdCopy(path, baseList[i], MINIFY_DIR);
         } else {
             cmdCopy(path, baseList[i], MINIFY_DIR);
         }

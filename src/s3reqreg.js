@@ -111,6 +111,17 @@ const convertS3CurrentPath = function(path) {
     return path;
 }
 
+// prefixを整形.
+const trimPrefix = function(prefix) {
+    if(prefix.startsWith("/")) {
+        prefix = prefix.substring(1).trim();
+    }
+    if(prefix.endsWith("/")) {
+        prefix = prefix.substring(0, prefix.length - 1).trim();
+    }
+    return prefix;
+}
+
 // オプション設定.
 // option {currentPath: string} カレントパスを設定します.
 //        {region: string} リージョンを設定します.
@@ -153,42 +164,27 @@ const getRegion = function() {
 
 // s3pathをbucketとkeyに変換.
 // path S3pathを設定します.
-// currentPath 別途カレントパスを設定した場合、こちらが有効になります.
+// prefix ここで設定される内容が設定されている場合
+//        setOption({currentPath}) + prefix
+//        となります.
 // 戻り値: {Bucket: bucket名, Key: key名}が返却されます.
-const getS3Path = function(path, currentPath) {
-    // カレントパスが設定されていない場合.
-    if(_CURRENT_PATH == undefined &&
-        currentPath == undefined) {
-        // パスを解析.
-        const p = path.indexOf("://");
-        // 頭に`s3://`系 が設定されていない場合セットする.
-        if(p == -1) {
-            path = "s3://" + path;
-        }
-    // カレントパスが設定されている場合.
+const getS3Path = function(path, prefix) {
+    // 引数のカレントパスが設定されていない場合.
+    if(prefix == undefined) {
+        // カレントパスを空にする.
+        prefix = "";
     } else {
-        // 今回設定されたカレントパスが存在しない場合.
-        if(currentPath == undefined) {
-            // デフォルトのカレントパスを利用する.
-            currentPath = _CURRENT_PATH;
-        // カレントパスが設定されている場合.
-        } else {
-            // 正しい条件に変換.
-            currentPath = convertS3CurrentPath(
-                currentPath);
+        prefix = trimPrefix(prefix);
+        if(prefix == ".") {
+            throw new Error("不正なprefix: " + prefix);
         }
-        // s3:// や s3a:// が存在しない場合のみ
-        // カレントパスをセットする.
-        let p = path.indexOf("://");
-        if(p == -1) {
-            // 一番前に `/` が存在する場合.
-            if(path.startsWith("/")) {
-                // 除外.
-                path = path.substring(1);
-            }
-            // カレントパスとマージ.
-            path = currentPath + path;
-        }
+    }
+    // パスを作成.
+    if(prefix.length == 0) {
+        path = _CURRENT_PATH + trimPrefix(path);
+    } else {
+        path = _CURRENT_PATH + prefix + "/" +
+            trimPrefix(path);
     }
     // s3:// or s3a:// の区切り位置を検索.
     const b = path.indexOf("://") + 3;
@@ -223,6 +219,7 @@ const loadS3 = async function(params, response) {
             status: response.status
         });
     }
+    return ret;
 }
 
 // originRequire読み込みスクリプトheader.
@@ -237,9 +234,6 @@ const ORIGIN_REQUIRE_SCRIPT_HEADER =
 const ORIGIN_REQUIRE_SCRIPT_FOODER =
     "\n};\n})();";
 
-// 文字デコード.
-const _TEXT_DECODE = new TextDecoder();
-
 // originRequireを実施.
 // name load対象のs3Nameを設定します.
 // js load対象のjsソース・ファイルを設定します.
@@ -247,7 +241,7 @@ const _TEXT_DECODE = new TextDecoder();
 const originRequire = function(name, js) {
     // origin的なrequireスクリプトを生成.
     let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
-        + _TEXT_DECODE.decode(js)
+        + js
         + ORIGIN_REQUIRE_SCRIPT_FOODER;
     try {
         // Contextを生成.
@@ -339,10 +333,10 @@ const s3require = async function(path, currentPath, noneCache, response) {
 // currentPath 今回有効にしたいcurrentPathを設定する場合、設定します.
 // response レスポンス情報を取得したい場合設定します.
 // 戻り値: promiseが返却されます.
-const s3contents = function(path, currentPath, response) {
+const s3contents = async function(path, currentPath, response) {
     // s3pathをBucket, Keyに分解.
     // S3からコンテンツ(binary)を返却.
-    return loadS3(getS3Path(path, currentPath), response);
+    return await loadS3(getS3Path(path, currentPath), response);
 }
 
 // s3情報のレスポンス情報を取得.
