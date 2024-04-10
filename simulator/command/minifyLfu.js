@@ -45,6 +45,15 @@ const getPath = function() {
         p("  path: Set the current directory name of LFU.");
         p("        Normally, set . to change the current directory of LFU.")
         p("  notMinify: By setting true, yes, on, ok, it will be zipped without compression.");
+        p("[example]")
+        p(" $ cd LFU")
+        p(" $ " + COMMAND_NAME + " .");
+        p(" # rmdir: ./.minSrc");
+        p(" mkdir: ./.minSrc");
+        p(" > [base]src/LFUSetup.js");
+        p(" > [base]src/freqreg.js");
+        p(" > [base]src/greqreg.js");
+        p(" ・・・・・・・");
         p("");
         return undefined;
     }
