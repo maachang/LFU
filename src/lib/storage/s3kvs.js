@@ -402,7 +402,6 @@ const create = function(options) {
 
     // prefixの整形.
     if(typeof(options.prefix) != "string") {
-        // バケットから空セット.
         // 環境変数から取得.
         options.prefix = process.env[ENV_MAIN_S3_KVS_PREFIX];
         if(options.prefix == null || options.prefix == undefined ||

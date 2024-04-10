@@ -72,7 +72,7 @@ const _decodeValue = function(key, json) {
 
 // 登録されている1つのsecret情報を取得.
 // key 対象のkeyを設定します.
-// 戻り値: secretValueが返却されます.
+// 戻り値: 文字列が返却されます.
 //         存在しない場合はundefined返却されます.
 const get = async function(key) {
     // jsonを取得.
@@ -84,12 +84,24 @@ const get = async function(key) {
     return _decodeValue(key, json);
 }
 
+// 登録されている1つのsecret情報をJSON取得.
+// key 対象のkeyを設定します.
+// 戻り値: JSON結果が返却されます.
+//         存在しない場合はundefined返却されます.
+const getJSON = async function(key) {
+    const result = await get(key);
+    if(result == undefined) {
+        return;
+    }
+    return JSON.parse(result);
+}
+
 // 埋め込みコードのSecret内容を取得.
 // ※埋め込みコードはS3ではなく、環境変数に埋め込まれたコードに対して
 //   Secretと同様の処理でvalueを取得するものです.
 // key 対象のkeyを設定します.
 // embedCode 対象の埋め込みコードを設定します.
-// 戻り値: 復号結果が返却されます.
+// 戻り値: 復号結果が文字列で返却されます.
 const getEmbed = function(key, embedCode) {
     // 埋め込みコード用のdescriptionを生成.
     const description = DESCRIPTION_EMBED_CODE + key +
@@ -102,10 +114,22 @@ const getEmbed = function(key, embedCode) {
     return _decodeValue(key, JSON.parse(result));
 }
 
+// 埋め込みコードのSecret内容を取得.
+// ※埋め込みコードはS3ではなく、環境変数に埋め込まれたコードに対して
+//   Secretと同様の処理でvalueを取得するものです.
+// key 対象のkeyを設定します.
+// embedCode 対象の埋め込みコードを設定します.
+// 戻り値: JSON結果が返却されます.
+const getEmbedJSON = function(key, embedCode) {
+    return JSON.parse(getEmbed(key, embedCode));
+}
+
 ////////////////////////////////////////////////////////////////
 // 外部定義.
 ////////////////////////////////////////////////////////////////
 exports.get = get;
+exports.getJSON = getJSON;
 exports.getEmbed = getEmbed;
+exports.getEmbedJSON = getEmbedJSON;
 
 })();

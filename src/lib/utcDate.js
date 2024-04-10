@@ -217,7 +217,8 @@ const createDate = function(y, m, d) {
 // dateを文字列変換.
 // ここで渡されるオブジェクトは utcDate.create()の
 // 内容なので、内部はUTCは使わない。
-const dateToString = function(object, mode) {
+const dateToString = function(object, mode, noSeparator) {
+    noSeparator = noSeparator == true;
     let ret = ""
     let y = "" + object.getFullYear();
     y = "0000".substring(y.length) + y;
@@ -228,14 +229,15 @@ const dateToString = function(object, mode) {
     }
     let M = "" + (object.getMonth() + 1);
     M = "00".substring(M.length) + M;
-    ret += "-" + M;
+    ret += noSeparator ? M : "-" + M;
     // 月出力.
     if(mode == false || mode == "month") {
         return ret;
     }
     // 日出力.
     let d = "" + object.getDate();
-    ret += "-" + "00".substring(d.length) + d
+    d = "00".substring(d.length) + d;
+    ret += noSeparator ? d : "-" + d;
     if(mode == true || mode == "date") {
         return ret;
     }
@@ -248,6 +250,9 @@ const dateToString = function(object, mode) {
     s = "00".substring(s.length) + s;
     let sss = "" + object.getMilliseconds();
     sss = "000".substring(sss.length) + sss;
+    if(noSeparator) {
+        return ret + h + m + s + sss;
+    }
     return ret + " " + h + ":" + m + ":" + s + "." + sss;
 }
 
@@ -452,8 +457,8 @@ const create = function(y, m, d) {
     o.rawDate = function() {
         return date;
     }
-    o.toString = function(mode) {
-        return dateToString(o, mode);
+    o.toString = function(mode, noSeparator) {
+        return dateToString(o, mode, noSeparator);
     }
     return o;
 };

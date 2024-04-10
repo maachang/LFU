@@ -107,6 +107,55 @@ const convertHeaderToLowerKey = function(header) {
     return ret;
 }
 
+// レスポンス処理.
+// outResult レスポンスステータスやヘッダを取得する場合指定されます.
+// res レスポンスイベントを設定するオブジェクト.
+// resolve promise成功結果を渡すfunction.
+// reject promise失敗結果を渡すfunction.
+const _responseCall = function(outResult, res, resolve, reject) {
+    // バイナリ受信.
+    const body = [];
+    // データ受取.
+    const dataCall = function(chunk) {
+        body.push(chunk);
+    }
+    // データ受取終了.
+    const endCall = function() {
+        try {
+            // レスポンス情報を受け付ける.
+            if(outResult != undefined) {
+                outResult.status = res.statusCode;
+                outResult.header = convertHeaderToLowerKey(
+                    res.headers);
+            }
+            // 通信終了.
+            resolve(Buffer.concat(body));
+        } finally {
+            cleanup();
+        }
+    }
+    // エラー.
+    const errCall = function(e) {
+        reject(e);
+        cleanup();
+    }
+    // クリーンアップ.
+    const cleanup = function() {
+        res.removeListener('data', dataCall);
+        res.removeListener('end', endCall);
+        res.removeListener('error', errCall);
+    }
+    // response処理.
+    try {
+        res.on("data", dataCall);
+        res.once("end", endCall);
+        res.once("error", errCall);
+    } catch (err) {
+        reject(err);
+        cleanup();
+    }
+}
+
 // httpsリクエスト.
 // host 対象のホスト名を設定します.
 // path 対象のパス名を設定します.
@@ -175,76 +224,39 @@ const request = function(host, path, options) {
             const url = options["directURL"] == true ?
                 host: getUrl(host, path, port, urlParams);
             // request作成.
-            const req = https.request(
-                url, params, function(res) {
-                // バイナリ受信.
-                const body = [];
-                // クリーンアップ.
-                const cleanup = function() {
-                    try {
-                        req.removeListener('data', dataCall);
-                    } catch(e) {}
-                    try {
-                        req.removeListener('end', endCall);
-                    } catch(e) {}
-                    try {
-                        req.removeListener('error', errCall);
-                    } catch(e) {}
-                }
-                // データ受取.
-                const dataCall = function(chunk) {
-                    body.push(chunk);
-                }
-                // データ受取終了.
-                const endCall = function() {
-                    cleanup();
-                    // レスポンス情報を受け付ける.
-                    if(response != undefined) {
-                        response.status =
-                            res.statusCode;
-                        response.header =
-                            convertHeaderToLowerKey(
-                                res.headers);
-                    }
-                    resolve(Buffer.concat(body));
-                }
-                // エラー.
-                const errCall = function(e) {
-                    cleanup();
-                    reject(e)
-                }
-                // response処理.
-                try {
-                    res.on("data", dataCall);
-                    res.on("end", endCall);
-                    res.on("error", errCall);
-                } catch (err) {
-                    cleanup();
-                    reject(err)
-                }
+            const req = https.request(url, params, function(res) {
+                // イベント11超えでメモリーリーク警告が出るのでこれを排除.
+                res.setMaxListeners(0);
+                // レスポンス処理.
+                _responseCall(response, res, resolve, reject);
             });
-            // [req]クリーンアップ.
-            const cleanupReq = function() {
-                try {
-                    req.removeListener('error', errCallReq);
-                } catch(e) {}
-            }
-            // [req]エラー.
-            const errCallReq = function(e) {
-                cleanupReq();
+            // イベント11超えでメモリーリーク警告が出るのでこれを排除.
+            req.setMaxListeners(0);
+            // [request]エラー.
+            const errCall = function(e) {
                 reject(e)
+                cleanup();
+            }
+            // [request]クリーンアップ.
+            const cleanup = function() {
+                req.removeListener('error', errCall);
             }
             // requestエラー処理.
-            req.on('error', errCallReq);
+            req.once('error', errCall);
             // bodyが存在する場合.
             if(body != undefined) {
                 // body送信.
                 req.write(body);
             }
+            // request終了.
             req.end();
-            cleanupReq();
+            // [request]クリーンアップ.
+            cleanup();
         } catch (err) {
+            // リジェクト.
             reject(err)
+            // [request]クリーンアップ.
+            cleanup();
         }
     });
 }

@@ -18,7 +18,8 @@ const httpsClient = frequire("./lib/httpsClient.js");
 // issue作成対象のURLを取得.
 const _getURL = function(oganization, repository) {
     let path;
-    if(oganization == undefined || oganization == null) {
+    if(oganization == undefined || oganization == null ||
+        oganization == "") {
         path = "repos/" + repository + "/issues";
     } else {
         path = "repos/" + oganization +
@@ -49,7 +50,10 @@ const createIssue = async function(
 
     // HTTPヘッダにトークンセット.
     const headers = {
-        Authorization: "token " + token
+        "Authorization": "token " + token,
+        "User-Agent": "lfu/" + Date.now(),
+        "Accept": "application/vnd.github..v3+json",
+        "Content-Type": "application/json"
     };
 
     // labelsが存在しない場合は空をセット.
@@ -65,13 +69,22 @@ const createIssue = async function(
     });
 
     // 送信処理.
+    const response = {};
     let result = await httpsClient.request(
         url.host, url.path, {
             method: "POST",
             header: headers,
             body: payload,
+            response: response
         }
     );
+    // responseのstatusが400以上の場合.
+    if(response.status >= 400) {
+        // エラー表示.
+        throw new Error("HTTPエラーステータス: " +
+            response.status + " が発生しました: " +
+            JSON.stringify(url, null, "  "));
+    }
     // 返却結果を取得して、返却.
     result = JSON.parse(result.toString()); 
     return {

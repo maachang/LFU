@@ -1127,7 +1127,7 @@ const main_handler = async function(event, context) {
 // lambda-func-url初期処理.
 // event index.jsで渡されるeventを設定します.
 const start = function(event) {
-        // 応答確認.
+    // 応答確認.
     if(event.rawPath == "/~ping" ||
         event.rawPath == "/~clearRequireCache") {
         // キャッシュクリア.

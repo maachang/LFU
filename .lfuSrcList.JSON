@@ -30,6 +30,7 @@
         ,"src/lib/storage/csvReader.js"
         ,"src/lib/storage/csvWriter.js"
         ,"src/lib/storage/jsonb.js"
+        ,"src/lib/storage/s3history.js"
         ,"src/lib/storage/s3kvs.js"
         ,"src/lib/util/fcipher.js"
         ,"src/lib/util/nums.js"

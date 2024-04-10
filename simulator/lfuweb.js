@@ -481,26 +481,18 @@ const callLfu = async function(req, res, body) {
 // req 対象のリクエストオブジェクトが設定されます.
 // res 対象のレスポンスオブジェクトが設定されます.
 const httpRequest = function(req, res) {
+    // イベント11超えでメモリーリーク警告が出るので
+    // これを排除.
+    req.setMaxListeners(0);
+    res.setMaxListeners(0);
     const method = req.method.toUpperCase()
-    // postデータのダウンロード.
+    // requestされたpostデータのダウンロード.
     if(method == "POST") {
         // コンテンツ長が設定されている場合.
         if(req.headers["content-length"]) {
             let off = 0;
             let body = Buffer.allocUnsafe(
                 req.headers["content-length"]|0);
-            // クリーンアップ.
-            const cleanup = function() {
-                try {
-                    req.removeListener('data', dataCall);
-                } catch(e){}
-                try {
-                    req.removeListener('end', endCall);
-                } catch(e){}
-                try {
-                    req.removeListener('error', errCall);
-                } catch(e){}
-            }
             // データ取得.
             const dataCall = function(bin) {
                 bin.copy(body, off);
@@ -516,25 +508,19 @@ const httpRequest = function(req, res) {
                 cleanup();
                 console.warn(e);
             }
+            // クリーンアップ.
+            const cleanup = function() {
+                req.removeListener('data', dataCall);
+                req.removeListener('end', endCall);
+                req.removeListener('error', errCall);
+            }
             req.on('data', dataCall);
-            req.on('end', endCall);
-            req.on('error', errCall);
+            req.once('end', endCall);
+            req.once('error', errCall);
         // コンテンツ長が設定されていない場合.
         } else {
             let list = [];
             let binLen = 0;
-            // クリーンアップ.
-            const cleanup = function() {
-                try {
-                    req.removeListener('data', dataCall);
-                } catch(e) {}
-                try {
-                    req.removeListener('end', endCall);
-                } catch(e) {}
-                try {
-                    req.removeListener('error', errCall);
-                } catch(e) {}
-            }
             // データ取得.
             const dataCall = function(bin) {
                 list.push(bin);
@@ -563,9 +549,15 @@ const httpRequest = function(req, res) {
                 cleanup();
                 console.warn(e);
             }
+            // クリーンアップ.
+            const cleanup = function() {
+                req.removeListener('data', dataCall);
+                req.removeListener('end', endCall);
+                req.removeListener('error', errCall);
+            }
             req.on('data', dataCall);
-            req.on('end', endCall);
-            req.on('error', errCall);
+            req.once('end', endCall);
+            req.once('error', errCall);
         }
     // GET処理.
     } else {
@@ -596,6 +588,7 @@ const startupServer = function() {
     server.maxHeadersCount = 0;
 
     // http.socketオプションを設定.
+    server.setMaxListeners(0);
     server.on("connection", function(socket) {
         // Nagle アルゴリズムを使用する.
         socket.setNoDelay(true);
