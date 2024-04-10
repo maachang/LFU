@@ -11,9 +11,6 @@
 (function() {
 'use strict';
 
-// コマンド引数用.
-const args = require("../modules/args.js");
-
 // コマンド実行.
 const { execSync } = require("child_process");
 
@@ -26,14 +23,30 @@ const LFU_SRC_LIST = ".lfuSrcList.JSON";
 // minify用ディレクトリ.
 const MINIFY_DIR = ".minSrc";
 
+// コマンド名.
+const COMMAND_NAME = "minifyLfu";
+
+// 文字列出力.
+const p = function(v) {
+    console.log(v);
+}
+
 // 起動パラメータで設定されたパスを取得.
 // 戻り値: パスが返却されます.
 const getPath = function() {
     // 対象パスを取得.
     let path = process.argv[2];
-    // パスが設定されていません.
+    // パスが設定されてない場合はhelp.
     if(path == undefined) {
-        throw new Error("Target path is not set.");
+        // help表示.
+        p("Usage: " + COMMAND_NAME + " [OPTION]...");
+        p(" This is a command to zip the LFU source code and minify the js.");
+        p("[OPTION]:")
+        p("  path: Set the current directory name of LFU.");
+        p("        Normally, set . to change the current directory of LFU.")
+        p("  notMinify: By setting true, yes, on, ok, it will be zipped without compression.");
+        p("");
+        return undefined;
     }
 
     // 0x0d, 0x0d が終端に設定されている場合.
@@ -252,6 +265,9 @@ const executeMinify = function(path, srcList, notMinify) {
 
 // 引数条件取得.
 const path = getPath();
+if(path == undefined) {
+    return;
+}
 const notMinify = getNotMinify();
 // 対象リストを取得.
 const srcList = loadLfuSrcListJsonFile(path);
