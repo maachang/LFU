@@ -62,6 +62,12 @@ const ENV_TENTATIVE_PASSWORD_LENGTH = "TENTATIVE_PASSWORD_LENGTH";
 
 // デフォルト仮パスワードの長さ.
 const DEF_TENTATIVE_PASSWORD_LENGTH = 24;
+
+// [ENV]デフォルト管理者ユーザ群.
+// "userName, userName, userName, ..." と設定することで
+// 対象ユーザが _getOauthToNoUserRegister で取得する際に
+// 対象ユーザと条件一致する場合は管理者ユーザとなります.
+const ENV_DEFAULT_ADMIN_USERS = "DEFAULT_ADMIN_USERS";
 	
 // *[変更不可]ユーザ名(string).
 // ログインユーザ名.
@@ -186,6 +192,35 @@ const _passwordSha256 = function(password) {
 	return authUtil.sha256(password);
 }
 
+// default管理者ユーザ確認.
+const _checkUserNameToDefaultAdminUser = function(user) {
+	// デフォルト管理者ユーザ群を取得.
+	const defAdminUsers = process.env[ENV_DEFAULT_ADMIN_USERS];
+	if(typeof(defAdminUsers) != "string" ||
+		defAdminUsers.length == 0) {
+		// 存在しない.
+		return false;
+	}
+	let p, b = 0;
+	while(true) {
+		// 部分一致チェック.
+		p = defAdminUsers.indexOf(user, b)
+		// 検出されない場合.
+		if(p == -1) {
+			return false;
+		}
+		b = p + user.length;
+		const s = defAdminUsers[p-1];
+		const e = defAdminUsers[b];
+		// 一致文字列の前後を見て、区切り文字等かをチェック.
+		if((s == undefined || s == " " || s == "," || s == "\t") &&
+			(e == undefined || e == " " || e == "," || e == "\t")) {
+			// 一致したとして返却.
+			return true;
+		}
+	}
+}
+
 // 非ログイン登録でのoauthユーザ利用ユーザを取得.
 // user 対象のユーザー名を設定します.
 // 戻り値 UserInfoが返却されます.
@@ -199,7 +234,12 @@ const _getOauthToNoUserRegister = function(user) {
 		ret[PERMISSION] = PERMISSION_USER; // ユーザ権限.
 		ret[CREATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
 		ret[UPDATE_DATE] = CREATE_DATE_BY_READONLY; // 読み込み専用.
-		ret[UPDATE_PASSWORD_DATE] = UPDATE_PASSWORD_DATE_BY_NO_PASSWORD; // パスワードなし.
+		ret[UPDATE_PASSWORD_DATE] =
+			UPDATE_PASSWORD_DATE_BY_NO_PASSWORD; // パスワードなし.
+		// 対象ユーザがデフォルトユーザ管理者かチェック.
+		if(_checkUserNameToDefaultAdminUser(user)) {
+			ret[PERMISSION] = PERMISSION_ADMIN; // 管理者権限.
+		}
 		return ret;
 	}
 	return undefined;

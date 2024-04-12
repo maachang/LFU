@@ -55,6 +55,8 @@ const getPath = function() {
         p(" > [base]src/greqreg.js");
         p(" ・・・・・・・");
         p("");
+        p("The lfu.zip file has been created.");
+        p("");
         return undefined;
     }
 
