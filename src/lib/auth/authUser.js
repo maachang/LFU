@@ -349,6 +349,13 @@ const remove = async function(user) {
 	return await userTable().remove("user", user);
 }
 
+// ユーザが存在するかチェック.
+// user 対象のユーザ名を設定します.
+// 戻り値: trueの場合存在します.
+const isUser = async function(user) {
+	return await _isUser(user);
+}
+
 // 指定ユーザー情報を取得.
 // user 対象のユーザ名を設定します.
 // 戻り値: UserInfoが返却されます.
@@ -438,8 +445,9 @@ const listAll = async function(detail) {
             const n = [];
             len = ret.length;
             for(i = 0; i < len; i ++) {
-                // Secret表示用として詳細を取得.
-                n[n.length] = await get(ret[i]);
+                // ユーザ詳細表示用として取得.
+				// パスワード等は秘匿.
+                n[n.length] = (await get(ret[i])).getView();
             }
             ret = n;
         }
@@ -564,7 +572,7 @@ const UserInfo = function(info) {
 	const getUserType = function() {
 		const type = info[USER_TYPE];
 		if(type == undefined) {
-			return USER_TYPE_ALL;
+			return USER_TYPE_OAUTH;
 		}
 		return type;
 	}
@@ -935,6 +943,7 @@ exports.isOauthToNoUserRegister = isOauthToNoUserRegister;
 exports.create = create;
 exports.remove = remove;
 exports.get = get;
+exports.isUser = isUser;
 exports.list = list;
 exports.listAll = listAll;
 exports.UserInfo = UserInfo;

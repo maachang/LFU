@@ -115,8 +115,9 @@ const create = function(status) {
     // HTTPステータスをセット.
     // status HTTPステータスを設定します.
     // redirectURL リダイレクト先のURLを設定します.
+    // params パラメータを設定します.
     // 戻り値: このオブジェクトが返却されます.
-    const _setStatus = function(status, redirectURL) {
+    const _setStatus = function(status, redirectURL, params) {
         if(status != undefined && status != null) {
             const srcStatus = status;
             status = parseInt(status);
@@ -128,9 +129,34 @@ const create = function(status) {
             status = 301;
         }
         hstate = status;
+        // リダイレクト先URLを生成.
         httpRedirectURL =
             (redirectURL == undefined || redirectURL == null) ?
             undefined: redirectURL;
+        // リダイレクト先URLが存在する場合はパラメータを付与.
+        if(httpRedirectURL != undefined) {
+            // パラメータが存在する場合セット.
+            if(typeof(params) != "string") {
+                let cnt = 0
+                let pms = "";
+                for(let k in params) {
+                    if(cnt != 0) {
+                        pms += "&";
+                    }
+                    pms += decodeURIComponent(k) + "=" +
+                        decodeURIComponent(params[k]);    
+                    cnt ++;            
+                }
+                params = pms;
+            }
+            // パラメータを追加.
+            if(httpRedirectURL.indexOf("?") != -1) {
+                httpRedirectURL += "&";
+            } else {
+                httpRedirectURL += "?"; 
+            }
+            httpRedirectURL += params;
+        }
         return ret;
     }
 
@@ -145,13 +171,13 @@ const create = function(status) {
     // url リダイレクト先のURLを設定します.
     // status HTTPステータスを設定します.
     // 戻り値: このオブジェクトが返却されます.
-    ret.redirect = function(url, status) {
+    ret.redirect = function(url, params, status) {
         // ステータスが設定されていない場合.
         if((status|0) == 0) {
             // 301(getでリダイレクト)をセット.
             status = 301;
         }
-        return _setStatus(status, url);
+        return _setStatus(status, url, params);
     }
 
     // HTTPステータスを取得.
