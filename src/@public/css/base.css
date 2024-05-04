@@ -1,0 +1,529 @@
+@charset "UTF-8";
+/**
+ * 基本css定義.
+ */
+
+/** 全体 **/
+* {
+    /* font. */
+    font-family: '游ゴシック', YuGothic, 'メイリオ', Meiryo,
+        'ヒラギノ角ゴ ProN W3', 'Hiragino Kaku Gothic ProN', Verdana,
+        Roboto, 'Droid Sans', sans-serif;
+}
+
+/**
+  lastpassのアイコンを表示させない.
+  これを入れないと意図しない状況でinputタグに対して
+  lastpassのアイコンが出て鬱陶しい事になるので強制.
+  あとlastpassのバージョンが変わるとこれが無効になる
+  可能性があるので、注意が必要.
+**/
+* [data-lastpass-icon-root] {
+    display: none !important;
+}
+* [data-lastpass-root] {
+    display: none !important;
+}
+
+/** 基本定義 **/
+html {
+    height: 100%;
+    /* font-color */
+    color: #4f4f4f;
+    /* font bold. */
+    font-weight: bold;
+}
+
+/** body基本定義 **/
+body {
+    background:#eeeeee;
+}
+
+/** 先頭アイテム **/
+.base_top_item {
+    display: flex;
+}
+
+/** 先頭のタイトル **/
+.base_top_title {
+    font-size: x-large;
+}
+
+/** 先頭の説明 **/
+.base_top_description {
+    margin-left: 40px;
+    font-size: medium;
+}
+
+/** 入力アイテム **/
+.base_input_item {
+    max-width: 80%;
+    margin: 0 auto;
+}
+
+/** 説明 **/
+.base_description {
+    text-align: left;
+    font-size: small;
+    margin: 3px auto;
+    padding-left: 10px;
+}
+
+/** フォーム. **/
+.base_form {
+    max-width: 55%;
+    margin: 0 auto;
+}
+
+/** 入力アイテム. **/
+.base_item {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    margin-bottom: 10px;
+}
+/** 入力アイテム共通設定 **/
+.base_label,
+.error_label,
+.base_input_text,
+.base_input_number,
+.base_select,
+.base_input_text_area,
+.base_date,
+.base_radio
+.base_checkbox {
+    padding: 10px;
+}
+
+/** 入力系フォントサイズ. **/
+.base_input_text,
+.base_input_number,
+.base_select,
+.base_input_text_area {
+    font-size: small;
+}
+
+/** ラベル **/
+.base_label {
+    width: 90%;
+    font-size: large;
+}
+
+/** エラーラベル. **/
+.error_label {
+    width: 90%;
+    color: #7f0000;
+    font-size: large;
+}
+
+/** 必須入力. **/
+.base_input_required {
+    color: #fff;
+    background: #cf3f3f;
+    border-radius: 4px;
+    padding: 5px 5px;
+    margin: 0 0 0 10px;
+    font-size: medium;
+}
+
+/** 任意入力. **/
+.base_input_any {
+    color: #fff;
+    background: #9f9f9f;
+    border-radius: 4px;
+    padding: 5px 5px;
+    margin: 0 0 0 10px;
+    font-size: medium;
+}
+
+/** 条件必須. **/
+.base_input_condition_required {
+    color: #fff;
+    background: #cf3fcf;
+    border-radius: 4px;
+    padding: 5px 5px;
+    margin: 0 0 0 10px;
+    font-size: medium;
+}
+
+/** １行で複数入力がある場合に利用. **/
+.base_input_line {
+    margin-top:5px;
+    width: 90%;
+}
+
+/* 入力枠. */
+.base_input_text {
+    width: 90%;
+    border: solid 1px #333;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #333;
+    background: #ffffff;
+    margin-bottom: 3px;
+}
+
+/* 入力枠 placeholder. */
+.base_input_text::placeholder {
+    color: #999;
+    font-weight: bold;
+}
+
+/* 入力枠 focus. */
+.base_input_text:focus {
+    outline: green auto 3px;
+}
+
+/* 入力枠 focus-visible. */
+.base_input_text:focus-visible {
+    outline: green auto 3px;
+}
+
+/** numebr. **/
+.base_input_number {
+    width: 90%;
+}
+
+/** numebr focus.**/
+.base_input_number:focus {
+    outline: green auto 3px;
+}
+
+/** numebr focus-visible. **/
+.base_input_number:focus-visible {
+    outline: green auto 3px;
+}
+
+/** セレクトボックス. **/
+.base_select {
+    width: 94%;
+    border: solid 1px #333;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #282828;
+    background: #ffffff;
+    margin-bottom: 3px;
+}
+
+/** セレクトボックス focus.**/
+.base_select:focus {
+    outline: green auto 3px;
+}
+
+/** セレクトボックス focus-visible. **/
+.base_select:focus-visible {
+    outline: green auto 3px;
+}
+
+/** ラジオボタン. **/
+.base_radio {
+    width: 90%;
+    margin-bottom: 3px;
+}
+
+/** ラジオボタン focus.**/
+.base_radio:focus {
+    outline: green auto 3px;
+}
+
+/** ラジオボタン focus-visible. **/
+.base_radio:focus-visible {
+    outline: green auto 3px;
+}
+
+/** チェックボックス. **/
+.base_checkbox {
+    width: 90%;
+    margin-bottom: 3px;
+}
+
+/** チェックボックス focus.**/
+.base_checkbox:focus {
+    outline: green auto 3px;
+}
+
+/** チェックボックス focus-visible. **/
+.base_checkbox:focus-visible {
+    outline: green auto 3px;
+}
+
+/* テキストエリア. */
+.base_input_text_area {
+    width: 90%;
+    resize: none;
+    border: 0;
+    padding: 10px;
+    font-weight: bold;
+    border: solid 1px #333;
+    color: #333;
+    background: #ffffff;
+    /* 6px radius */
+    border-radius: 6px;
+}
+
+/* テキストエリア placeholder. */
+.base_input_text_area::placeholder {
+    font-weight: bold;
+    color: #999;
+}
+
+/* テキストエリア focus. */
+.base_input_text_area:focus {
+    outline: green auto 3px;
+}
+
+/** テキストエリア focus-visible. **/
+.base_input_text_area:focus-visible {
+    outline: green auto 3px;
+}
+
+/** カレンダー. **/
+.base_date {
+    width: 90%;
+}
+
+/** カレンダー focus.**/
+.base_date:focus {
+    outline: green auto 3px;
+}
+
+/** カレンダー focus-visible. **/
+.base_date:focus-visible {
+    outline: green auto 3px;
+}
+
+/** サブミットボタン. **/
+.base_submit {
+    text-align: center;
+    margin-top: 25px;
+}
+
+/** サブミットボタン button. **/
+.base_submit button {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    background: green;
+    border: solid 1px green;
+    border-radius: 4px;
+    padding: 5px 32px;
+    transition: 0.4s;
+    cursor: pointer;
+}
+
+/** サブミットボタン hover. **/
+.base_submit button:hover {
+    color: green;
+    background: transparent;
+}
+
+/* サブミットボタン focus. */
+.base_submit button:focus {
+    outline: green auto 3px;
+}
+
+/** 通常ボタン. **/
+.base_button {
+    text-align: center;
+}
+
+/** 通常ボタン button. **/
+.base_button button {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    background:#4f4f4f;
+    border: solid 1px #2f2f2f;
+    border-radius: 4px;
+    padding: 5px 32px;
+    transition: 0.4s;
+    cursor: pointer;
+}
+
+/** 通常ボタン hover. **/
+.base_button button:hover {
+    color: #4f4f4f;
+    background: transparent;
+}
+
+/* 通常ボタン focus. */
+.base_button button:focus {
+    outline: #4f4f4f auto 3px;
+}
+
+/** base dialog button. **/
+.base_dialog_button {
+    margin-bottom: 10px;
+    margin-top: 5px;
+    font-size: 16px;
+    position: relative;
+    display: inline-block;
+    padding: 0.25em 0.5em;
+    text-decoration: none;
+    color: #FFF;
+    background: #8f8f8f;/*color*/
+    border: solid 1px #6f6f6f;/*line color*/
+    border-radius: 4px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+
+/* click base dialog button. */
+.base_dialog_button:active {
+    border: solid 1px #2f2f2f;
+    background: #787878;/*color*/
+    box-shadow: none;
+    text-shadow: none;
+    font-weight:bold;
+}
+
+/* hover base dialog button. */
+.base_dialog_button:hover {
+    border: solid 1px #4f4f4f;
+    background: #a0a0a0;/*color*/
+    box-shadow: none;
+    text-shadow: none;
+}
+
+/* focus base dialog button. */
+.base_dialog_button:focus {
+    outline: solid 3px #b8b8b8;
+}
+
+/** menu top. **/
+.base_menu_top {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/** menu. **/
+.base_menu {
+    text-align: center;
+}
+
+/** menu button. **/
+.base_menu_button {
+    width: 45em;
+    text-align: left;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    background: #5c5c5c;
+    border: solid 1px #3c3c3c;
+    border-radius: 9px;
+    padding: 20px;
+    margin-top: 10px;
+    transition: 0.4s;
+    cursor: pointer;
+}
+
+/** menu hover. **/
+.base_menu_button:hover {
+    color: #3c3c3c;
+    background: transparent;
+}
+
+/* menu focus. */
+.base_menu_button:focus {
+    outline: #3c3c3c auto 3px;
+}
+
+/** right menu. **/
+.base_right_menu {
+    text-align: right;
+    margin-right: 10%;
+}
+
+/** right menuボタン button. **/
+.base_right_menu button {
+    font-size: 17px;
+    font-weight: bold;
+    color: #fff;
+    background: green;
+    border: solid 1px green;
+    border-radius: 4px;
+    padding: 5px 32px;
+    transition: 0.4s;
+    cursor: pointer;
+}
+
+/** right menuボタン hover. **/
+.base_right_menu button:hover {
+    color: green;
+    background: transparent;
+}
+
+/* right menuボタン focus. */
+.base_right_menu button:focus {
+    outline: green auto 3px;
+}
+
+/* リスト表示用TOP. */
+.base_list_top {
+    max-width: 100%;
+    margin: 10px 30px;
+    text-align: center;
+    font-size: small;
+}
+
+/** リスト表示用テーブル. **/
+.base_list_top table {
+    width: 100%;
+    border: 1px #cfcfcf solid;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-spacing: 0;
+    border: 1px #3f3f3f solid;
+}
+.base_list_top tr {
+    color:#000000;
+    text-align: left;
+    padding: 5px;
+    border: 1px #3f3f3f solid;
+}
+.base_list_top thead th {
+    color:#cfcfcf;
+    background: #4b4b4b;
+    text-align: left;
+    padding: 5px;
+    border: 1px #3f3f3f solid;
+}
+.base_list_top tbody td {
+    color:#000000;
+    text-align: left;
+    padding: 5px;
+    border: 1px #3f3f3f solid;
+}
+
+/** 吹き出し表示用. **/
+.top_bubble{
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+}
+.bubble_text {
+    display: none;
+    position: absolute;
+    padding: 10px;
+    font-size: 12px;
+    line-height: 1.6em;
+    color: #fff;
+    border-radius: 5px;
+    background: #0c0c0c;
+    width: auto;
+    text-align: left;
+}
+.bubble_text:before {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    border: 15px solid transparent;
+    border-top: 15px solid #000;
+    margin-left: -15px;
+}
+.top_bubble:hover .bubble_text{
+    display: inline-block;
+    top: -70px;
+    left: -30px;
+}

@@ -388,7 +388,7 @@ const deleteObject = async function(
     });
 }
 
-// 指定S3オブジェクトを取得.
+// 指定S3オブジェクトをStream取得.
 // response HTTPレスポンスヘッダ、ステータスが返却されます.
 //          {status: number, header: {}}
 //          - status レスポンスステータスが返却されます.
@@ -398,10 +398,14 @@ const deleteObject = async function(
 //        セットされます.
 // bucket 対象のS3バケット名を設定します.
 // key 対象のS3キー名を設定します.
+// gzip trueの場合gzip圧縮されたresponse読み込みを行います.
 // credential AWSクレデンシャルを設定します.
-// 戻り値: 対象のS3オブジェクトが返却されます.
-const getObject = async function(
-    response, region, bucket, key, credential) {
+// call (end, buf): streamを受け取るfunctionを設定.
+//       end: trueの場合 データ読み込み終了です.
+//       buf: stream取得時のbufferです.
+//            end == trueの場合 undefinedです.
+const getStreamObject = async function(
+    response, region, bucket, key, gzip, credential, call) {
     if(typeof(key) != "string" || key.length == 0) {
         throw new Error("key does not exist.");
     }
@@ -426,12 +430,43 @@ const getObject = async function(
     // シグニチャーを生成.
     setSignature(credential, region, key, method, header);
 
-    // HTTPSクライアント問い合わせ.
-    return await httpsClient.request(host, key, {
+    // HTTPSクライアント問い合わせ(stream).
+    return await httpsClient.streamRequest(host, key, {
         method: method,
         header: header,
-        response: response
-    });
+        response: response,
+        gzip: gzip == true
+    }, call);
+}
+
+// 指定S3オブジェクトを取得.
+// response HTTPレスポンスヘッダ、ステータスが返却されます.
+//          {status: number, header: {}}
+//          - status レスポンスステータスが返却されます.
+//          - header レスポンスヘッダが返却されます.
+// region 対象のリージョンを設定します.
+//        指定しない場合は 東京リージョン(ap-northeast-1)が
+//        セットされます.
+// bucket 対象のS3バケット名を設定します.
+// key 対象のS3キー名を設定します.
+// gzip trueの場合gzip圧縮されたresponse読み込みを行います.
+// credential AWSクレデンシャルを設定します.
+// 戻り値: 対象のS3オブジェクトが返却されます.
+const getObject = async function(
+    response, region, bucket, key, gzip, credential) {
+    const body = [];
+    return await getStreamObject(
+        response, region, bucket, key, gzip, credential,
+        function(end, buf) {
+            if(end == false) {
+                // 受信中.
+                body.push(buf);
+            } else {
+                // 受信終了.
+                return Buffer.concat(body);
+            }
+        }
+    );
 }
 
 // 指定S3オブジェクトのメタデータを取得.
@@ -784,10 +819,41 @@ const create = function(region, credential) {
         return ret;
     };
 
-    // 条件を指定してS3Bucket+Key情報を取得.
-    // params {Bucket: string, Key: string}
+    // 条件を指定してS3Bucket+Key情報をStream取得.
+    // params {Bucket: string, Key: string, gzip: boolean}
     //         - [必須]Bucket 対象のbucket名を設定します.
     //         - [必須]Key 対象のkey名を設定します.
+    //         - [任意]gzip true の場合レスポンスBodyをgzip解凍
+    //                 しながら取得します.
+    //        またparams.responseが設定されます.
+    //        {status: number, header: object}
+    // call (end, buf): streamを受け取るfunctionを設定.
+    //       end: trueの場合 データ読み込み終了です.
+    //       buf: stream取得時のbufferです.
+    //            end == trueの場合 undefinedです.
+    ret.getStreamObject = async function(params, call) {
+        // バケット名を取得.
+        const bucket = _getBucketName(params.Bucket);
+        // オブジェクト取得.
+        const response = {};
+        params.response = response;
+        await getStreamObject(
+            response, region, bucket, params.Key, params.gzip,
+            credential, call);
+        // レスポンスステータスが400以上の場合エラー.
+        if(response.status >= 400) {
+            throw new Error("[ERROR: " + response.status +
+                "]getObject bucket: " + bucket + " key: " +
+                params.Key);
+        }
+    };
+
+    // 条件を指定してS3Bucket+Key情報を取得.
+    // params {Bucket: string, Key: string, gzip: boolean}
+    //         - [必須]Bucket 対象のbucket名を設定します.
+    //         - [必須]Key 対象のkey名を設定します.
+    //         - [任意]gzip true の場合レスポンスBodyをgzip解凍
+    //                 しながら取得します.
     //        またparams.responseが設定されます.
     //        {status: number, header: object}
     // 戻り値: 処理結果のBufferが返却されます.
@@ -798,7 +864,8 @@ const create = function(region, credential) {
         const response = {};
         params.response = response;
         const ret = await getObject(
-            response, region, bucket, params.Key, credential);
+            response, region, bucket, params.Key, params.gzip,
+            credential);
         // レスポンスステータスが400以上の場合エラー.
         if(response.status >= 400) {
             throw new Error("[ERROR: " + response.status +
@@ -809,7 +876,7 @@ const create = function(region, credential) {
     };
 
     // 条件を指定してS3Bucket+Key情報を文字列で取得.
-    // params {Bucket: string, Key: string}
+    // params {Bucket: string, Key: string, gzip: boolean}
     //         - [必須]Bucket 対象のbucket名を設定します.
     //         - [必須]Key 対象のkey名を設定します.
     //        またparams.responseが設定されます.
@@ -894,6 +961,7 @@ const create = function(region, credential) {
 exports.NEXT_MARKER_NAME = NEXT_MARKER_NAME;
 exports.putObject = putObject;
 exports.deleteObject = deleteObject;
+exports.getStreamObject = getStreamObject;
 exports.getObject = getObject;
 exports.headObject = headObject;
 exports.listObject = listObject;

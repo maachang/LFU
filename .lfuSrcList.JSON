@@ -21,6 +21,7 @@
         ,"src/lib/auth/authSession.js"
         ,"src/lib/auth/authUser.js"
         ,"src/lib/auth/gasAuth.js"
+        ,"src/lib/auth/mfa.js"
         ,"src/lib/auth/passwordAuth.js"
         ,"src/lib/auth/signature.js"
         ,"src/lib/auth/util.js"
@@ -32,14 +33,19 @@
         ,"src/lib/storage/jsonb.js"
         ,"src/lib/storage/s3history.js"
         ,"src/lib/storage/s3kvs.js"
+        ,"src/lib/storage/s3Stream.js"
         ,"src/lib/util/fcipher.js"
         ,"src/lib/util/nums.js"
         ,"src/lib/util/strs.js"
+        ,"src/lib/streamBuffer.js"
         ,"src/lib/util/xor128.js"
     ]
     ,"//": "@publicなブラウザ提供情報."
     ,"@public": [
-         "src/@public/js/raw.githubusercontent.js"
+         "src/@public/js/raw.base.js"
+          ,"src/@public/js/raw.qrcode.js"
+          ,"src/@public/js/raw.githubusercontent.js"
+          ,"src/@public/css/base.css"
     ]
     ,"//": "(任意)拡張LFUライブラリ群."
     ,"//": "この条件は存在しない場合は処理されません."

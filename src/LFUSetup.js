@@ -333,6 +333,7 @@ const analysisEnv = function() {
 // 外部環境上で利用するrequireに対して、利用する事で環境依存を
 // 防ぐことができます.
 const regRequestRequireFunc = function(env) {
+    // mainExternal がS3の場合.
     if(env.mainExternal == _MAIN_S3_EXTERNAL) {
         // s3用のrequest処理.
         _requestFunction = async function(jsFlag, path, response) {
@@ -378,6 +379,7 @@ const regRequestRequireFunc = function(env) {
                 response);
         }
 
+    // mainExternal がGithubRepogitoryの場合.
     } else {
         // github用のrequest処理.
         _requestFunction = async function(jsFlag, path, response) {

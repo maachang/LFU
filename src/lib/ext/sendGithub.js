@@ -52,7 +52,7 @@ const createIssue = async function(
     const headers = {
         "Authorization": "token " + token,
         "User-Agent": "lfu/" + Date.now(),
-        "Accept": "application/vnd.github..v3+json",
+        "Accept": "application/vnd.github.v3+json",
         "Content-Type": "application/json"
     };
 

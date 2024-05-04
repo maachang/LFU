@@ -107,57 +107,64 @@ const convertHeaderToLowerKey = function(header) {
     return ret;
 }
 
-// レスポンス処理.
+// streamレスポンス処理.
 // outResult レスポンスステータスやヘッダを取得する場合指定されます.
-// res レスポンスイベントを設定するオブジェクト.
+// stream 対象のstreamオブジェクトを設定します.
+// responseEvent レスポンスEventを設定します.
 // resolve promise成功結果を渡すfunction.
 // reject promise失敗結果を渡すfunction.
-const _responseCall = function(outResult, res, resolve, reject) {
-    // バイナリ受信.
-    const body = [];
+// call (end, buf): streamを受け取るfunctionを設定.
+//       end: trueの場合 データ読み込み終了です.
+//       buf: stream取得時のbufferです.
+//            end == trueの場合 undefinedです.
+const _streamResponseCall = function(
+    outResult, stream, responseEvent, resolve, reject, call) {
+    // イベント11超えでメモリーリーク警告が出るのでこれを排除.
+    stream.setMaxListeners(0);
     // データ受取.
     const dataCall = function(chunk) {
-        body.push(chunk);
+        call(false, chunk);
     }
     // データ受取終了.
     const endCall = function() {
         try {
             // レスポンス情報を受け付ける.
             if(outResult != undefined) {
-                outResult.status = res.statusCode;
+                outResult.status = responseEvent.statusCode;
                 outResult.header = convertHeaderToLowerKey(
-                    res.headers);
+                    responseEvent.headers);
             }
             // 通信終了.
-            resolve(Buffer.concat(body));
+            resolve(call(true));
         } finally {
             cleanup();
         }
     }
     // エラー.
     const errCall = function(e) {
-        res.end();
+        stream.end();
         reject(e);
         cleanup();
     }
     // クリーンアップ.
     const cleanup = function() {
-        res.removeListener('data', dataCall);
-        res.removeListener('end', endCall);
-        res.removeListener('error', errCall);
+        stream.removeListener('data', dataCall);
+        stream.removeListener('end', endCall);
+        stream.removeListener('error', errCall);
     }
     // response処理.
     try {
-        res.on("data", dataCall);
-        res.once("end", endCall);
-        res.once("error", errCall);
+        stream.on("data", dataCall);
+        stream.once("end", endCall);
+        stream.once("error", errCall);
     } catch (err) {
         reject(err);
         cleanup();
     }
 }
 
-// httpsリクエスト.
+// httpsStreamリクエスト.
+// response情報をstream処理で実行します.
 // host 対象のホスト名を設定します.
 // path 対象のパス名を設定します.
 // options その他オプションを設定します.
@@ -180,8 +187,14 @@ const _responseCall = function(outResult, res, resolve, reject) {
 //    }
 // - directURL(boolean)
 //    trueを設定した場合、host = URLになります.
+// - gzip(boolean)
+//    true を設定する事でgzipを解凍しながら取得します.
+// call (end, buf): streamを受け取るfunctionを設定.
+//       end: trueの場合 データ読み込み終了です.
+//       buf: stream取得時のbufferです.
+//            end == trueの場合 undefinedです.
 // 戻り値: Promise(Buffer)が返却されます.
-const request = function(host, path, options) {
+const streamRequest = function(host, path, options, call) {
     // optionsが存在しない場合.
     if(options == undefined || options == null) {
         options = {};
@@ -225,11 +238,15 @@ const request = function(host, path, options) {
             const url = options["directURL"] == true ?
                 host: getUrl(host, path, port, urlParams);
             // request作成.
-            const req = https.request(url, params, function(res) {
-                // イベント11超えでメモリーリーク警告が出るのでこれを排除.
-                res.setMaxListeners(0);
-                // レスポンス処理.
-                _responseCall(response, res, resolve, reject);
+            const req = https.request(url, params, function(responseEvent) {
+                let stream = responseEvent;
+                // gzip取得が有効な場合.
+                if(options.gzip == true) {
+                    stream = responseEvent.pipe(require("zlib").createGunzip());
+                }
+                // streamレスポンス処理.
+                _streamResponseCall(response, stream, responseEvent,
+                    resolve, reject, call)
             });
             // イベント11超えでメモリーリーク警告が出るのでこれを排除.
             req.setMaxListeners(0);
@@ -263,6 +280,47 @@ const request = function(host, path, options) {
     });
 }
 
+// httpsリクエスト.
+// host 対象のホスト名を設定します.
+// path 対象のパス名を設定します.
+// options その他オプションを設定します.
+//  - method(string)
+//    HTTPメソッドを設定します.
+//    設定しない場合は GET.
+//  - header({})
+//    HTTPリクエストヘッダ(Object)を設定します.
+//  - body(Buffer or String)
+//    HTTPリクエストBodyを設定します.
+//  - port(number)
+//    HTTPS接続先ポート番号を設定します.
+//  - urlParams(string or object)
+//    urlパラメータを設定します.
+//  - response({})
+//    レスポンスステータスやレスポンスヘッダが返却されます.
+//    response = {
+//      status: number,
+//      header: object
+//    }
+// - directURL(boolean)
+//    trueを設定した場合、host = URLになります.
+// - gzip(boolean)
+//    true を設定する事でgzipを解凍しながら取得します.
+// 戻り値: Promise(Buffer)が返却されます.
+const request = function(host, path, options) {
+    const body = [];
+    return streamRequest(host, path, options,
+        function(end, buf) {
+            // データ受信中.
+            if(end == false) {
+                body.push(buf);
+            // データ受信終了.
+            } else {
+                return Buffer.concat(body);
+            }
+        }
+    );
+}
+
 // レスポンスBodyを文字列変換.
 const toString = function(binary, charset) {
     if(typeof(binary) == "string") {
@@ -284,6 +342,7 @@ const toJSON = function(binary, charset) {
 /////////////////////////////////////////////////////
 exports.convertUrlParams = convertUrlParams;
 exports.encodeURIToPath = encodeURIToPath;
+exports.streamRequest = streamRequest;
 exports.request = request;
 exports.toString = toString;
 exports.toJSON = toJSON;

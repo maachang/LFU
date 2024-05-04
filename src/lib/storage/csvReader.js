@@ -12,6 +12,22 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// 文字列を置き換える.
+const changeString = function(base, src, dest) {
+    base = "" + base;
+    src = "" + src;
+    dest = "" + dest;
+    let old = base;
+    let val = base;
+    while (true) {
+        val = val.replace(src,dest);
+        if (old == val) {
+            return val;
+        }
+        old = val;
+    }
+}
+
 // 行単位でCsv読み込み文字列を分解.
 // s Csv読み込みの文字列.
 // pc 区切り文字.
@@ -55,18 +71,23 @@ const parseEnter = function(s, pc) {
     return ret;
 }
 
-// １つの行をparseCodeで分解.
-// s 解析したい行文字列を設定します.
-// 戻り値: Array形式で解析された結果が返却されます.
-const parseCsv = function(s, pc) {
-    const len = s.length;
+// 行単位でCsv読み込み文字列をパース.
+// rawString Csv読み込みの文字列.
+// parseCode 区切り文字.
+// 戻り値: 行単位で区切られたArray[string...]が返却されます.
+const parseCsv = function(rawString, parseCode) {
+    if(parseCode == undefined) {
+        parseCode = ",";
+    }
+    rawString = rawString.trim();
+    let len = rawString.length;
     const ret = [];
     let n, m, y, b, quote;
     b = 0;
     y = false;
     quote = -1;
     for(let i = 0; i < len; i ++) {
-        n = s[i];
+        n = rawString[i];
         // クォーテーション内の場合.
         if(quote != -1) {
             // クォーテーション解除.
@@ -76,14 +97,12 @@ const parseCsv = function(s, pc) {
         // クォーテーション開始.
         //} else if(!y && (n == "'" || n == "\"")) {
         } else if(!y && (n == "\"")) {
-        quote = n;
+            quote = n;
         // parseコードの場合.
-        } else if(n == pc) {
+        } else if(n == parseCode) {
             // 前のポジションからparseコード前までを取得.
-            m = s.substring(b, i).trim();
+            m = rawString.substring(b, i).trim();
             // クォーテーションで囲まれている場合.
-            //if((m.startsWith("'") && m.endsWith("'")) ||
-            //    (m.startsWith("\"") && m.endsWith("\""))) {
             if(m.startsWith("\"") && m.endsWith("\"")) {
                 // 囲まれたクォーテーションを外す.
                 m = m.substring(1, m.length - 1);
@@ -96,6 +115,30 @@ const parseCsv = function(s, pc) {
         // 前￥確認.
         y = n == "\\";
     }
+    // 最後の情報が残ってる場合は取得する.
+    const last = rawString.substring(b, len).trim();
+    if(last.length > 0) {
+        ret[ret.length] = last;
+    }
+    // ""xxx"" の条件がある場合変換する.
+    len = ret.length;
+    let v;
+    for(let i = 0; i < len; i ++) {
+        // ダブルクォーテーションが存在しない場合は
+        // 処理しない.
+        if(ret[i].indexOf("\"") == -1) {
+            continue;
+        }
+        v = changeString(ret[i], "\"\"", "\"").trim();
+        if(v.startsWith("\"")) {
+            v = v.substring(1).trim();
+        }
+        if(v.endsWith("\"")) {
+            v = v.substring(0, v.length - 1).trim();
+        }
+        ret[i] = v;
+    } 
+
     return ret;
 }
 
@@ -376,7 +419,8 @@ const createCsvReader = function(csvString, options) {
             }
             // １つの読み込み情報行を返却.
             return {
-                value: csvRow.next(parseCsv(srcCsv[nowLine ++], parseCode)),
+                value: csvRow.next(
+                    parseCsv(srcCsv[nowLine ++], parseCode)),
                 done: false
             };
         }
