@@ -332,9 +332,31 @@ const toString = function(binary, charset) {
     return binary.toString(charset);
 }
 
+// request結果を文字列で取得.
+// requestパラメータプラス条件を以下に表します。
+// options その他オプションを設定します.
+// - chearset 文字列変換のパラメータを設定します.
+const requestToString = async function(host, path, options) {
+    const charset = options.charset;
+    return toString(
+        (await request(host, path, options)),
+        charset);
+}
+
 // レスポンスBodyをJSON変換.
 const toJSON = function(binary, charset) {
     return JSON.parse(toString(binary, charset));
+}
+
+// request結果をJSONで取得.
+// requestパラメータプラス条件を以下に表します。
+// options その他オプションを設定します.
+// - chearset 文字列変換のパラメータを設定します.
+const requestToJSON = async function(host, path, options) {
+    const charset = options.charset;
+    return toJSON(
+        (await request(host, path, options)),
+        charset);
 }
 
 /////////////////////////////////////////////////////
@@ -344,7 +366,7 @@ exports.convertUrlParams = convertUrlParams;
 exports.encodeURIToPath = encodeURIToPath;
 exports.streamRequest = streamRequest;
 exports.request = request;
-exports.toString = toString;
-exports.toJSON = toJSON;
+exports.requestToString = requestToString;
+exports.requestToJSON = requestToJSON;
 
 })();

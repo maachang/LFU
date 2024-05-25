@@ -16,6 +16,7 @@
         ,"src/lib/s3client.js"
         ,"src/lib/scmClient.js"
         ,"src/lib/scmManager.js"
+        ,"src/lib/streamBuffer.js"
         ,"src/lib/utcDate.js"
         ,"src/lib/auth/authLogin.js"
         ,"src/lib/auth/authSession.js"
@@ -37,7 +38,6 @@
         ,"src/lib/util/fcipher.js"
         ,"src/lib/util/nums.js"
         ,"src/lib/util/strs.js"
-        ,"src/lib/streamBuffer.js"
         ,"src/lib/util/xor128.js"
     ]
     ,"//": "@publicなブラウザ提供情報."

@@ -4,27 +4,24 @@
 //
 // この内容を利用する流れの想定として以下の感じです.
 //  1. user / passwordでログインを行う.
-//  2. 対象ユーザが２段階認証ありの場合は、mfa.jsでコード生成し
-//     対象userに紐づく携帯電話番号にSMS送信する.
-/// 2.1. ２段階認証画面を表示.
-//  2.2. SMSで送った内容が2.1画面で入力される.
-//  2.3. ２段階認証確認を行う(mfa.jsで認証コードを作成).
-//       戻り値のどれかが一致したら２段階認証を完了とする.
-//  3. ログイン完了.
+//  2. 二段階認証画面を表示
+//  2.1. 二段階認証用QRコードが表示される
+//  2.2. 二段階認証コード入力枠が表示される
+//  2.3. 初回ログイン時に登録したスマホで2.1のQRコードを読み取る.
+//  2.4. 2.3でスマホで表示されたコードを2.2に入力
+//  2.5. 2.4の入力が終わったら、確認ボタンを押下する.
+//  3. 2.5. が成功した場合はログイン完了.
 //
-// ただ、SMSの場合(AWSだと)物理的に送信毎に従量課金でコストが発生
-// (1回$0.07451=10円ぐらい)するので、コストのかからない別の方法
-// として、以下の方法を考えます.
-// 
-// mfa設定前にログイン設定画面で、mfa設定するとqrコードを表示し、
-// これを携帯が読み取ると自動登録を行うようにする.
-// また二段階認証 `2.1` の画面でQRコードを出して、これを先程登録
-// した携帯電話で読み取ると認証コードが表示され、これを入力することで
-// 二段階認証できる形を取る.
+// また、LFUの二段階認証ではパスワード初回ログイン時において、
+// スマホに二段階認証のための登録を行う必要があり、これについて
+// 以下より流れを説明する.
+//  1. user / passwordでログインを行う.
+//  2. 初回ログイン時において、新しい二段階認証用のためのスマホ登録
+//     を行うためのQRコードが表示されるので、スマホで読み取る
+//  3. スマホでの読み取りが完了すると SUCCESS と出るのでこれで終わり
+//  4. その後に本パスワード入力を行い登録ボタンを押下する.
 //
-// また、携帯変更などで二段階認証登録を再度やり直したい場合は管理者に
-// リセットしてもらう口を作り `2.1` で再登録できる仕組みを提供する
-// などで、安全な二段階認証を提供できるようにする.
+// このような形により登録が完了となる.
 //
 (function() {
 'use strict'
@@ -64,6 +61,9 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
+// crypto.
+const crypto = frequire("crypto")
+
 // xor128ランダム.
 const xor128 = frequire("./lib/util/xor128.js");
 
@@ -77,82 +77,65 @@ const nowTiming = function(updateTime) {
     return ret * updateTime;
 }
 
-// user, key1, key2 を計算して64bit数字変換.
-// user ユーザー名を設定します.
-// key1 固有のkey1条件(たとえばドメイン名)を設定します.
-// key2 固有のkey2条件(たとえばMFA先携帯電話番号)を設定します.
-// 戻り値: 64bit数字が返却されます.
-const userAndKey1AndKey2ToLong = function(user, key1, key2) {
-    // user名を元にdomain名の文字コードを
-    // xorで処理する(codeに格納).
-    let i, len, userLen, cnt;
-    userLen = user.length;
-    const code = Buffer.alloc(userLen);
-    for(i = 0; i < userLen; i++) {
-        code[i] += user.charAt(i) & 0x0000ffff;
-    }
-    // codeにxorで処理するkey1条件を設定.
-    cnt = 0;
-    len = key1.length;
-    for(i = 0; i < len; i++) {
-        code[cnt] = (i & 0x01) != 0
-            ? (code[cnt] ^ key1.charAt(i)) &
-                0x0000ffff
-            : (code[cnt] ^ (~key1.charAt(i))) &
-            0x0000ffff
-        cnt ++;
-        if(cnt >= userLen) {
-            cnt = 0;
-        }
-    }
-    // 生成識別となるkey2コード(スマホ登録した等の固有コード)
-    // (たとえば携帯電話番号)を設定
-    cnt = 0;
-    len = key2.length;
-    for(i = 0; i < len; i++) {
-        code[cnt] = (i & 0x01) != 0
-            ? (code[cnt] ^ (~key1.charAt(i))) &
-            0x0000ffff
-            : (code[cnt] ^ key1.charAt(i)) &
-            0x0000ffff
-        cnt ++;
-        if(cnt >= userLen) {
-            cnt = 0;
-        }
-    }
-    // codeを合算する.
-    // その場のループ数のプラスする形で.
-    cnt = 1;
-    let ret = userLen;
-    for(i = 0; i < userLen; i++) {
-        ret += parseInt(code[i]) + (cnt * 3.5);
-        cnt ++;
-        if(cnt >= 32) {
-            cnt = 1;
-        }
-    }
-    return parseInt(ret);
+// sha256.
+const sha256 = function(value) {
+    return crypto.createHash('sha256')
+        .update(value).digest("hex");
 }
 
-// 1つの認証コードを生成.
-// mfaLen 認証コード長を設定します.
-// time 認証コードのタイミング値を設定します.
-// code 認証コード主コードを設定します.
-// 戻り値: 認証コードが数字の文字列でmfaLenの長さの内容が返却されます.
-const createCode = function(mfaLen, time, code) {
-    // 奇数の場合は反転.
-    if((time & 0x01) == 1) {
-        time = ~time;
+// hmacSHA256.
+const hmacSHA256 = function(key, message) {
+    return crypto.createHmac('sha256', key)
+        .update(message).digest("hex");
+}
+
+// user, key1, key2 を計算して64bit数字変換.
+// keyCode mfa固有のkeyCodeを設定します.
+// user ユーザー名を設定します.
+// key1 固有のkey1条件(たとえばドメイン名)を設定します.
+// key2 固有のkey2条件(たとえばMFA先携帯電話番号や固有番号)を設定します.
+// 戻り値: 64bit数字が返却されます.
+const userAndKey1_2ToLong = function(keyCode, user, key1, key2) {
+    // sha256化.
+    keyCode = sha256(keyCode);
+    user = sha256(user);
+    key1 = sha256(key1);
+    key2 = sha256(key2);
+    // code生成.
+    let code = hmacSHA256(user, key2);
+    code = hmacSHA256(code, key1);
+    code = hmacSHA256(code, keyCode);
+    // 最後の14文字を数字変換.
+    return parseInt(code.substring(64 - 14), 16);
+}
+
+// 指定数字を文字列に変換してlen以下の場合、ヘッダに0を穴埋め.
+// code 対象数字を設定します.
+// len 指定長を設定します.
+// 戻り値: 文字列が返却されます.
+const appendHeadZero = function(code, len) {
+    code = "" + code;
+    if(code.length >= len) {
+        return code;
     }
-    // 奇数の場合は反転.
-    if((code & 0x01) == 1) {
-        code = ~code;
+    len = len - code.length;
+    for(let i = 0; i < len; i ++) {
+        code += "0" + code;
     }
+    return code;
+}
+
+// 1つのシグニチャコードを生成.
+// mfaLen 長さを設定します.
+// time　タイミング値を設定します.
+// src 主コードを設定します.
+// 戻り値: シグニチャコードが数字の文字列でmfaLenの長さで返却されます.
+const createSignatureCode = function(mfaLen, time, src) {
     // xor128乱数発生装置を利用.
     const r = xor128.create(time);
     // 最大16回乱数生成をループ.
     let i, n, nn, len;
-    len = (code - time) & 0x0f;
+    len = (src - time) & 0x0f;
     for(i = 0; i < len; i ++) {
         r.next();
     }
@@ -164,23 +147,25 @@ const createCode = function(mfaLen, time, code) {
     } else {
         len = mfaLen;
     }
-    // 認証コードを生成(2文字)
+    // シグニチャコードを生成(2文字)
     for(i = 0; i < len; i +=2) {
         nn = r.next();
         n = (i & 0x01) == 1 ?
-            code - nn : (~code) - nn;
-        code = (i & 0x01) == 1 ?
-            code + (~nn) : code - nn;
+            src - nn+1 : (~src) - nn;
+        src = (i & 0x01) == 1 ?
+            src + (~(nn+1)) : src - nn;
         n = (n & 0x7fffffff);
         ret += "" + ((n % 10)|0);
         ret += "" + (((n / 100) % 10)|0);
     }
-    // 残りの認証コード生成が必要な場合.
+    // 残りのシグニチャコード生成が必要な場合.
     if((mfaLen & 0x01) != 0) {
-        // 認証コードを生成(1文字)
+        // シグニチャコードを生成(1文字)
         ret += "" + (((r.next() & 0x7fffffff) % 10)|0);
     }
-    return ret;
+    // 対象シグニチャーコードの文字列長がmfaLen以下の場合
+    // 先頭に0埋めを行う.
+    return appendHeadZero(ret, mfaLen);
 }
 
 // ランダムコードを生成.
@@ -201,12 +186,13 @@ const generateRandomCode = function(count) {
 
 // ２段階認証コードを生成.
 // outNextTime 次の更新時間(ミリ秒)がArray(2)に返却されます.
-//             [0] 次の更新時間.
+//             [0] 次の更新残り時間.
 //             [1] 最大更新時間.
+// keyCode mfa固有のkeyCodeを設定します.
 // user ユーザー名を設定します.
 // key1 固有のkey1条件(たとえばドメイン名)を設定します.
 // key2 固有のkey2条件(たとえばMFA先携帯電話番号)を設定します.
-// mfaKeyLen 生成するキーコード長を設定します.
+// mfaLen 生成する２段階認証コード長を設定します.
 // updateTime 生成更新されるタイミング(秒)を設定します.
 // 戻り値: 二段階認証コードがArray(3)で返却されます.
 //        [0]は、生成更新タイミングより１つ前のコードです.
@@ -214,19 +200,23 @@ const generateRandomCode = function(count) {
 //        [2]は、生成更新タイミングより１つ後のコードです.
 //        通常２段階認証をする場合は[1]を返却します.
 const create = function(
-    outNextTime, user, key1, key2, mfaKeyLen, updateTime) {
+    outNextTime, keyCode, user, key1, key2, mfaLen, updateTime) {
+    keyCode = "" + keyCode;
     user = "" + user;
     key1 = "" + key1;
     key2 = "" + key2;
-    mfaKeyLen = parseInt(mfaKeyLen)
+    mfaLen = parseInt(mfaLen)
     updateTime = parseInt(updateTime);
     // 引数チェック.
-    if(isNaN(mfaKeyLen) || mfaKeyLen <= 0) {
+    if(isNaN(mfaLen) || mfaLen <= 0) {
         throw new Error(
             "The number of number frames is 0 or less.");
     } else if(isNaN(updateTime) || updateTime <= 0) {
         throw new Error(
             "The generation update timing second is 0 or less.");
+    } else if(keyCode == "") {
+        throw new Error(
+            "The target keyCode has not been set.");
     } else if(user == "") {
         throw new Error("The user name has not been set.");
     } else if(key1 == "") {
@@ -245,12 +235,12 @@ const create = function(
         outNextTime[1] = updateTime * 1000;
     }
     // user, key1, key2を数値化.
-    const code = userAndKey1AndKey2ToLong(user, key1, key2);
-    // ２段階認証コードを取得.
+    const code = userAndKey1_2ToLong(keyCode, user, key1, key2);
+    // before, now, nextの２段階認証コードを返却.
     return [
-        createCode(mfaKeyLen, now - updateTime, code)
-        ,createCode(mfaKeyLen, now, code)
-        ,createCode(mfaKeyLen, now + updateTime, code)
+        createSignatureCode(mfaLen, now - updateTime, code)
+        ,createSignatureCode(mfaLen, now, code)
+        ,createSignatureCode(mfaLen, now + updateTime, code)
     ];
 }
 

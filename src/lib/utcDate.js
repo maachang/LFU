@@ -6,6 +6,14 @@
 (function() {
 'use strict'
 
+// frequireが設定されていない場合.
+let frequire = global.frequire;
+if(frequire == undefined) {
+    // frequire利用可能に設定.
+    require("../freqreg.js");
+    frequire = global.frequire;
+}
+
 // TZ名に対するタイムゾーン(分単位)値.
 const TZ_DICT = {
     "Africa/Johannesburg": -120,
