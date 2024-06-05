@@ -247,32 +247,49 @@ const setOptions = function(option) {
     return exports;
 }
 
-// originRequire読み込みスクリプトheader.
-const ORIGIN_REQUIRE_SCRIPT_HEADER =
-    "(function() {\n" +
-    "'use strict';\n" +
-    "return function(args){\n" +
-    "const exports = args;\n";
-    "const module = {exports: args};\n";
-
-// originRequire読み込みスクリプトfooder.
-const ORIGIN_REQUIRE_SCRIPT_FOODER =
-    "\n};\n})();";
-
 // originRequireを実施.
 // path load対象のPathを設定します.
 // js load対象のjsソース・ファイルを設定します.
 // 戻り値: exportsに設定された内容が返却されます.
 const originRequire = function(path, js) {
-    // origin的なrequireスクリプトを生成.
-    let srcScript = ORIGIN_REQUIRE_SCRIPT_HEADER
-        + js
-        + ORIGIN_REQUIRE_SCRIPT_FOODER;
+    // vm.Scriptで実行.
+    return _runVmScriptRequire(path, js);
+
+    // Functionで実行.
+    //return _runFunctionRequire(path, js);
+}
+
+// vm.Scriptスクリプトheader.
+const VM_SCRIPT_HEADER =
+    "(function() {" +
+    "'use strict';" +
+    "return function(args){" +
+    "const exports = args;";
+    "const module = {exports: args};\n";
+
+// Functionスクリプトヘッダ.
+const FUNCTION_SCRIPT_HEADER =
+    "'use strict';" +
+    "return function(args){" +
+    "const exports = args;";
+    "const module = {exports: args};\n";
+
+// originRequireを実施.
+// vm.Script(...)で実行.
+// path load対象のPathを設定します.
+// js load対象のjsソース・ファイルを設定します.
+// 戻り値: exportsに設定された内容が返却されます.
+const _runVmScriptRequire = function(path, js) {
     try {
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
         let memory = global;
         let context = vm.createContext(memory);
+
+        // origin的なrequireスクリプトを生成.
+        let srcScript = VM_SCRIPT_HEADER
+            + js
+            + "\n};})();";
     
         // スクリプト実行環境を生成.
         let script = new vm.Script(srcScript, {filename: path});
@@ -287,7 +304,27 @@ const originRequire = function(path, js) {
         // 実行結果を返却.
         return ret;
     } catch(e) {
-        console.error("## [ERROR] originRequire path: " + path);
+        console.error("## [ERROR] _runVmScriptRequire path: " + path);
+        throw e;
+    }
+}
+
+// originRequireを実施.
+// Function(...)で実行.
+// path load対象のPathを設定します.
+// js load対象のjsソース・ファイルを設定します.
+// 戻り値: exportsに設定された内容が返却されます.
+const _runFunctionRequire = function(path, js) {
+    try {
+        let srcScript = FUNCTION_SCRIPT_HEADER
+            + js
+            + "\n}";
+        const ret = {};
+        (Function(srcScript)())(ret);
+        srcScript = undefined;
+        return ret;
+    } catch(e) {
+        console.error("## [ERROR] _runFunctionRequire path: " + path);
         throw e;
     }
 }

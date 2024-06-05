@@ -253,20 +253,6 @@ const convertJhtmlToJs = function(jhtml) {
     );
 }
 
-// jhtml実行js用実行パラメータ.
-const JHTML_JS_ARGS =
-    _OUT + ", $params, $request, $status, $response, $jthml";
-
-// jhtml実行js用ヘッダ.
-const JHTML_JS_HEADER =
-    "(function() {\n" +
-    "'use strict';\n" +
-    "return async function(" + JHTML_JS_ARGS + "){\n";
-
-// jhtml実行js用フッダ.
-const JHTML_JS_FOODER =
-    "\n};\n})();";
-
 // jhtmlを実行.
 // name jhtmlのファイルパスを設定します.
 // js jhtmlを変換してjsに置き換えた内容を設定します.
@@ -276,12 +262,42 @@ const JHTML_JS_FOODER =
 // params request.paramsでない、パラメータを設定する場合は、
 //        こちらに設定します.
 // 戻り値: 実行結果(string)が返却されます.
-const executeJhtml = async function(
+const executeJhtml = function(
     name, js, request, status, response, params) {
-    // jhtml実行JSのスクリプトを生成.
-    let srcScript = JHTML_JS_HEADER
-        + js
-        + JHTML_JS_FOODER;
+    
+    // vm.Scriptで実行.
+    return _runVmScriptToJHTML(name, js, request, status, response, params);
+
+    // Functionで実行.
+    //return _runFunctionToJHTML(name, js, request, status, response, params);
+}
+
+// jhtml実行js用実行パラメータ.
+const JHTML_JS_ARGS =
+    _OUT + ", $params, $request, $status, $response, $jthml";
+
+// vm.Script: jhtml実行js用ヘッダ.
+const VM_SCRIPT_JHTML_JS_HEADER =
+    "(function() {'use strict';return async function(" +
+        JHTML_JS_ARGS + "){\n";
+
+// Function: jhtml実行js用ヘッダ.
+const FUNCTION_JHTML_JS_HEADER =
+    "'use strict';return async function(" +
+        JHTML_JS_ARGS + "){\n"
+
+// jhtmlを実行.
+// vm.Script(...)で実行.
+// name jhtmlのファイルパスを設定します.
+// js jhtmlを変換してjsに置き換えた内容を設定します.
+// request 対象のリクエスト情報を設定します.
+// status 対象のステータスを設定します.
+// response 対象のレスポンスを設定します.
+// params request.paramsでない、パラメータを設定する場合は、
+//        こちらに設定します.
+// 戻り値: 実行結果(string)が返却されます.
+const _runVmScriptToJHTML = async function(
+    name, js, request, status, response, params) {
     try {
         // paramsが指定されていない場合.
         if(params == undefined || params == null) {
@@ -293,6 +309,10 @@ const executeJhtml = async function(
         let memory = global;
         let context = vm.createContext(memory);
 
+        // jhtml実行JSのスクリプトを生成.
+        let srcScript = VM_SCRIPT_JHTML_JS_HEADER
+            + js
+            + "\n};})();";
         // スクリプト実行環境を生成.
         let script = new vm.Script(srcScript, {filename: name});
         srcScript = null;
@@ -324,7 +344,53 @@ const executeJhtml = async function(
         // 実行結果を返却.
         return outString;
     } catch(e) {
-        console.error("## [ERROR] executeJHTML name: " + name);
+        console.error("## [ERROR] _runVmScriptToJHTML name: " + name);
+        throw e;
+    }
+}
+
+// jhtmlを実行.
+// Function(...)で実行.
+// name jhtmlのファイルパスを設定します.
+// js jhtmlを変換してjsに置き換えた内容を設定します.
+// request 対象のリクエスト情報を設定します.
+// status 対象のステータスを設定します.
+// response 対象のレスポンスを設定します.
+// params request.paramsでない、パラメータを設定する場合は、
+//        こちらに設定します.
+// 戻り値: 実行結果(string)が返却されます.
+const _runFunctionToJHTML = async function(
+    name, js, request, status, response, params) {
+    // $outを生成.
+    let outString = "";
+    // outに追加する標準メソッド.
+    const out = function(string) {
+        outString += string;
+        return out;
+    }
+    // outをクリアするメソッドを追加.
+    out.clear = function() {
+        outString = "";
+        return out;
+    }
+    try {
+        // Functionで実装.
+        let srcScript = FUNCTION_JHTML_JS_HEADER
+            + js
+            + "\n}";
+        await (Function(srcScript)())
+            (out, params, request, status, response,
+                jhtmlMethod(out, params, request, status, response));
+        srcScript = null;
+        // コンテンツタイプが設定されていない場合.
+        if(response.get("content-type") == undefined) {
+            // htmlのmimeTypeをセット.
+            response.put("content-type", request.mimeType("html").type);
+        }
+        // 処理結果を返却.
+        return outString;
+    } catch(e) {
+        console.error("## [ERROR] _runFunctionToJHTML name: " + name, e);
         throw e;
     }
 }
@@ -377,14 +443,65 @@ const execJHTML = async function(path, jhtml, request, status, response) {
     // jhtmlからjsに変換処理.
     const js = analysisJHtml(jhtml);
     jhtml = null;
-    // js実行.
+    // jhtmlを実行.
     return await executeJhtml(path, js, request, status, response);
+}
+
+// jhtmlMethod: 指定パスのHTMLを返却します.
+const _jhtmlMethod_forwardHTML = async function(path, status, charset,
+    $out, $params, $request, $status, $response) {
+    // ステータスが設定されていない場合は200をセット.
+    status = status|0;
+    if(status == 0) {
+        status = 200;
+    }
+    // ステータスを設定.
+    $status.setStatus(status);
+    // 対象パスが.jhtml拡張子の場合変換.
+    path = convertJhtmlPath(path);
+    // 設定された環境からコンテンツを取得.
+    let ret = await getStringContents(path, charset);
+    // jhtmlの場合、JHTML実行.
+    if(isJsHTML(path)) {
+        ret = await execJHTML(path, ret, $request, $status, $response);
+    } else {
+        // htmlのmimeTypeをセット.
+        $response.put("content-type",
+            $request.mimeType("html").type);
+    }
+    $out.clear()(ret);
+}
+
+// jhtmlMethod: 指定パスのHTMLをエラー返却します.
+const _jhtmlMethod_errorHTML = async function(status, path, charset,
+    $out, $params, $request, $status, $response) {
+    // 対象パスが.jhtml拡張子の場合変換.
+    path = convertJhtmlPath(path);
+    // 設定された環境からコンテンツを取得.
+    let ret = await getStringContents(path, charset);
+    // jhtmlの場合、JHTML実行.
+    if(isJsHTML(path)) {
+        ret = await execJHTML(path, ret, $request, $status, $response);
+    } else {
+        // htmlのmimeTypeをセット.
+        $response.put("content-type",
+            $request.mimeType("html").type);
+    }
+    // ステータスが400以下の場合500を設定.
+    status = status|0;
+    // statusが400以下の場合.
+    if(status <= 399) {
+        // 500.
+        status = 500;
+    }
+    // ステータスを設定.
+    $status.setStatus(status);
+    $out.clear()(ret);
 }
 
 // jhtml用専用メソッドを生成.
 const jhtmlMethod = function($out, $params, $request, $status, $response) {
     const ret = {};
-
     // 指定パスのHTMLを返却します.
     // path 対象のパス名を設定します.
     //      ここでのパスの解釈はexcontentで処理されます.
@@ -392,28 +509,9 @@ const jhtmlMethod = function($out, $params, $request, $status, $response) {
     //        設定してない場合200が設定されます.
     // charset 文字コードを設定します.
     ret.forwardHTML = async function(path, status, charset) {
-        // ステータスが設定されていない場合は200をセット.
-        status = status|0;
-        if(status == 0) {
-            status = 200;
-        }
-        // ステータスを設定.
-        $status.setStatus(status);
-        // 対象パスが.jhtml拡張子の場合変換.
-        path = convertJhtmlPath(path);
-        // 設定された環境からコンテンツを取得.
-        let ret = await getStringContents(path, charset);
-        // jhtmlの場合、JHTML実行.
-        if(isJsHTML(path)) {
-            ret = await execJHTML(path, ret, $request, $status, $response);
-        } else {
-            // htmlのmimeTypeをセット.
-            $response.put("content-type",
-                $request.mimeType("html").type);
-        }
-        $out.clear()(ret);
+        await _jhtmlMethod_forwardHTML(path, status, charset,
+            $out, $params, $request, $status, $response);
     }
-
     // 指定パスのHTMLをエラー返却します.
     // status 返却対象のステータスを設定します.
     //        設定してない場合500が設定されます.
@@ -421,30 +519,9 @@ const jhtmlMethod = function($out, $params, $request, $status, $response) {
     //      ここでのパスの解釈はexcontentで処理されます.
     // charset 文字コードを設定します.
     ret.errorHTML = async function(status, path, charset) {
-        // 対象パスが.jhtml拡張子の場合変換.
-        path = convertJhtmlPath(path);
-        // 設定された環境からコンテンツを取得.
-        let ret = await getStringContents(path, charset);
-        // jhtmlの場合、JHTML実行.
-        if(isJsHTML(path)) {
-            ret = await execJHTML(path, ret, $request, $status, $response);
-        } else {
-            // htmlのmimeTypeをセット.
-            $response.put("content-type",
-                $request.mimeType("html").type);
-        }
-        // ステータスが400以下の場合500を設定.
-        status = status|0;
-        // statusが400以下の場合.
-        if(status <= 399) {
-            // 500.
-            status = 500;
-        }
-        // ステータスを設定.
-        $status.setStatus(status);
-        $out.clear()(ret);
+        await _jhtmlMethod_errorHTML(status, path, charset,
+            $out, $params, $request, $status, $response);
     }
-
     return ret;
 }
 
