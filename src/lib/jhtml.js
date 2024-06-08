@@ -266,10 +266,10 @@ const executeJhtml = function(
     name, js, request, status, response, params) {
     
     // vm.Scriptで実行.
-    return _runVmScriptToJHTML(name, js, request, status, response, params);
+    //return _runVmScriptToJHTML(name, js, request, status, response, params);
 
     // Functionで実行.
-    //return _runFunctionToJHTML(name, js, request, status, response, params);
+    return _runFunctionToJHTML(name, js, request, status, response, params);
 }
 
 // jhtml実行js用実行パラメータ.
@@ -442,7 +442,6 @@ const isJsHTML = function(path) {
 const execJHTML = async function(path, jhtml, request, status, response) {
     // jhtmlからjsに変換処理.
     const js = analysisJHtml(jhtml);
-    jhtml = null;
     // jhtmlを実行.
     return await executeJhtml(path, js, request, status, response);
 }

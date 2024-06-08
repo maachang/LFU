@@ -253,10 +253,10 @@ const setOptions = function(option) {
 // 戻り値: exportsに設定された内容が返却されます.
 const originRequire = function(path, js) {
     // vm.Scriptで実行.
-    return _runVmScriptRequire(path, js);
+    //return _runVmScriptRequire(path, js);
 
     // Functionで実行.
-    //return _runFunctionRequire(path, js);
+    return _runFunctionRequire(path, js);
 }
 
 // vm.Scriptスクリプトheader.
