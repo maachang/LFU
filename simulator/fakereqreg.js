@@ -158,13 +158,6 @@ const VM_SCRIPT_HEADER =
     "const exports = args;";
     "const module = {exports: args};\n";
 
-// Functionスクリプトヘッダ.
-const FUNCTION_SCRIPT_HEADER =
-    "'use strict';" +
-    "return function(args){" +
-    "const exports = args;";
-    "const module = {exports: args};\n";
-
 // originRequireを実施.
 // vm.Script(...)で実行.
 // path load対象のPathを設定します.
@@ -207,13 +200,11 @@ const _runVmScriptRequire = function(path, js) {
 // 戻り値: exportsに設定された内容が返却されます.
 const _runFunctionRequire = function(path, js) {
     try {
-        let srcScript = FUNCTION_SCRIPT_HEADER
-            + js
-            + "\n}";
-        const ret = {};
-        (Function(srcScript)())(ret);
-        srcScript = undefined;
-        return ret;
+        const exp = {};
+        Function("exports", "module", js)(
+            exp, {exports: exp}
+        );
+        return exp;
     } catch(e) {
         console.error("## [ERROR] _runFunctionRequire path: " + path);
         throw e;

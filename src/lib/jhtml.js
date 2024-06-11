@@ -281,11 +281,6 @@ const VM_SCRIPT_JHTML_JS_HEADER =
     "(function() {'use strict';return async function(" +
         JHTML_JS_ARGS + "){\n";
 
-// Function: jhtml実行js用ヘッダ.
-const FUNCTION_JHTML_JS_HEADER =
-    "'use strict';return async function(" +
-        JHTML_JS_ARGS + "){\n"
-
 // jhtmlを実行.
 // vm.Script(...)で実行.
 // name jhtmlのファイルパスを設定します.
@@ -349,6 +344,9 @@ const _runVmScriptToJHTML = async function(
     }
 }
 
+// async用Functionオブジェクト定義.
+const AsyncFunction = async function () {}.constructor;
+
 // jhtmlを実行.
 // Function(...)で実行.
 // name jhtmlのファイルパスを設定します.
@@ -374,14 +372,12 @@ const _runFunctionToJHTML = async function(
         return out;
     }
     try {
-        // Functionで実装.
-        let srcScript = FUNCTION_JHTML_JS_HEADER
-            + js
-            + "\n}";
-        await (Function(srcScript)())
-            (out, params, request, status, response,
-                jhtmlMethod(out, params, request, status, response));
-        srcScript = null;
+        // AsyncFunction実行.
+        await (AsyncFunction(
+            _OUT, "$params", "$request", "$status", "$response", "$jthml",
+            js
+        ))(out, params, request, status, response,
+            jhtmlMethod(out, params, request, status, response));
         // コンテンツタイプが設定されていない場合.
         if(response.get("content-type") == undefined) {
             // htmlのmimeTypeをセット.
