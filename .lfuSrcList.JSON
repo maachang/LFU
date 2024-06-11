@@ -42,10 +42,10 @@
     ]
     ,"//": "@publicなブラウザ提供情報."
     ,"@public": [
-         "src/@public/js/raw.base.js"
-          ,"src/@public/js/raw.qrcode.js"
-          ,"src/@public/js/raw.githubusercontent.js"
-          ,"src/@public/css/base.css"
+         "src/@public/css/base.css"
+        ,"src/@public/js/base.js"
+        ,"src/@public/js/qrcode.js"
+        ,"src/@public/js/githubusercontent.js"
     ]
     ,"//": "(任意)拡張LFUライブラリ群."
     ,"//": "この条件は存在しない場合は処理されません."
