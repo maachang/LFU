@@ -265,7 +265,7 @@ const lfuSucceed = function(exitFlag, res, success) {
         // json変換.
         success = JSON.stringify(success);
         // 空文字の場合.
-        if(success == undefined || success == null) {
+        if(success == undefined || success == "null") {
             success = "";
         }
         // 正常送信.
@@ -304,10 +304,84 @@ const lufDone = function(exitFlag, res, fail, success) {
     if(exitFlag[0] != false) {
         return;
     }
-    if(fail == undefined || fail == null) {
+    // success内容が存在.
+    if(success != undefined && success != null) {
         lfuSucceed(exitFlag, res, success);
-    } else {
+    // fail内容が存在.
+    } else if(fail != undefined && fail != null) {
         lfuFail(exitFlag, res, fail);
+    } else {
+        // 何も設定されていない場合.
+        lfuSucceed(exitFlag, res, "");
+    }
+}
+
+// lambdaコールバック用.
+const lfuCallback = function(exitFlag, res, fail, result) {
+    // 処理済み.
+    if(exitFlag[0] != false) {
+        return;
+    }
+    // resultが存在する場合.
+    if(result != null && result != undefined) {
+        let bodyOnly = true;
+        let statusCode = 200;
+        let headers = {};
+        let body = "";
+        // statusCodeが数字で存在する場合.
+        if((result.statusCode|0) != 0) {
+            statusCode = result.statusCode|0;
+            bodyOnly = false;
+        }
+        // ヘッダ情報が存在する場合.
+        if(result.headers != undefined && result.headers != null) {
+            const h = result.headers;
+            for(let k in h) {
+                headers[k] = h[k];
+            }
+            bodyOnly = false;
+        }
+        // body情報が存在する場合.
+        if(result.body != undefined && result.body != null) {
+            body = result.body;
+            bodyOnly = false;
+        }
+        // bodyオンリー引数設定の場合.
+        if(bodyOnly) {
+            body = result;
+        }
+        // 正常送信.
+        try {
+            sendSuccess(res, statusCode, headers, body);
+        } catch(e) {
+            // エラー送信.
+            sendError(res, 500, {}, e);
+        } finally {
+            // 処理済みにセット.
+            exitFlag[0] = true;
+        }
+        return;
+    }
+    // fail が設定されている場合.
+    if(fail != null && fail != undefined) {
+        try {
+            // エラー送信.
+            sendError(res, 500, {}, fail);
+        } finally {
+            // 処理済みにセット.
+            exitFlag[0] = true;
+        }
+        return;
+    }
+    // 空の正常送信.
+    try {
+        sendSuccess(res, 200, {}, "");
+    } catch(e) {
+        // エラー送信.
+        sendError(res, 500, {}, e);
+    } finally {
+        // 処理済みにセット.
+        exitFlag[0] = true;
     }
 }
 
@@ -322,6 +396,7 @@ const setEventCookie = function(event, cookies) {
         event.cookies[i] = list[i].trim();
     }
 }
+
 // LFUのイベントを作成.
 // req Httpリクエストオブジェクトを設定します.
 // 戻り値: Lfuイベントが返却されます.
@@ -442,18 +517,27 @@ const callLfu = async function(req, res, body) {
         }
         // contextを作成.
         const ctx = {
-            success: function(value) {
+            callbackWaitsForEmptyEventLoop: false,
+            // context.succeed(...)
+            succeed: function(value) {
                 lfuSucceed(resFlag, res, value);
             },
+            // context.fail(...)
             fail: function(error) {
                 lfuFail(resFlag, res, error);
             },
+            // context.done(...)
             done: function(fail, success) {
                 lufDone(resFlag, res, fail, success);
             }
         };
         // lfu実行処理.
-        const result = await index.handler(event, ctx);
+        const result = await index.handler(event, ctx,
+            // callback.
+            function(fail, result) {
+                lfuCallback(resFlag, res, fail, result);
+            }
+        );
         // 処理済み.
         if(resFlag[0] != false) {
             return;

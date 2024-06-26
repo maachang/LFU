@@ -52,6 +52,10 @@ const trimPath = function(
             name += ".js";
         }
     }
+    // contentPathが空の場合.
+    if(currentPath == "") {
+        return mainPath + "/" + name;
+    }
     return mainPath + "/" + currentPath + "/" + name;
 }
 
@@ -293,7 +297,9 @@ const fakeRequire = function(mainPath, currentPath, name,
 const fakeContents = function(mainPath, currentPath, name, response) {
     // ファイル名を整形.
     const contentsName = trimPath(
-        false, mainPath, currentPath, name);
+        false, mainPath, currentPath, name);  
+//console.log("## contentsName: " + contentsName + " mainPath: " + mainPath +
+//    " currentPath: " + currentPath + " name: " + name)
     // レスポンス取得.
     response = getResponse(response, contentsName);
     if(response.status >= 400) {
@@ -408,9 +414,13 @@ const ghead = function(path, currentPath) {
 
 // [grequire]偽exportsの偽設定を登録.
 grequire.exports = {
-    setOptions: function(){},
-    setDefault: function(){},
-    setOrganizationToken: function(){}
+    setOptions: function(){}
+    ,isOptions: function(){return false;}
+    ,setDefault: function(){}
+    ,isDefault: function(){return false;}
+    ,isOrganizationToken: function() {return false;}
+    ,setOrganizationToken: function(){}
+    ,getOrganizationToken: function() {return undefined;}
 }
 
 // 偽メインパスを取得.

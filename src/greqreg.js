@@ -144,7 +144,7 @@ const getGithubObject = async function(method, path, token, response) {
     return body;
 }
 
-// 対象Githubリポジトリ内のJavascriptをロード..
+// 対象Githubリポジトリ内のJavascriptをロード.
 // path 対象のパスを設定します.
 // token privateリポジトリにアクセスする場合は、githubのtokenをセットします.
 // response レスポンス情報を取得したい場合設定します.
@@ -155,6 +155,9 @@ const getGithubObjectToJs = function(path, token, response) {
         return body.toString();
     });
 }
+
+// デフォルトセット.
+let _DEFAULT_SET = false;
 
 // デフォルトの接続先organization.
 let _DEFAULT_ORGANIZATION = null;
@@ -174,7 +177,14 @@ const setDefault = function(organization, repo, branch) {
     _DEFAULT_ORGANIZATION = organization;
     _DEFAULT_REPO = repo;
     _DEFAULT_BRANCH = branch;
+    _DEFAULT_SET = true;
     return exports;
+}
+
+// setDefault呼び出しが行われたか取得.
+// 戻り値: trueの場合呼び出ししています.
+const isDefault = function() {
+    return _DEFAULT_SET;
 }
 
 // organizationTokeを管理.
@@ -182,6 +192,12 @@ const setDefault = function(organization, repo, branch) {
 // オブジェクトを取得する場合に設定され、それらが管理されます.
 // { "organization" : "token" } の形で管理します.
 const _ORGANIZATION_TOKENS = {};
+
+// organizationTokenが設定されているかチェック.
+// 戻り値 trueの場合設定されています.
+const isOrganizationToken = function() {
+    return _ORGANIZATION_TOKENS[organization] != undefined;
+}
 
 // organizationTokenを設定.
 // organization 対象のorganization名を設定します.
@@ -202,6 +218,9 @@ const getOrganizationToken = function(organization) {
 
 // grequireでloadした内容をCacheする.
 const _GBL_GIT_VALUE_CACHE = {};
+
+// オプションセット.
+let _OPTION_SET = false;
 
 // カレントパス.
 let _CURRENT_PATH = undefined;
@@ -243,8 +262,18 @@ const setOptions = function(option) {
     if(typeof(noneCache) == "boolean") {
         _NONE_CACHE = noneCache;
     }
+
+    // オプションセット.
+    _OPTION_SET = true;
+
     // exportsを返却.
     return exports;
+}
+
+// setOptions呼び出しが行われたか取得.
+// 戻り値: trueの場合呼び出ししています.
+const isOptions = function() {
+    return _OPTION_SET;
 }
 
 // originRequireを実施.
@@ -453,7 +482,10 @@ const init = function() {
     // exportsを登録.
     grequire.exports = {
         setOptions: setOptions,
+        isOptions: isOptions,
         setDefault: setDefault,
+        isDefault: isDefault,
+        isOrganizationToken: isOrganizationToken,
         setOrganizationToken: setOrganizationToken
     }
 

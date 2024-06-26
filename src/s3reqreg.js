@@ -83,6 +83,9 @@ const getCacheName = function(params) {
     return "s3://" + params.Bucket + "/" + params.Key;
 }
 
+// オプションセット.
+let _OPTION_SET = false;
+
 // キャッシュOFF条件.
 let _NONE_CACHE = false;
 
@@ -147,8 +150,17 @@ const setOption = function(option) {
     // noneCache条件.
     _NONE_CACHE = ("" + option.noneCache) == "true";
     
+    // オプション設定.
+    _OPTION_SET = true;
+
     // exportsを返却.
     return exports;
+}
+
+// setOptions呼び出しが行われたか取得.
+// 戻り値: trueの場合呼び出ししています.
+const isOptions = function() {
+    return _OPTION_SET;
 }
 
 // 設定リージョンが存在しない場合`東京(ap-northeast-1)`を
@@ -401,7 +413,8 @@ const init = function() {
 
     // exportsを登録.
     s3require.exports = {
-        setOption: setOption
+        setOption: setOption,
+        isOptions: isOptions
     };
 
     /////////////////////////////////////////////////////

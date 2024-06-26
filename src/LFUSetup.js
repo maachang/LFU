@@ -333,10 +333,42 @@ const analysisEnv = function() {
 // 外部環境上で利用するrequireに対して、利用する事で環境依存を
 // 防ぐことができます.
 const regRequestRequireFunc = function(env) {
+    // 既に定義済みの場合は処理しない.
+    if(global.exrequire != undefined &&
+        global.excontents != undefined &&
+        _requestFunction != undefined) {
+        return;
+    }
+    let exreq, excon, reqFunc;
     // mainExternal がS3の場合.
     if(env.mainExternal == _MAIN_S3_EXTERNAL) {
+        // s3内で利用するrequire処理.
+        exreq = async function(
+            path, noneCache, currentPath, response) {
+            if(currentPath == undefined || currentPath == null) {
+                currentPath = "";
+            }
+            return await global.s3require(path, currentPath,
+                noneCache, response);
+        }
+
+        // s3内で利用するcontains処理.
+        excon = async function(
+            path, currentPath, response) {
+            if(currentPath == undefined || currentPath == null) {
+                currentPath = "";
+            }
+            return await global.s3contents(path, currentPath,
+                response);
+        }
+
+        // s3用のhead処理.
+        //_requestHeadFunc = function(path) {
+        //    return global.s3head(path, env.requestPath);
+        //}
+
         // s3用のrequest処理.
-        _requestFunction = async function(jsFlag, path, response) {
+        reqFunc = async function(jsFlag, path, response) {
             let ret = null;
             // javascript実行呼び出し.
             if(jsFlag == true) {
@@ -353,36 +385,34 @@ const regRequestRequireFunc = function(env) {
             }
             return ret;
         };
-
-        // s3用のhead処理.
-        //_requestHeadFunc = function(path) {
-        //    return global.s3head(path, env.requestPath);
-        //}
-
-        // s3内で利用するrequire処理.
-        global.exrequire = async function(
-            path, noneCache, currentPath, response) {
+    
+    // mainExternal がGithubRepogitoryの場合.
+    } else {
+        // github内で利用するrequire処理
+        exreq = function(path, noneCache, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
                 currentPath = "";
             }
-            return await global.s3require(path, currentPath,
+            return global.grequire(path, currentPath,
                 noneCache, response);
         }
 
-        // s3内で利用するcontains処理.
-        global.excontents = async function(
-            path, currentPath, response) {
+        // github内で利用するcontains処理.
+        excon = function(path, currentPath, response) {
             if(currentPath == undefined || currentPath == null) {
                 currentPath = "";
             }
-            return await global.s3contents(path, currentPath,
+            return global.gcontents(path, currentPath,
                 response);
         }
 
-    // mainExternal がGithubRepogitoryの場合.
-    } else {
+        // github用のhead処理.
+        //_requestHeadFunc = function(path) {
+        //    return global.ghead(path, env.requestPath);
+        //}
+        
         // github用のrequest処理.
-        _requestFunction = async function(jsFlag, path, response) {
+        reqFunc = async function(jsFlag, path, response) {
             let ret = null;
             // javascript実行呼び出し.
             if(jsFlag == true) {
@@ -399,32 +429,12 @@ const regRequestRequireFunc = function(env) {
             }
             return ret;
         };
-
-        // github用のhead処理.
-        //_requestHeadFunc = function(path) {
-        //    return global.ghead(path, env.requestPath);
-        //}
-
-        // github内で利用するrequire処理
-        global.exrequire = function(
-            path, noneCache, currentPath, response) {
-            if(currentPath == undefined || currentPath == null) {
-                currentPath = "";
-            }
-            return global.grequire(path, currentPath,
-                noneCache, response);
-        }
-
-        // github内で利用するcontains処理.
-        global.excontents = function(
-            path, currentPath, response) {
-            if(currentPath == undefined || currentPath == null) {
-                currentPath = "";
-            }
-            return global.gcontents(path, currentPath,
-                response);
-        }
     }
+
+    // 生成結果をセット.
+    global.exrequire = exreq;
+    global.excontents = excon;
+    _requestFunction = reqFunc;
 }
 
 // filterFunctionを設定.
@@ -829,10 +839,8 @@ const LFU_PUBLIC = "/@public/"
 // lambda-func-url に対する実行処理(HTTP or HTTPS)が行われるので、
 // ここでハンドラー実行処理を行う必要がある.
 // event aws lambda `index.js` のmainメソッド
-//       exports.handler(event, _)の条件が設定されます.
-// context aws lambda `index.js` のmainメソッド
-//         exports.handler(_, context)の条件が設定されます.
-const main_handler = async function(event, context) {
+//       exports.handler(event)の条件が設定されます.
+const main_handler = async function(event) {
     // レスポンスステータス.
     const resState = httpStatus.create();
     
@@ -1129,32 +1137,41 @@ const main_handler = async function(event, context) {
 // lambda-func-url初期処理.
 // event index.jsで渡されるeventを設定します.
 const start = function(event) {
-    // 応答確認.
-    if(event.rawPath == "/~ping" ||
-        event.rawPath == "/~clearRequireCache") {
-        // キャッシュクリア.
-        if(event.rawPath == "/~clearRequireCache") {
-            clearRequireCache();
-        }
-        // ping用function返却.
-        return async function() {
-            // レスポンス出力.
-            return returnResponse(
-                200, // status.
-                {}, // headers.
-                [], // cookies.
-                // body.
-                {result: "ok"}
-            );
+    const rawPath = event.rawPath;
+    // lfu専用コマンドパス定義の場合.
+    if(rawPath.startsWith("/~")) {
+        // 応答確認及びrequire関連のキャッシュクリア.
+        if(rawPath == "/~ping" ||
+            rawPath == "/~clearRequireCache") {
+            // キャッシュクリア.
+            if(rawPath == "/~clearRequireCache") {
+                clearRequireCache();
+            }
+            // ping用function返却.
+            return async function() {
+                // レスポンス出力.
+                return returnResponse(
+                    200, // status.
+                    {}, // headers.
+                    [], // cookies.
+                    // body.
+                    {result: "ok"}
+                );
+            }
         }
     }
 
-    // 環境変数を取得.
-    const env = analysisEnv();
-
-    ////////////////////////////////////////
+    //////////////////////////////////////////
     // 環境変数を取得して、それぞれを初期化する.
-    ////////////////////////////////////////
+    //////////////////////////////////////////
+
+    // 環境変数を取得.
+    // すでに存在する場合は、その内容を取得する.
+    let env = global.ENV;
+    if(env == undefined) {
+        env = analysisEnv();
+        global.ENV = env;
+    }
 
     // s3接続定義が存在する場合.
     // s3Connectが存在しない場合は `s3require` は使えない.
@@ -1163,35 +1180,43 @@ const start = function(event) {
         const s3reqreg = require("./s3reqreg.js");
 
         // 基本設定.
-        s3reqreg.setOption({
-            currentPath: env.s3Connect.requirePath,
-            region: env.s3Connect.region,
-            timeout: env.cacheTimeout,
-            nonCache: env.noneCache
-        });
+        if(!s3reqreg.isOptions()) {
+            s3reqreg.setOption({
+                currentPath: env.s3Connect.requirePath,
+                region: env.s3Connect.region,
+                timeout: env.cacheTimeout,
+                nonCache: env.noneCache
+            });
+        }
     }
 
     // git接続定義が存在する場合.
-    // s3Connectが存在しない場合は `grequire` は使えない.
+    // gitConnectが存在しない場合は `grequire` は使えない.
     if(env.gitConnect != undefined) {
         // greqreg.
         const greqreg = require("./greqreg.js");
 
         // 標準接続先のgithub repogitory設定.
-        greqreg.setDefault(
-            env.gitConnect.organization,
-            env.gitConnect.repo,
-            env.gitConnect.branch
-        );
+        if(!greqreg.isDefault()) {
+            greqreg.setDefault(
+                env.gitConnect.organization,
+                env.gitConnect.repo,
+                env.gitConnect.branch
+            );
+        }
         // オプション設定.
-        greqreg.setOptions({
-            currentPath: env.gitConnect.requirePath,
-            timeout: env.cacheTimeout,
-            nonCache: env.noneCache
-        });
+        if(!greqreg.isOptions()) {
+            greqreg.setOptions({
+                currentPath: env.gitConnect.requirePath,
+                timeout: env.cacheTimeout,
+                nonCache: env.noneCache
+            });
+        }
         
         // 対象gitHubのprivateアクセス用トークン(埋め込み暗号化)が存在する場合.
-        if(env.gitConnectToken != undefined) {
+        // 既に登録済みの場合は処理しない.
+        if(env.gitConnectToken != undefined &&
+            !greqreg.isOrganizationToken()) {
             // secretManagerを取得.
             const scm = require("./lib/secretsManager.js");
             // /{organization}/{repo}/{branch}/{requirePath}
@@ -1211,17 +1236,47 @@ const start = function(event) {
         }
     }
 
-    // requestFunction呼び出し処理のFunction登録
-    regRequestRequireFunc(env);
-
-    // defaultのfavicon.icoが設定されている場合.  
-    if(event.rawPath == "/favicon.ico" ||
-        event.rawPath == "/default/favicon.ico") {
-        // fcontentsからfavicon.icoを取得.
+    // favicon.icoが呼び出し対象の場合.
+    if(rawPath.endsWith("/favicon.ico")) {
+        // defaultのfavicon.icoが設定されている場合.  
+        if(rawPath == "/favicon.ico" ||
+            rawPath == "/default/favicon.ico") {
+            // defaultのfavicon.icoを取得.
+            return async function() {
+                try {
+                    // lambda設定直下のfavicon.icoを取得.
+                    const res = fcontents("./favicon.ico");
+                    // レスポンスヘッダ.
+                    const resHeader = httpHeader.create();
+                    resHeader.put("content-type", getMimeType("ico").type);
+                    // レスポンス出力.
+                    return returnResponse(
+                        200, // status.
+                        resHeader.toHeaders(), // headers.
+                        [], // cookies.
+                        // body.
+                        res
+                    );
+                } catch(e) {
+                    console.log(e)
+                    // 404レスポンス出力.
+                    return returnResponse(
+                        404, /// status.
+                        {}, // headers.
+                        [], // cookies.
+                        // body.
+                        null
+                    );
+                }
+            }
+        }
+        // ユーザが登録しているfavicon.ico を返却.
         return async function() {
             try {
-                // lambda設定直下のfavicon.icoを取得.
-                const res = await fcontents("./favicon.ico");
+                // requestFunction呼び出し処理のFunction登録.
+                regRequestRequireFunc(env);
+                // 指定パスのfavicon.icoを取得.
+                const res = await excontents(rawPath, env.requestPath);
                 // レスポンスヘッダ.
                 const resHeader = httpHeader.create();
                 resHeader.put("content-type", getMimeType("ico").type);
@@ -1247,8 +1302,8 @@ const start = function(event) {
         }
     }
 
-    // ENVをglobalに設定.
-    global.ENV = env;
+    // requestFunction呼び出し処理のFunction登録.
+    regRequestRequireFunc(env);
 
     // main_handlerを返却.
     return main_handler;
