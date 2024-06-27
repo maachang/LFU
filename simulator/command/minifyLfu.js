@@ -91,8 +91,8 @@ const getPath = function() {
 
 // notMinify指定かチェック.
 const getNotMinify = function() {
-    // notMinifyを取得.
-    let notMinify = process.argv[2];
+    // notMinifyを取得(minifyLfu path {ここのパラメータ}).
+    let notMinify = process.argv[3];
     if(notMinify == undefined) {
         return false;
     }
@@ -171,6 +171,7 @@ const cmdCopy = function(path, fileName, moveDir) {
 // srcList loadLfuSrcListJsonFile で取得した内容を設定します.
 const executeMinify = function(path, srcList, notMinify) {
     notMinify = notMinify == true;
+    console.log("# notMinify: " + notMinify);
     // minify出力先のディレクトリを作成.
     try {
         // 一旦.minSrcディレクトリを削除(rmコマンドで削除).
@@ -279,6 +280,7 @@ const path = getPath();
 if(path == undefined) {
     return;
 }
+// minify条件を取得.
 const notMinify = getNotMinify();
 // 対象リストを取得.
 const srcList = loadLfuSrcListJsonFile(path);
