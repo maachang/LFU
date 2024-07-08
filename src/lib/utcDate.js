@@ -266,6 +266,12 @@ const dateToString = function(object, mode, noSeparator) {
 
 // 開始/終了日を取得.
 // date = Dateオブジェクトである必要がある.
+// mode: 開始・終了の単位を指定します.
+//  - year: 対象年と次の年の間
+//  - month: 対象月と次の月の間
+//  - week: 対象週と次の週の間
+//  - date or 未設定: 対象日と次の日の間
+// 戻り値: {start, end}
 const between = function(date, mode) {
     // dateが設定されていない場合.
     if(date == undefined || date == null) {
@@ -282,7 +288,7 @@ const between = function(date, mode) {
     if(mode == undefined || mode == null) {
         mode = "date";
     } else {
-        mode = (""+mode).trim();
+        mode = (""+mode).trim().toLowerCase();
     }
 
     let start, end;
@@ -295,7 +301,7 @@ const between = function(date, mode) {
         return {start: start, end: end};
     }
     // 月の開始終了を返却.
-    if(mode == false || mode == "month") {
+    if(mode == "month") {
         start = create(date.getUTCFullYear(), date.getUTCMonth(), 1);
         end = create(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
         end = create(end.getTime() - 1);
@@ -387,7 +393,7 @@ const create = function(y, m, d) {
     }
     o.change = function(mode, value) {
         // 現状を変更する.
-        mode = mode.toLowerCase();
+        mode = ("" + mode).trim().toLowerCase();
         if(mode == "year") {
             date.setUTCFullYear(date.getUTCFullYear() + value);
         } else if(mode == "month") {
@@ -411,10 +417,12 @@ const create = function(y, m, d) {
     }
     o.cchange = function(mode, value) {
         // 現状を変更せずに新しく作られたものを変更する.
+        mode = ("" + mode).trim().toLowerCase();
         const ret = create(date);
         return ret.change(mode, value);
     }
     o.clear = function(mode) {
+        mode = ("" + mode).trim().toLowerCase();
         if(mode == "month") {
             // 月からリセット.
             date.setUTCMonth(0);

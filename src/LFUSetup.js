@@ -854,6 +854,12 @@ const main_handler = async function(event) {
         // リクエストを生成.
         request = createRequest(event);
 
+        // globalにgetRequestを登録.
+        global.getRequest = function() {
+            // リクエストを返却.
+            return request;
+        }
+
         // リクエストパラメータを設定.
         setRequestParameter(event, request);
 
