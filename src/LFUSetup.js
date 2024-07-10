@@ -45,7 +45,7 @@ let _requestFunction = undefined;
 //let _requestHeadFunc = undefined;
 
 // エラー例外処理.
-// message　エラーメッセージを設定します.
+// message エラーメッセージを設定します.
 const error = function(message) {
     throw new Error("ERROR [LFUSetup] " + message);
 }
