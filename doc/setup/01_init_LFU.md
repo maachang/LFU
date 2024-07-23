@@ -35,15 +35,20 @@ LFUが提供しているコマンドを利用可能にします.
 
 以下のファイルの末尾に追加します.
 
-- ~/.profile
+- ~/.profile or ~/.bashrc
 ~~~bash
+
 export LFU_HOME=~/project/LFU
 export PATH=${LFU_HOME}/simulator/bin:${PATH}
 ~~~
+※ `~/.profile` or `~/.bashrc` のどちらかに設定が必要です.<br>
+　また.bashrcは環境に合わせた先で設定してください(今回説明ではbashが対象) 
 
 その後
 ~~~bash
 source ~/.profile
+or 
+source ~/.bashrc
 ~~~
 
 とする事で LFUが提供するコマンドが利用可能となります.
