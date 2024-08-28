@@ -21,8 +21,8 @@ if(global.frequire != undefined) {
 // nodejs library.
 const fs = require('fs');
 
-// カレントパス名.
-const _CURRENT_PATH = __dirname + "/";
+// Baseカレントパス名.
+const _BASE_CURRENT_PATH = __dirname + "/";
 
 // 元のrequire.
 const srcRequire = require;
@@ -51,7 +51,7 @@ const trimPath = function(jsFlag, name) {
 // name 対象のファイル名を設定します.
 // 戻り値: ファイル名が存在する場合 true.
 const isFile = function(name) {
-    return fs.existsSync(_CURRENT_PATH + name);
+    return fs.existsSync(_BASE_CURRENT_PATH + name);
 }
 
 // ファイルを詠み込む.
@@ -59,10 +59,15 @@ const isFile = function(name) {
 // 戻り値: ファイル内容がstringで返却されます.
 //        存在しない場合は null が返却されます.
 const readFile = function(name) {
-    if(isFile(name)) {
-        return fs.readFileSync(_CURRENT_PATH + name);
+    //if(isFile(name)) {
+    //    return fs.readFileSync(_BASE_CURRENT_PATH + name);
+    //}
+    //return null;
+    try {
+        return fs.readFileSync(_BASE_CURRENT_PATH + name);
+    } catch(e) {
+        return null;
     }
-    return null;
 }
 
 // 禁止requireファイル群.
@@ -93,7 +98,7 @@ const frequire = function(name) {
     // 読み込みを区分けする.
     if(isFile(jsName)) {
         // currentPath入りで、読み込む.
-        return srcRequire(_CURRENT_PATH + jsName);
+        return srcRequire(_BASE_CURRENT_PATH + jsName);
     }
     // 指定のまま読み込む.
     return srcRequire(name);

@@ -244,11 +244,13 @@ const analysisEnv = function() {
 
     // s3Connect.
     if(s3Connect == undefined) {
-        // mainExternal が S3の場合.
+        // 環境変数のs3Connect定義が存在しない場合.
+        // mainExternal が S3の場合はエラー.
         if(mainExternal == _MAIN_S3_EXTERNAL) {
             error(_ENV_S3_CONNECT + " is a required setting.");
         }
-    } else {
+    // s3require利用可能な場合.
+    } else if((process.env["require.s3reqreg"] || "").toLowerCase() != "false") {
         // s3Connectをカンマ区切りでパースする.
         s3Connect = arrayToMap(
             ["requirePath", "region"],
@@ -256,15 +258,21 @@ const analysisEnv = function() {
         if(s3Connect.requirePath == undefined) {
             error(_ENV_S3_CONNECT + ".requirePath is a required setting.");
         }
+    // s3require利用可能でない場合.
+    // 環境変数設定がされているかmainExternal が S3の場合はエラー.
+    } else if(s3Connect != undefined || mainExternal == _MAIN_S3_EXTERNAL) {
+        error("s3require is not available.");
     }
 
     // gitConnect.
     if(gitConnect == undefined) {
-        // mainExternal が GITの場合.
+        // 環境変数のgitConnectが存在しない場合.
+        // mainExternal が GITの場合はエラー.
         if(mainExternal == _MAIN_GIT_EXTERNAL) {
             error(_ENV_GIT_CONNECT + " is a required setting.");
         }
-    } else {
+    // grequire利用可能な場合.
+    } else if((process.env["require.greqreg"] || "").toLowerCase() != "false") {
         // gitConnectをカンマ区切りでパースする.
         gitConnect = arrayToMap(
             ["organization", "repo", "branch", "requirePath"],
@@ -278,6 +286,10 @@ const analysisEnv = function() {
         } else if(gitConnect.requirePath == undefined) {
             error(_ENV_GIT_CONNECT + ".requirePath is a required setting.");
         }
+    // grequire利用可能でない場合.
+    // 環境変数設定がされているかmainExternal が gitの場合はエラー.
+    } else if(gitConnect != undefined || mainExternal == _MAIN_GIT_EXTERNAL) {
+        error("grequire is not available.");
     }
     
     // cacheTimeout.
@@ -960,7 +972,7 @@ const main_handler = async function(event) {
                 resBody = Buffer.from(resBody).toString();
 
                 // jhtmlライブラリを取得.
-                const jhtml = frequire("./lib/jhtml.js");
+                const jhtml = frequire("./jhtml.js");
 
                 // jhtmlをjs変換.
                 resBody = jhtml.convertJhtmlToJs(resBody);

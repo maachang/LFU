@@ -49,12 +49,12 @@
 let frequire = global.frequire;
 if(frequire == undefined) {
     // frequire利用可能に設定.
-    require("../freqreg.js");
+    require("./freqreg.js");
     frequire = global.frequire;
 }
 
 // nodejs library(vm).
-const vm = frequire('vm');
+//const vm = frequire('vm');
 
 // jhtml出力メソッド名.
 const _OUT = "$out";
@@ -277,10 +277,10 @@ const JHTML_JS_ARGS =
     _OUT + ", $params, $request, $status, $response, $jthml";
 
 // vm.Script: jhtml実行js用ヘッダ.
-const VM_SCRIPT_JHTML_JS_HEADER =
+/*const VM_SCRIPT_JHTML_JS_HEADER =
     "(function() {'use strict';return async function(" +
         JHTML_JS_ARGS + "){\n";
-
+*/
 // jhtmlを実行.
 // vm.Script(...)で実行.
 // name jhtmlのファイルパスを設定します.
@@ -291,7 +291,7 @@ const VM_SCRIPT_JHTML_JS_HEADER =
 // params request.paramsでない、パラメータを設定する場合は、
 //        こちらに設定します.
 // 戻り値: 実行結果(string)が返却されます.
-const _runVmScriptToJHTML = async function(
+/*const _runVmScriptToJHTML = async function(
     name, js, request, status, response, params) {
     try {
         // paramsが指定されていない場合.
@@ -342,7 +342,7 @@ const _runVmScriptToJHTML = async function(
         console.error("## [ERROR] _runVmScriptToJHTML name: " + name);
         throw e;
     }
-}
+}*/
 
 // async用Functionオブジェクト定義.
 const AsyncFunction = async function () {}.constructor;

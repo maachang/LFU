@@ -15,10 +15,18 @@ const events = require('events');
 require("./httpError.js");
 // frequire利用可能に設定.
 require("./freqreg.js");
-// grequire利用可能に設定.
-require("./greqreg.js");
+
 // s3require利用可能に設定.
-require("./s3reqreg.js");
+if((process.env["require.s3reqreg"] || "").toLowerCase() != "false") {
+    // [環境変数]require.s3reqreg == "false" 以外は読み込む.
+    require("./s3reqreg.js");
+}
+
+// grequire利用可能に設定.
+if((process.env["require.greqreg"] || "").toLowerCase() != "false") {
+    // [環境変数]require.greqreg == "false" 以外は読み込む.
+    require("./greqreg.js");
+}
 
 // lambda main.
 exports.handler = async function(
@@ -49,9 +57,8 @@ exports.handler = async function(
     ////////////////////////////////////
     // LFUSetup実行.
     ////////////////////////////////////
-    return await
-        (require("./LFUSetup.js")
-            .start(event))(event);
+    return await (require("./LFUSetup.js")
+        .start(event))(event);
 };
 
 })();

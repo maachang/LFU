@@ -1,6 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // githubのリポジトリに格納されているjsファイルをrequire的に使えるようにする.
 // そのための登録用呼び出し.
+// また、基本的にこの内容はユーザが任意に呼び出しを行う事は通常ない.
 //
 // githubのソースコード取得方法のURL.
 // https://raw.githubusercontent.com/{organization}/{repogitory}/{branch}/{path}
@@ -20,6 +21,10 @@ if(global.grequire != undefined) {
         exports[k] = m[k];
     }
     return;
+// [環境変数]require.greqreg == "false" の場合.
+} else if((process.env["require.greqreg"] || "").toLowerCase() == "false") {
+    // 何も処理しない.
+    return;
 }
 
 // frequireが設定されていない場合.
@@ -31,7 +36,7 @@ if(frequire == undefined) {
 }
 
 // nodejs library.
-const vm = require('vm');
+//const vm = require('vm');
 
 // HttpsClient.
 const httpsClient = frequire("./lib/httpsClient.js");
@@ -289,19 +294,19 @@ const originRequire = function(path, js) {
 }
 
 // vm.Scriptスクリプトheader.
-const VM_SCRIPT_HEADER =
+/*const VM_SCRIPT_HEADER =
     "(function() {" +
     "'use strict';" +
     "return function(args){" +
     "const exports = args;";
     "const module = {exports: args};\n";
-
+*/
 // originRequireを実施.
 // vm.Script(...)で実行.
 // path load対象のPathを設定します.
 // js load対象のjsソース・ファイルを設定します.
 // 戻り値: exportsに設定された内容が返却されます.
-const _runVmScriptRequire = function(path, js) {
+/*const _runVmScriptRequire = function(path, js) {
     try {
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
@@ -329,7 +334,7 @@ const _runVmScriptRequire = function(path, js) {
         console.error("## [ERROR] _runVmScriptRequire path: " + path);
         throw e;
     }
-}
+}*/
 
 // originRequireを実施.
 // Function(...)で実行.
