@@ -65,14 +65,11 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// nodejs library(vm).
-//const vm = require('vm');
+// jsプログラムコンパイル用.
+const rjs = require("./reqjs.js");
 
 // s3client.
 const s3 = frequire("./lib/s3client.js");
-
-// HttpStatus.
-//const httpStatus = frequire("./lib/httpStatus.js");
 
 // s3requireでloadした内容をCacheする.
 const _GBL_S3_VALUE_CACHE = {};

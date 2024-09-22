@@ -200,9 +200,9 @@ const nowLoading = function(rgba) {
     let w = document.documentElement.scrollWidth || document.body.scrollWidth;
     let h = document.documentElement.scrollHeight || document.body.scrollHeight;
     em.innerHTML = "<div style='z-index:" + NOW_LOADING_ZINDEX +
-        ";position:absolute;width:"+w+"px;height:"+h+"px;" +
+        ";position:absolute;width:"+((w|0)-1)+"px;height:"+((h|0)-1)+"px;" +
         "left:0px;top:0px;background-color:rgba("
-            +rgba.r+","+rgba.g+","+rgba.b+","+rgba.a+");' " +
+            +(rgba.r|0)+","+(rgba.g|0)+","+(rgba.b|0)+","+(rgba.a|0)+");' " +
         // Block physical access.
         "onkeydown='event.preventDefault()' " +
         "onclick='event.preventDefault()' " +

@@ -27,11 +27,11 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// nodejs library(vm).
-//const vm = require('vm');
-
-// nodejs library.
+// ファイルI/O.
 const fs = require('fs');
+
+// jsプログラムコンパイル用.
+const rjs = require("./reqjs.js");
 
 // Baseカレントパス名.
 const _BASE_CURRENT_PATH = __dirname + "/";
@@ -63,21 +63,24 @@ const setCurrentPath = function(path) {
     return true;
 }
 
+// カレントパスを取得.
+const currentPath = function(name) {
+    return _BASE_CURRENT_PATH + _CURRENT_PATH + "/" + name;
+}
+
 // ファイル存在確認.
 // name 対象のファイル名を設定します.
 // 戻り値: ファイル名が存在する場合 true.
 const isFile = function(name) {
-    return fs.existsSync(
-        _BASE_CURRENT_PATH + currentPath + "/" + name);
+    return fs.existsSync(currentPath(name));
 }
 
 // 対象ファイルの最終更新日を取得.
 // name 対象のファイル名を設定します.
 // 戻り値: 更新時間がUnixTimeで返却されます.
-const getLastModified = function(name) {
+const getFileLastTime = function(name) {
     try {
-        const r = fs.statSync(
-            _BASE_CURRENT_PATH + currentPath + "/" + name);
+        const r = fs.statSync(currentPath(name));
         return parseInt(r.mtimeMs);
     } catch(e) {
         return -1;
@@ -90,8 +93,7 @@ const getLastModified = function(name) {
 //        存在しない場合は null が返却されます.
 const readFile = function(name) {
     try {
-        return fs.readFileSync(
-            _BASE_CURRENT_PATH + currentPath + "/" + name);
+        return fs.readFileSync(currentPath(name));
     } catch(e) {
         return null;
     }

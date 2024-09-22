@@ -35,14 +35,11 @@ if(frequire == undefined) {
     frequire = global.frequire;
 }
 
-// nodejs library.
-//const vm = require('vm');
+// jsプログラムコンパイル用.
+const rjs = require("./reqjs.js");
 
 // HttpsClient.
 const httpsClient = frequire("./lib/httpsClient.js");
-
-// HttpStatus.
-//const httpStatus = frequire("./lib/httpStatus.js");
 
 // 文字列が存在するかチェック.
 // s 文字列を設定します.
