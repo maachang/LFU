@@ -247,11 +247,11 @@ const getResponse = function(response, fileName) {
     // レスポンス返却.
     response["status"] = 200;
     response["header"] = {
-        "server": cons.SERVER_NAME,
-        "date": new Date().toISOString(),
-        "content-length": "" + fileLen,
-//        "last-modified": fileTime.toISOString(),
-        "etag": etag
+        "server": cons.SERVER_NAME
+        ,"date": new Date().toUTCString()
+        ,"content-length": "" + fileLen
+        ,"last-modified": fileTime.toUTCString()
+        ,"etag": etag
     };
     return response;
 }

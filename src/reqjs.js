@@ -4,23 +4,24 @@
 (function() {
 'use strict'
 
-// nodejs library.
-//const vm = require('vm');
+/*
+// [vm]nodejs library.
+const vm = require('vm');
 
 // vm.Scriptスクリプトheader.
-/*const VM_SCRIPT_HEADER =
+const VM_SCRIPT_HEADER =
     "(function() {" +
     "'use strict';" +
     "return function(args){" +
     "const exports = args;";
     "const module = {exports: args};\n";
-*/
+
 // originRequireを実施.
 // vm.Script(...)で実行.
 // path load対象のPathを設定します.
 // js load対象のjsソース・ファイルを設定します.
 // 戻り値: exportsに設定された内容が返却されます.
-/*const _runVmScriptRequire = function(path, js) {
+const _runVmScriptRequire = function(path, js) {
     try {
         // Contextを生成.
         // runInContextはsandboxなので、現在のglobalメモリを設定する.
@@ -48,7 +49,8 @@
         console.error("## [ERROR] _runVmScriptRequire path: " + path);
         throw e;
     }
-}*/
+}
+*/
 
 // originRequireを実施.
 // Function(...)で実行.

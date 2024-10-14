@@ -16,14 +16,20 @@ require("./httpError.js");
 // frequire利用可能に設定.
 require("./freqreg.js");
 
+// lorequire利用可能に設定.
+if((process.env["require.loreqreg"] || "") != "false") {
+    // [環境変数]require.loreqreg == "false" 以外は読み込む.
+    require("./loreqreg.js");
+}
+
 // s3require利用可能に設定.
-if((process.env["require.s3reqreg"] || "").toLowerCase() != "false") {
+if((process.env["require.s3reqreg"] || "") != "false") {
     // [環境変数]require.s3reqreg == "false" 以外は読み込む.
     require("./s3reqreg.js");
 }
 
 // grequire利用可能に設定.
-if((process.env["require.greqreg"] || "").toLowerCase() != "false") {
+if((process.env["require.greqreg"] || "") != "false") {
     // [環境変数]require.greqreg == "false" 以外は読み込む.
     require("./greqreg.js");
 }

@@ -52,7 +52,7 @@ if(global.s3require != undefined) {
     }
     return;
 // [環境変数]require.s3reqreg == "false" の場合.
-} else if((process.env["require.s3reqreg"] || "").toLowerCase() == "false") {
+} else if((process.env["require.s3reqreg"] || "") == "false") {
     // 何も処理しない.
     return;
 }
@@ -236,79 +236,6 @@ const loadS3 = async function(params, response) {
     return ret;
 }
 
-// originRequireを実施.
-// path load対象のPathを設定します.
-// js load対象のjsソース・ファイルを設定します.
-// 戻り値: exportsに設定された内容が返却されます.
-const originRequire = function(path, js) {
-    // vm.Scriptで実行.
-    //return _runVmScriptRequire(path, js);
-
-    // Functionで実行.
-    return _runFunctionRequire(path, js);
-}
-
-// vm.Scriptスクリプトheader.
-/*const VM_SCRIPT_HEADER =
-    "(function() {" +
-    "'use strict';" +
-    "return function(args){" +
-    "const exports = args;";
-    "const module = {exports: args};\n";
-*/
-// originRequireを実施.
-// vm.Script(...)で実行.
-// path load対象のPathを設定します.
-// js load対象のjsソース・ファイルを設定します.
-// 戻り値: exportsに設定された内容が返却されます.
-/*const _runVmScriptRequire = function(path, js) {
-    try {
-        // Contextを生成.
-        // runInContextはsandboxなので、現在のglobalメモリを設定する.
-        let memory = global;
-        let context = vm.createContext(memory);
-
-        // origin的なrequireスクリプトを生成.
-        let srcScript = VM_SCRIPT_HEADER
-            + js
-            + "\n};})();";
-    
-        // スクリプト実行環境を生成.
-        let script = new vm.Script(srcScript, {filename: path});
-        srcScript = null;
-        const executeJs = script.runInContext(context, {filename: path});
-        script = null; context = null; memory = null;
-    
-        // スクリプトを実行して、exportsの条件を取得.
-        const ret = {};
-        executeJs(ret);
-    
-        // 実行結果を返却.
-        return ret;
-    } catch(e) {
-        console.error("## [ERROR] _runVmScriptRequire path: " + path);
-        throw e;
-    }
-}*/
-
-// originRequireを実施.
-// Function(...)で実行.
-// path load対象のPathを設定します.
-// js load対象のjsソース・ファイルを設定します.
-// 戻り値: exportsに設定された内容が返却されます.
-const _runFunctionRequire = function(path, js) {
-    try {
-        const exp = {};
-        Function("exports", "module", js)(
-            exp, {exports: exp}
-        );
-        return exp;
-    } catch(e) {
-        console.error("## [ERROR] _runFunctionRequire path: " + path);
-        throw e;
-    }
-}
-
 // s3情報を指定してrequire的実行.
 // path requireするs3pathを設定します.
 // currentPath 今回有効にしたいcurrentPathを設定する場合、設定します.
@@ -355,7 +282,7 @@ const s3require = async function(path, currentPath, noneCache, response) {
         return JSON.parse(js);
     }
     // jsを実行.
-    const result = originRequire(s3name, js);
+    const result = rjs.require_js(s3name, js);
 
     // キャッシュありで処理する場合.
     if(!noneCache) {

@@ -148,6 +148,13 @@ const _ENV_GIT_CONNECT = "GIT_CONNECT";
 // この内容はLfuのsecretsManagerで暗号化されている必要があります.
 const _ENV_GIT_CONNECT_TOKEN = "GIT_CONNECT_TOKEN";
 
+// [環境変数]lorequire, lorequest時の接続設定.
+// この設定は[任意]で設定方法は
+//   "LO_CONNECT"="requirePath"
+// として、デフォルトのpathを設定します.
+// 省略された場合は "public" が設定されます.
+const _ENV_LO_CONNECT = "LO_CONNECT";
+
 // [環境変数]grequire, grequestのキャッシュタイムアウト値.
 // キャッシュタイムアウト値をミリ秒単位で設定します.
 // この値は[任意]で、デフォルト値は30000ミリ秒です.
@@ -186,6 +193,9 @@ const _ENV_ORIGIN_MIME = "ORIGIN_MIME";
 // 設定されます.
 const _ENV_INDEX_PATH = "LFU_INDEX_PATH";
 
+// [mainExternal]localFileの場合.
+const _MAIN_LO_EXTERNAL = -1;
+
 // [mainExternal]S3の場合.
 const _MAIN_S3_EXTERNAL = 0;
 
@@ -210,6 +220,8 @@ const analysisEnv = function() {
     let gitConnect = process.env[_ENV_GIT_CONNECT];
     // 対象のgithubRepogitoryがPrivate設定の場合のToken設定.
     let gitConnectToken = process.env[_ENV_GIT_CONNECT_TOKEN];
+    // 外部接続先 'localFile'の接続基本設定.
+    let loConnect = process.env[_ENV_LO_CONNECT];
     // キャッシュタイムアウト.
     let cacheTimeout = process.env[_ENV_CACHE_TIMEOUT];
     // 基本キャッシュなし条件.
@@ -225,10 +237,13 @@ const analysisEnv = function() {
     }
     // 利用External接続先を判別.
     mainExternal = mainExternal.trim().toLowerCase();
-    if(mainExternal == "s3") {
+    if(mainExternal == "lo" || mainExternal == "file") {
+        // lo.
+        mainExternal = _MAIN_LO_EXTERNAL;
+    } else if(mainExternal == "s3") {
         // s3.
         mainExternal = _MAIN_S3_EXTERNAL;
-    } else if(mainExternal == "git") {
+    } else if(mainExternal == "git" || mainExternal == "github") {
         // git.
         mainExternal = _MAIN_GIT_EXTERNAL;
     } else {
@@ -242,7 +257,23 @@ const analysisEnv = function() {
     }
     requestPath = requestPath.trim();
 
+    /////////////////////////////////////////////////////
+    // loConnect.
+    // loConnectは、対象パスの「あり・なし」なので、別途
+    // mainExternal の有無の設定は関係なし.
+    /////////////////////////////////////////////////////
+    if(loConnect != undefined) {
+        // lorequire利用可能な場合.
+        if((process.env["require.loreqreg"] || "") != "false") {
+            // loConnectが定義されている場合.
+            // 基本パス名が入ってくるので、強制的に文字列変換.
+            loConnect = ("" + loConnect).trim();
+        }
+    }
+
+    //////////////
     // s3Connect.
+    //////////////
     if(s3Connect == undefined) {
         // 環境変数のs3Connect定義が存在しない場合.
         // mainExternal が S3の場合はエラー.
@@ -250,7 +281,7 @@ const analysisEnv = function() {
             error(_ENV_S3_CONNECT + " is a required setting.");
         }
     // s3require利用可能な場合.
-    } else if((process.env["require.s3reqreg"] || "").toLowerCase() != "false") {
+    } else if((process.env["require.s3reqreg"] || "") != "false") {
         // s3Connectをカンマ区切りでパースする.
         s3Connect = arrayToMap(
             ["requirePath", "region"],
@@ -264,7 +295,9 @@ const analysisEnv = function() {
         error("s3require is not available.");
     }
 
+    //////////////
     // gitConnect.
+    //////////////
     if(gitConnect == undefined) {
         // 環境変数のgitConnectが存在しない場合.
         // mainExternal が GITの場合はエラー.
@@ -272,7 +305,7 @@ const analysisEnv = function() {
             error(_ENV_GIT_CONNECT + " is a required setting.");
         }
     // grequire利用可能な場合.
-    } else if((process.env["require.greqreg"] || "").toLowerCase() != "false") {
+    } else if((process.env["require.greqreg"] || "") != "false") {
         // gitConnectをカンマ区切りでパースする.
         gitConnect = arrayToMap(
             ["organization", "repo", "branch", "requirePath"],
@@ -291,7 +324,7 @@ const analysisEnv = function() {
     } else if(gitConnect != undefined || mainExternal == _MAIN_GIT_EXTERNAL) {
         error("grequire is not available.");
     }
-    
+
     // cacheTimeout.
     if(cacheTimeout != undefined) {
         cacheTimeout = parseInt(cacheTimeout);
@@ -328,6 +361,7 @@ const analysisEnv = function() {
     return {
         mainExternal: mainExternal,
         requestPath: requestPath,
+        loConnect: loConnect,
         s3Connect: s3Connect,
         gitConnect: gitConnect,
         gitConnectToken: gitConnectToken,
