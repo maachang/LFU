@@ -208,8 +208,8 @@ if(INDEX_PATH == undefined) {
     INDEX_PATH = "index.html";
 }
 
-// 環境変数を取得解析して返却. 
-const analysisEnv = function() {
+// 有効な環境変数を取得. 
+const getLFUEnv = function() {
     // s3 or git メインで利用する外部接続先.
     let mainExternal = process.env[_ENV_MAIN_EXTERNAL];
     // request接続先のカレントパス.
@@ -268,44 +268,54 @@ const analysisEnv = function() {
             // loConnectが定義されている場合.
             // 基本パス名が入ってくるので、強制的に文字列変換.
             loConnect = ("" + loConnect).trim();
+        // lorequire利用不可能な場合.
+        } else {
+            loConnect = undefined;
         }
     }
 
     //////////////
     // s3Connect.
     //////////////
+    // s3reqreg利用不可な場合.
+    if((process.env["require.s3reqreg"] || "") == "false") {
+        s3Connect = undefined;
+    }
+    // [ENV]s3Connectが設定されてない場合.
     if(s3Connect == undefined) {
         // 環境変数のs3Connect定義が存在しない場合.
         // mainExternal が S3の場合はエラー.
         if(mainExternal == _MAIN_S3_EXTERNAL) {
             error(_ENV_S3_CONNECT + " is a required setting.");
         }
-    // s3require利用可能な場合.
-    } else if((process.env["require.s3reqreg"] || "") != "false") {
+    // [ENV]s3Connectが設定されてる場合.
+    } else {
         // s3Connectをカンマ区切りでパースする.
         s3Connect = arrayToMap(
             ["requirePath", "region"],
             parseComma(s3Connect));
+        // s3ConnectにrequestPathが存在しない場合.
         if(s3Connect.requirePath == undefined) {
             error(_ENV_S3_CONNECT + ".requirePath is a required setting.");
         }
-    // s3require利用可能でない場合.
-    // 環境変数設定がされているかmainExternal が S3の場合はエラー.
-    } else if(s3Connect != undefined || mainExternal == _MAIN_S3_EXTERNAL) {
-        error("s3require is not available.");
     }
 
     //////////////
     // gitConnect.
     //////////////
+    // gitreqreg利用不可な場合.
+    if((process.env["require.greqreg"] || "") == "false") {
+        gitConnect = undefined;
+    }
+    // [ENV]gitConnectが設定されてない場合.
     if(gitConnect == undefined) {
         // 環境変数のgitConnectが存在しない場合.
         // mainExternal が GITの場合はエラー.
         if(mainExternal == _MAIN_GIT_EXTERNAL) {
             error(_ENV_GIT_CONNECT + " is a required setting.");
         }
-    // grequire利用可能な場合.
-    } else if((process.env["require.greqreg"] || "") != "false") {
+    // [ENV]gitConnectが設定されてる場合.
+    } else {
         // gitConnectをカンマ区切りでパースする.
         gitConnect = arrayToMap(
             ["organization", "repo", "branch", "requirePath"],
@@ -319,10 +329,6 @@ const analysisEnv = function() {
         } else if(gitConnect.requirePath == undefined) {
             error(_ENV_GIT_CONNECT + ".requirePath is a required setting.");
         }
-    // grequire利用可能でない場合.
-    // 環境変数設定がされているかmainExternal が gitの場合はエラー.
-    } else if(gitConnect != undefined || mainExternal == _MAIN_GIT_EXTERNAL) {
-        error("grequire is not available.");
     }
 
     // cacheTimeout.
@@ -373,7 +379,7 @@ const analysisEnv = function() {
 }
 
 // request呼び出し・require呼び出し処理のFunction登録.
-// env analysisEnvで取得した環境変数の内容が設定されます.
+// getLFUEnvでLFUで有効な環境変数を取得します.
 // 標準定義されたrequire呼び出し `exrequire` を定義します.
 // この条件は _requestFunction と同じく主たる外部環境に対して、
 // 外部環境上で利用するrequireに対して、利用する事で環境依存を
@@ -1221,8 +1227,16 @@ const start = function(event) {
     // すでに存在する場合は、その内容を取得する.
     let env = global.ENV;
     if(env == undefined) {
-        env = analysisEnv();
+        // 読み込まれてない場合は取得.
+        env = getLFUEnv();
         global.ENV = env;
+    }
+
+    // loConnectが存在する.
+    // loConnectの規定パスが設定されている.
+    if(env.loConnect != undefined) {
+        const loreqreg = require("./loreqreg.js");
+        loreqreg.setCurrentPath(env.loConnect);
     }
 
     // s3接続定義が存在する場合.
