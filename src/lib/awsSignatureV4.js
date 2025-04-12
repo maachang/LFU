@@ -321,18 +321,12 @@ const signatureV4Final = function(
         throw new Error("AWS credentials not set.");
     } 
     // シグニチャーキー生成.
-    let n = SCHEME + credential["secretAccessKey"];
-    n = hmacSHA256(n, step2Result["dateText"]);
-    n = hmacSHA256(n, region);
-    n = hmacSHA256(n, service);
-    let signature = hmacSHA256(n, END_SCOPE);
-
-    // 署名を計算する.
-    signature = hmacSHA256(
-        signature,
-        step2Result["stringToSign"],
-        "hex"
-    );
+    let signature = SCHEME + credential["secretAccessKey"];
+    signature = hmacSHA256(signature, step2Result["dateText"]);
+    signature = hmacSHA256(signature, region);
+    signature = hmacSHA256(signature, service);
+    signature = hmacSHA256(signature, END_SCOPE);
+    signature = hmacSHA256(signature, step2Result["stringToSign"], "hex");
     // Authorizationを生成.
     const sigV4 =
           ALGORITHM

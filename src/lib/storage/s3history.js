@@ -67,9 +67,9 @@ const createHistoryPrefixKey = function(
     const date = utcDate.create();
     category = cutStartEndSlash(category);
     let ret = prefix + "/" + category + "/" +
-        date.toString("month", true) + "/" +
-        date.toString("date", true) + "/" +
-        date.toString(null, true) + "_" +
+        date.toString("month", {none: true}) + "/" +
+        date.toString("date", {none: true}) + "/" +
+        date.toString(null, {none: true}) + "_" +
         getNanoTime() + "_[" + title + "]";
     if(typeof(extension) == "string" && extension.length > 0) {
         ret += "." + extension;
@@ -271,12 +271,12 @@ const create = function(options) {
         if(month != undefined) {
             // monthのprefixをセット.
             const monthDate = utcDate.create(month).clear("date");
-            prefix += "/" + monthDate.toString("month", true);
+            prefix += "/" + monthDate.toString("month", {none: true});
         } else if(date != undefined) {
             // month, dateのprefixをセット.
             const dateDate = utcDate.create(date);
-            prefix += "/" + dateDate.toString("month", true) +
-                "/" + dateDate.toString("date", true);
+            prefix += "/" + dateDate.toString("month", {none: true}) +
+                "/" + dateDate.toString("date", {none: true});
         }
         // response.
         const response = {};

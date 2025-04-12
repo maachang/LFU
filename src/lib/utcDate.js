@@ -116,6 +116,82 @@ const setTzEnv = function(v) {
 // JTS.
 let DEFAULT_TZ_OFFSET = -540;
 
+// 出力フォーマット.
+const _FORMAT = {
+    year: "-"         // yyyy{}
+    ,month: "-"       // yyyy-MM{}
+    ,date: ""         // yyyy-MM-dd{}
+    ,hour: ":"        // yyyy-MM-dd HH{}
+    ,minutes: ":"     // yyyy-MM-dd HH:mm{}
+    ,seconds: "."     // yyyy-MM-dd HH:mm:ss{}
+    ,milliseconds: "" // yyyy-MM-dd HH:mm:ss.mss{}
+    ,end: false       // 終端に指定フォーマット内容をセット.
+                      // true: 2023年12月31日
+                      // false: 2023-12-31
+    ,none: false      // true フォーマットをすべてOFFに 20231231
+};
+  
+// フォーマットを設定.
+const setFormat = function(setting) {
+    setting = setting || {};
+    _FORMAT.year = setting.year || "-";
+    _FORMAT.month = setting.month || "-";
+    _FORMAT.date = setting.date || "";
+    _FORMAT.hour = setting.hour || ":";
+    _FORMAT.minutes = setting.minutes || ":";
+    _FORMAT.seconds = setting.seconds || ".";
+    _FORMAT.milliseconds = setting.milliseconds || "";
+    _FORMAT.end = (setting.end || false) == true;
+    _FORMAT.none = (setting.none || false) == true;
+}
+  
+// 日本語フォーマットを設定.
+const setFormatToJp = function() {
+    setFormat({
+        year: "年"
+        ,month: "月"
+        ,date: "日"
+        ,hour: "時"
+        ,minutes: "分"
+        ,seconds: "秒"
+        ,end: true
+        ,none: false
+    });
+}
+  
+// フォーマットを合成して取得.
+const _getMixedFormat = function(values) {
+    const ret = {};
+    for(let k in _FORMAT) {
+      ret[k] = _FORMAT[k]
+    }
+    if(values == undefined || values == null) {
+        return ret;
+    }
+    ret.year = values.year || ret.year;
+    ret.month = values.month || ret.month;
+    ret.date = values.date || ret.date;
+    ret.hour = values.hour || ret.hour;
+    ret.minutes = values.minutes || ret.minutes;
+    ret.seconds = values.seconds || ret.seconds;
+    ret.milliseconds = values.milliseconds || ret.milliseconds;
+    ret.end = (values.end || false) == true;
+    ret.none = (values.none || false) == true;
+    return ret;
+}
+
+// 文字列を置き換える.
+const cstr = function(s, a, b) {
+    let p;
+    while(true) {
+      if((p = s.indexOf(a)) == -1) {
+        return s;
+      }
+      s = s.substring(0, p) + b +
+        s.substring(p + a.length);
+    }
+}
+
 // new Date()処理.
 const newDate = function() {
     const ag = arguments;
@@ -223,46 +299,136 @@ const createDate = function(y, m, d) {
 }
 
 // dateを文字列変換.
-// ここで渡されるオブジェクトは utcDate.create()の
-// 内容なので、内部はUTCは使わない。
-const dateToString = function(object, mode, noSeparator) {
-    noSeparator = noSeparator == true;
+const dateToString = function(object, mode, format) {
+    format = _getMixedFormat(format);
     let ret = ""
-    let y = "" + object.getFullYear();
-    y = "0000".substring(y.length) + y;
-    ret += y;
-    // 年出力.
-    if(mode == "year") {
-        return ret;
+    // modeが時分か、時分秒の取得以外の場合.
+    if(mode != "hm" && mode != "hms") {
+        let y = "" + object.getFullYear();
+        y = "0000".substring(y.length) + y;
+        ret += y;
+        // 年出力.
+        if(mode == "year") {
+            if(format.none == false && format.end == true) {
+                return ret + format.year;
+            }
+            return ret;
+        }
+        let M = "" + (object.getMonth() + 1);
+        M = "00".substring(M.length) + M;
+        if(format.none == false) {
+            ret += format.year;
+        }
+        ret += M;
+        // 月出力.
+        if(mode == "month") {
+            if(format.none == false && format.end == true) {
+                return ret + format.month;
+            }
+            return ret;
+        }
+        // 日出力.
+        let d = "" + object.getDate();
+        if(format.none == false) {
+            ret += format.month;
+        }
+        ret += "00".substring(d.length) + d;
+        if(mode == "date") {
+            if(format.none == false && format.end == true) {
+                return ret + format.date;
+            }
+            return ret;
+        }
     }
-    let M = "" + (object.getMonth() + 1);
-    M = "00".substring(M.length) + M;
-    ret += noSeparator ? M : "-" + M;
-    // 月出力.
-    if(mode == false || mode == "month") {
-        return ret;
-    }
-    // 日出力.
-    let d = "" + object.getDate();
-    d = "00".substring(d.length) + d;
-    ret += noSeparator ? d : "-" + d;
-    if(mode == true || mode == "date") {
-        return ret;
-    }
-    // full.
+    // 時分秒.
     let h = "" + object.getHours();
     h = "00".substring(h.length) + h;
     let m = "" + object.getMinutes();
     m = "00".substring(m.length) + m;
+    // modeが時分の場合.
+    if(mode == "hm") {
+        if(format.none == false) {
+            ret += h + format.hour + m;
+            if(format.none == false && format.end == true) {
+                ret += format.minutes;
+            }
+        } else {
+            ret += h + m;
+        }
+        return ret;
+    }
     let s = "" + object.getSeconds();
     s = "00".substring(s.length) + s;
-    let sss = "" + object.getMilliseconds();
-    sss = "000".substring(sss.length) + sss;
-    if(noSeparator) {
-        return ret + h + m + s + sss;
+    if(format.none == false) {
+        // modeが時分秒以外の場合.
+        if(mode != "hms") {
+            ret += format.date + " ";
+        }
+        ret += h + format.hour + m + format.minutes + s;
+    } else {
+        ret += h + m + s;
     }
-    return ret + " " + h + ":" + m + ":" + s + "." + sss;
+
+    // full(ミリ秒まで表示)
+    if(mode == "full" || mode == "all" || mode == "*") {
+        let sss = "" + object.getMilliseconds();
+        sss = "000".substring(sss.length) + sss;
+        if(format.none == false) {
+            ret += format.seconds;
+        }
+        ret += sss;
+        if(format.none == false && format.end == true) {
+            return ret + format.milliseconds;
+        }
+        return ret;
+    }
+    if(format.none == false && format.end == true) {
+        return ret + format.seconds;
+    }
+    return ret;
 }
+
+// フォーマットに則って出力.
+const toFormatString = function(object, format) {
+    ret = format;
+    // 年.
+    let y = "" + object.getFullYear();
+    y = "0000".substring(y.length) + y;
+    ret = cstr(ret, "{yyyy}", y);
+    // 月.
+    let M = "" + (object.getMonth() + 1);
+    M = "00".substring(M.length) + M;
+    ret = cstr(ret, "{MM}", M);
+    // 日
+    let d = "" + object.getDate();
+    d = "00".substring(d.length) + d;
+    ret = cstr(ret, "{dd}", d);
+  
+    // 時
+    let h = "" + object.getHours();
+    h = "00".substring(h.length) + h;
+    ret = cstr(ret, "{hh}", h);
+    // 分
+    let m = "" + object.getMinutes();
+    m = "00".substring(m.length) + m;
+    ret = cstr(ret, "{mm}", m);
+    // 秒
+    let s = "" + object.getSeconds();
+    s = "00".substring(s.length) + s;
+    ret = cstr(ret, "{ss}", s);
+    // ミリ秒
+    let sss = "" + object.getMilliseconds();
+    sss = "000".substring(sss.length) + sss
+    ret = cstr(ret, "{sss}", sss);
+  
+    // 曜日(英語)
+    ret = cstr(ret, "{dd}", object.getDayToString());
+  
+    // 曜日(日本語)
+    ret = cstr(ret, "{dj}", object.getDayToString(true));
+  
+    return ret;
+  }  
 
 // 開始/終了日を取得.
 // date = Dateオブジェクトである必要がある.
@@ -341,6 +507,31 @@ const create = function(y, m, d) {
     }
     o.getDay = function() {
         return date.getUTCDay();
+    }
+    o.getDayToString = function(jp) {
+        jp = (jp || false) == true;
+        if(jp) {
+          switch(date.getDay()) {
+              case 0: return "日";
+              case 1: return "月";
+              case 2: return "火";
+              case 3: return "水";
+              case 4: return "木";
+              case 5: return "金";
+              case 6: return "土";
+          }
+          return "？";
+        }
+        switch(date.getDay()) {
+            case 0: return "Sun";
+            case 1: return "Mon";
+            case 2: return "Tue";
+            case 3: return "Wed";
+            case 4: return "Thu";
+            case 5: return "Fri";
+            case 6: return "Sat";
+        }
+        return "unknown";
     }
     o.getHours = function() {
         return date.getUTCHours();
@@ -473,8 +664,11 @@ const create = function(y, m, d) {
     o.rawDate = function() {
         return date;
     }
-    o.toString = function(mode, noSeparator) {
-        return dateToString(o, mode, noSeparator);
+    o.toFormatString = function(format) {
+        return toFormatString(o, format);
+    }  
+    o.toString = function(mode, format) {
+        return dateToString(o, mode, format);
     }
     return o;
 };
@@ -484,5 +678,10 @@ exports.create = create;
 
 // 開始、終了日を取得.
 exports.between = between;
+
+// フォーマットセット.
+exports.format = setFormat;
+// フォーマット(日本語)セット.
+exports.formatToJp = setFormatToJp;
 
 })();
